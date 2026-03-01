@@ -1,0 +1,21 @@
+name: Fix
+on: push
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix files
+        run: |
+          find src -name '*.js' -exec sed -i 's/^[[:space:]]*//' {} +
+          find src -name '*.css' -exec sed -i 's/^[[:space:]]*//' {} +
+      - name: Push
+        run: |
+          rm -f .github/workflows/fix.yml
+          git config user.name "Bot"
+          git config user.email "bot@mesa.app"
+          git add -A
+          git commit -m "Fix indentation" || true
+          git push
