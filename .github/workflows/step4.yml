@@ -1,0 +1,25 @@
+name: Step 4
+on: push
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add customer page
+        run: |
+          cat > src/app/page.js << 'XEOF'
+          'use client';
+          import{useState,useEffect}from'react';import{supabase}from'@/lib/supabase';import MenuOverlay from'@/components/MenuOverlay';
+          const ALLERGIES=[{id:"nuts",label:"Frutos secos",labelEn:"Tree nuts",icon:"\u{1F95C}"},{id:"gluten",label:"Gluten",labelEn:"Gluten",icon:"\u{1F33E}"},{id:"dairy",label:"Lácteos",labelEn:"Dairy",icon:"\u{1F95B}"},{id:"egg",label:"Huevo",labelEn:"Egg",icon:"\u{1F95A}"},{id:"soy",label:"Soja",labelEn:"Soy",icon:"\u{1FAD8}"},{id:"vegan",label:"Vegano",labelEn:"Vegan",icon:"\u{1F331}"}];
+          const en=()=>typeof navigator!=='undefined'&&navigator.language.toLowerCase().startsWith('en');
+          export default function P(){const[step,setStep]=useState('welcome');const[name,setName]=useState('');const[party,setParty]=useState(2);const[sa,setSa]=useState([]);const[eid,setEid]=useState(null);const[pos,setPos]=useState(null);const[status,setSt]=useState('waiting');const[showMenu,setSM]=useState(false);const isEn=en();
+          useEffect(()=>{const s=typeof window!=='undefined'&&localStorage.getItem('mesa_eid');if(s){setEid(s);setStep('waiting')}},[]);
+          useEffect(()=>{if(!eid)return;const fp=async()=>{const{data}=await supabase.from('waitlist').select('id,status').in('status',['waiting','notified','extended']).order('joined_at',{ascending:true});if(data){const idx=data.findIndex(e=>e.id===eid);if(idx>=0){setPos(idx+1);setSt(data[idx].status)}else{const{data:e2}=await supabase.from('waitlist').select('status').eq('id',eid).single();if(e2&&e2.status==='seated')setStep('done')}}};fp();const ch=supabase.channel('wl').on('postgres_changes',{event:'*',schema:'public',table:'waitlist'},()=>fp()).subscribe();return()=>supabase.removeChannel(ch)},[eid]);
+          const join=async()=>{const r=await fetch('/api/waitlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({guest_name:name,party_size:party,allergies:sa,source:'qr'})});const d=await r.json();if(d.id){setEid(d.id);localStorage.setItem('mesa_eid',d.id);setStep('waiting')}};
+          const cancel=async()=>{await fetch('/api/waitlist',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:eid,action:'cancel'})});localStorage.removeItem('mesa_eid');setStep('welcome');setEid(null)};
+          const tog=id=>setSa(a=>a.includes(id)?a.filter(x=>x!==id):[...a,id]);
+          const w=pos?pos*7:null;
+          const S={ctr:{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'40px 24px',background:'#fff'},pg:{minHeight:'100vh',background:'#F6F6F4',padding:'56px 20px 100px',maxWidth:'430px',margin:'0 auto'},cd:{background:'#fff',borderRadius:'16px',padding:'16px',boxShadow:'0 1px 4px rgba(0,0,0,0.06)',marginBottom:'12px'},h1:{fontSize:'28px',fontWeight:'700',color:'#1B1B1B',margin:'0 0 4px'},h2:{fontSize:'20px',fontWeight:'600',margin:'0 0 8px'},sub:{fontSize:'14px',color:'#6F6F6F',margin:0},bd:{fontSize:'15px',color:'#6F6F6F',lineHeight:1.5},lb:{fontSize:'13px',fontWeight:'600',color:'#9B9B9B',marginBottom:'8px',display:'block'},inp:{width:'100%',padding:'14px 16px',background:'#F6F6F4',border:'1.5px solid #EBEBEB',borderRadius:'12px',fontSize:'16px',outline:'none',boxSizing:'border-box'},ch:{flex:1,padding:'14px 0',borderRadius:'12px',fontSize:'16px',fontWeight:'600',cursor:'pointer',border:'none',textAlign:'center'},bt:{width:'100%',padding:'15px 24px',border:'none',borderRadius:'12px',fontSize:'16px',fontWeight:'600',cursor:'pointer',background:'#2D7A4F',color:'#fff',marginTop:'8px'},lk:{width:'100%',padding:'12px',background:'none',border:'none',color:'#9B9B9B',fontSize:'14px',cursor:'pointer',marginTop:'4px',textAlign:'center',display:'block'}};
+          if(step==='welcome')return(<div style={S.ctr}><div style={S.cd}><div style={{fontSize:'36px',marginBottom:'16​​​​​​​​​​​​​​​​
