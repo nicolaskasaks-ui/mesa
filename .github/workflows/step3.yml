@@ -1,0 +1,22 @@
+name: Step 3
+on: push
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add API and host
+        run: |
+          mkdir -p src/app/api/waitlist src/app/host
+          cat > src/app/api/waitlist/route.js << 'XEOF'
+          import{supabase}from'@/lib/supabase';import{NextResponse}from'next/server';
+          export async function GET(){const{data,error}=await supabase.from('waitlist').select('*').in('status',['waiting','notified','extended']).order('joined_at',{ascending:true});if(error)return NextResponse.json({error:error.message},{status:500});return NextResponse.json(data)}
+          export async function POST(req){const body=await req.json();const{guest_name,party_size,allergies}=body;let cid=null;if(guest_name){const{data:ex}=await supabase.from('customers').select('id,visit_count').ilike('name',guest_name).limit(1).single();if(ex){cid=ex.id;await supabase.from('customers').update({visit_count:ex.visit_count+1,last_visit:new Date().toISOString(),...(allergies?{allergies}:{})}).eq('id',ex.id)}else{const{data:nc}=await supabase.from('customers').insert({name:guest_name,allergies:allergies||[],visit_count:1,last_visit:new Date().toISOString()}).select('id').single();if(nc)cid=nc.id}}const{data,error}=await supabase.from('waitlist').insert({customer_id:cid,guest_name,party_size:party_size||2,source:'qr'}).select('id').single();if(error)return NextResponse.json({error:error.message},{status:500});return NextResponse.json({id:data.id,customer_id:cid})}
+          export async function PATCH(req){const{id,action}=await req.json();let u={};switch(action){case'notify':u={status:'notified',notified_at:new Date().toISOString()};break;case'seat':u={status:'seated',seated_at:new Date().toISOString()};break;case'cancel':u={status:'cancelled',cancelled_at:new Date().toISOString()};break;case'no_show':u={status:'no_show'};break;default:return NextResponse.json({error:'Unknown'},{status:400})}const{error}=await supabase.from('waitlist').update(u).eq('id',id);if(error)return NextResponse.json({error:error.message},{status:500});return NextResponse.json({ok:true})}
+          XEOF
+          cat > src/app/host/page.js << 'XEOF'
+          'use client';
+          import{useState,useEffect}from'react';import{supabase}from'@/lib/supabase';
+          export default function HostPage(){const[queue,setQueue]=useState([]);const[stats,setStats]=useState({seated:0,cancelled:0,avgWait:0});const fq=async()=>{const{data}=await supabase.from('waitlist').select('*,customers(name,allergies,visit_count,trust_level)').in('status',['waiting','notified','extended']).order('joined_at',{ascending:true});if(data)setQueue(data)};const​​​​​​​​​​​​​​​​
