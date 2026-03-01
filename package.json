@@ -1,0 +1,1 @@
+{"name":"mesa-app","private":true,"scripts":{"dev":"next dev","build":"next build","start":"next start"},"dependencies":{"next":"latest","react":"latest","react-dom":"latest","@supabase/supabase-js":"^2.39.0"}}
