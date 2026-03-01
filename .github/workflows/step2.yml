@@ -1,0 +1,24 @@
+name: Step 2
+on: push
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add source
+        run: |
+          mkdir -p src/lib src/app src/components src/app/api/waitlist src/app/host
+          echo "import{createClient}from'@supabase/supabase-js';const u=process.env.NEXT_PUBLIC_SUPABASE_URL||'';const k=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY||'';export const supabase=createClient(u,k);" > src/lib/supabase.js
+          echo ":root{--accent:#2D7A4F;--bg-page:#F6F6F4;--text:#1B1B1B;--text-med:#6F6F6F;--text-light:#9B9B9B;--border:#EBEBEB;--font:-apple-system,BlinkMacSystemFont,sans-serif}*{margin:0;padding:0;box-sizing:border-box}body{font-family:var(--font);background:var(--bg-page);color:var(--text)}" > src/app/globals.css
+          printf "import './globals.css';\nexport const metadata={title:'Mesa · Chuí'};\nexport default function L({children}){return(<html lang='es'><head><meta name='theme-color' content='#2D7A4F'/><link rel='manifest' href='/manifest.json'/></head><body>{children}</body></html>)}" > src/app/layout.js
+          echo "done"
+      - name: Push
+        run: |
+          rm -f .github/workflows/step2.yml
+          git config user.name "Bot"
+          git config user.email "bot@mesa.app"
+          git add -A
+          git commit -m "Add base source" || true
+          git push
