@@ -61,9 +61,18 @@ export default function HostDashboard() {
 
   const notifyWhatsApp = (entry) => {
     const phone = entry.customers?.phone;
-    if (!phone) { alert("Este cliente no dejó teléfono"); return; }
+    if (!phone) {
+      alert("Este cliente no dejó número de WhatsApp.\nPodés llamarlo por nombre.");
+      return;
+    }
     const cleanPhone = phone.replace(/\D/g, "");
-    const msg = encodeURIComponent(`¡Hola ${entry.guest_name}! Tu mesa en Chuí está lista 🌿 Te esperamos.`);
+    const waitMin = Math.floor((Date.now() - new Date(entry.joined_at).getTime()) / 60000);
+    const msg = encodeURIComponent(
+      `¡Hola ${entry.guest_name}! 🌿\n\n` +
+      `Tu mesa en *Chuí* está lista.\n` +
+      `Acercate cuando puedas, te esperamos en Loyola 1250.\n\n` +
+      `Gracias por esperar${waitMin > 5 ? ` (${waitMin} min)` : ""} 🙏`
+    );
     window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
     updateStatus(entry.id, "notified");
   };
@@ -84,10 +93,11 @@ export default function HostDashboard() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
         <div>
-          <div style={{ fontFamily: f.serif, fontSize: "22px", fontWeight: "700" }}>
-            <span style={{ color: T.accent }}>●</span> Mesa · Hostess
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <img src="/logo-light.png" alt="Chuí" style={{ height: "28px", objectFit: "contain" }} />
+            <span style={{ fontSize: "14px", color: "#666" }}>· Hostess</span>
           </div>
-          <div style={{ fontSize: "13px", color: "#888" }}>
+          <div style={{ fontSize: "13px", color: "#888", marginTop: "4px" }}>
             {new Date().toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "short" })}
           </div>
         </div>

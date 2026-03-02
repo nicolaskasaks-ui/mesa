@@ -22,13 +22,28 @@ const Btn = ({ children, onClick, variant = "primary", disabled, style }) => {
     }}>{children}</button>
   );
 };
-const Logo = () => (
+const Logo = ({ light }) => (
   <div style={{ textAlign: "center", marginBottom: "8px" }}>
-    <div style={{ fontSize: "28px" }}>🌿</div>
-    <div style={{ fontFamily: f.serif, fontSize: "24px", fontWeight: "700", color: T.text }}>Chuí</div>
-    <div style={{ fontSize: "13px", color: T.textLight }}>{RESTAURANT.address}</div>
+    <img src={light ? "/logo-light.png" : "/logo-dark.png"} alt="Chuí" style={{ height: "40px", objectFit: "contain", marginBottom: "4px" }} />
+    <div style={{ fontSize: "13px", color: light ? "#aaa" : T.textLight }}>{RESTAURANT.address}</div>
   </div>
 );
+
+// Phone country codes
+const COUNTRY_CODES = [
+  { code: "+54", flag: "🇦🇷", country: "AR" },
+  { code: "+52", flag: "🇲🇽", country: "MX" },
+  { code: "+34", flag: "🇪🇸", country: "ES" },
+  { code: "+55", flag: "🇧🇷", country: "BR" },
+  { code: "+1", flag: "🇺🇸", country: "US" },
+  { code: "+56", flag: "🇨🇱", country: "CL" },
+  { code: "+57", flag: "🇨🇴", country: "CO" },
+  { code: "+598", flag: "🇺🇾", country: "UY" },
+  { code: "+44", flag: "🇬🇧", country: "UK" },
+  { code: "+33", flag: "🇫🇷", country: "FR" },
+  { code: "+49", flag: "🇩🇪", country: "DE" },
+  { code: "+39", flag: "🇮🇹", country: "IT" },
+];
 
 // ═══════════════════════════════════════════════════
 // GPS HELPERS
@@ -54,6 +69,7 @@ export default function MesaCustomer() {
   const [name, setName] = useState("");
   const [party, setParty] = useState(2);
   const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("+54");
   const [allergies, setAllergies] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -85,7 +101,7 @@ export default function MesaCustomer() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           guest_name: name.trim(), party_size: party,
-          allergies, phone: phone.trim() || null, source: "qr",
+          allergies, phone: phone.trim() ? `${countryCode}${phone.trim().replace(/^0+/,"")}` : null, source: "qr",
         }),
       });
       const data = await res.json();
@@ -214,12 +230,26 @@ export default function MesaCustomer() {
           ))}
         </div>
 
-        {/* Phone (optional) */}
+        {/* Phone with country code */}
         <label style={{ fontSize: "14px", fontWeight: "600", color: T.text, display: "block", marginBottom: "6px" }}>
-          WhatsApp <span style={{ fontWeight: "400", color: T.textLight }}>(opcional, para avisarte)</span>
+          WhatsApp <span style={{ fontWeight: "400", color: T.textLight }}>(para avisarte cuando la mesa esté lista)</span>
         </label>
-        <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="+54 11 ..."
-          type="tel" style={{ width: "100%", padding: "14px", borderRadius: "12px", border: `1px solid ${T.border}`, fontSize: "16px", fontFamily: f.sans, outline: "none", boxSizing: "border-box", marginBottom: "16px" }} />
+        <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+          <select value={countryCode} onChange={e => setCountryCode(e.target.value)} style={{
+            padding: "14px 8px", borderRadius: "12px", border: `1px solid ${T.border}`,
+            fontSize: "16px", fontFamily: f.sans, background: T.bg, outline: "none",
+            width: "110px", flexShrink: 0,
+          }}>
+            {COUNTRY_CODES.map(c => (
+              <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
+            ))}
+          </select>
+          <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="11 2345 6789"
+            type="tel" inputMode="numeric" style={{
+              flex: 1, padding: "14px", borderRadius: "12px", border: `1px solid ${T.border}`,
+              fontSize: "16px", fontFamily: f.sans, outline: "none", boxSizing: "border-box",
+            }} />
+        </div>
 
         {/* Allergies */}
         <label style={{ fontSize: "14px", fontWeight: "600", color: T.text, display: "block", marginBottom: "8px" }}>¿Alguna alergia o restricción?</label>
