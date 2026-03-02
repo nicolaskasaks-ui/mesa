@@ -159,11 +159,11 @@ export default function MeantimeCustomer() {
     <div style={page}>
       <Header />
       <Card style={{ marginTop: "28px", textAlign: "center" }}>
-        <div style={{ fontFamily: f.display, fontSize: "22px", color: T.text, lineHeight: 1.3 }}>
-          Estamos preparando algo<br/>especial para vos
+        <div style={{ fontFamily: f.display, fontSize: "24px", fontWeight: "700", color: T.text, lineHeight: 1.3 }}>
+          Tu mesa se está<br/>preparando
         </div>
         <div style={{ fontSize: "14px", color: T.textMed, marginTop: "8px", lineHeight: 1.5 }}>
-          Anotate en la fila y te avisamos al celular cuando tu mesa esté lista.
+          Anotate y te avisamos al celular cuando esté lista.
         </div>
       </Card>
       <div style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "10px" }}>
