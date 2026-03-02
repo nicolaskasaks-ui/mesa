@@ -48,8 +48,25 @@ const COUNTRY_CODES = [
   { code: "+39", flag: "🇮🇹", country: "IT" },
 ];
 
-// ═══════════════════════════════════════════════════
-// GPS HELPERS
+// OpenTable reservation link
+const OT_LINK = "https://www.opentable.com/r/chui-buenos-aires";
+
+// Bar upsell suggestions — from Chuí Bar Menu
+const BAR_SUGGESTIONS = [
+  { emoji: "🍹", name: "Le Collins", desc: "Pastis, Lillet Blanc, lima, angostura, tónica", price: 13500 },
+  { emoji: "🥃", name: "Castagnoni", desc: "Beefeater, Campari, Carpano Rosso, cajú", price: 14000 },
+  { emoji: "🌊", name: "Pacífico", desc: "Ron añejo, sándalo rojo, almíbar especiado, ananá", price: 14500 },
+  { emoji: "🥂", name: "Temporada Alta", desc: "Sake, Lillet Blanc, banana, muña muña, melón", price: 14500 },
+  { emoji: "🥃", name: "Peni x Chuí", desc: "Johnnie Walker Black, miel de manzana, jengibre, limón", price: 14500 },
+  { emoji: "🍔", name: "Doble Magic", desc: "Brioche, gírgolas, papas paille, salsa de chiles verdes", price: 14000 },
+  { emoji: "🥟", name: "Bao Frito", desc: "Melena de león, tomate, lechuga, alioli de jalapeño", price: 13500 },
+  { emoji: "🧀", name: "Empanadas Ahumadas", desc: "Cebolla y queso ahumado con salsa yasgua", price: 7500 },
+  { emoji: "🍄", name: "Arancini de Hongos", desc: "Con salsa romesco", price: 9200 },
+];
+
+function getRandomSuggestion() {
+  return BAR_SUGGESTIONS[Math.floor(Math.random() * BAR_SUGGESTIONS.length)];
+}
 // ═══════════════════════════════════════════════════
 function getDistance(lat1, lng1, lat2, lng2) {
   const R = 6371e3;
@@ -84,6 +101,10 @@ export default function MesaCustomer() {
   // GPS
   const [distance, setDistance] = useState(null);
   const [watchId, setWatchId] = useState(null);
+
+  // Bar upsell
+  const [barSuggestion] = useState(() => getRandomSuggestion());
+  const [atBar, setAtBar] = useState(false);
 
   // Allergies options
   const allergyOptions = [
@@ -365,12 +386,60 @@ export default function MesaCustomer() {
         )}
       </Card>
 
+      {/* Bar upsell */}
+      {!atBar && !isNotified && (
+        <Card style={{ marginTop: "16px", background: "#FFF9F0", border: "1px solid #F0E4D0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <div style={{ fontSize: "15px", fontWeight: "700", color: T.text }}>🍸 ¿Preferís esperar en la barra?</div>
+              <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>
+                Pedite algo mientras esperás — te llamamos desde ahí.
+              </div>
+            </div>
+          </div>
+          <div style={{ marginTop: "12px", padding: "12px", borderRadius: "10px", background: "#fff", display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{ fontSize: "28px" }}>{barSuggestion.emoji}</div>
+            <div>
+              <div style={{ fontSize: "14px", fontWeight: "600", color: T.text }}>{barSuggestion.name}</div>
+              <div style={{ fontSize: "12px", color: T.textLight }}>{barSuggestion.desc}</div>
+              <div style={{ fontSize: "13px", fontWeight: "600", color: T.accent, marginTop: "2px" }}>${barSuggestion.price.toLocaleString()}</div>
+            </div>
+          </div>
+          <button onClick={() => setAtBar(true)} style={{
+            marginTop: "12px", width: "100%", padding: "12px", borderRadius: "10px",
+            background: T.warn, color: "#fff", border: "none", fontSize: "14px",
+            fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
+          }}>Sí, voy a la barra</button>
+        </Card>
+      )}
+
+      {atBar && (
+        <Card style={{ marginTop: "16px", background: "#FFF9F0", border: "1px solid #F0E4D0", textAlign: "center" }}>
+          <div style={{ fontSize: "15px", fontWeight: "600", color: T.warn }}>🍸 Estás en la barra</div>
+          <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Te avisamos cuando tu mesa esté lista.</div>
+        </Card>
+      )}
+
       {/* Actions */}
-      <div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "10px" }}>
+      <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
         <Btn variant="outline" onClick={() => setShowMenu(true)}>📖 Ver menú</Btn>
         {!isNotified && (
           <Btn variant="outline" onClick={startTracking}>🚶 Pasear por el barrio</Btn>
         )}
+      </div>
+
+      {/* OpenTable education */}
+      <Card style={{ marginTop: "16px", textAlign: "center", border: `1px solid ${T.accentLight}`, background: T.accentSoft }}>
+        <div style={{ fontSize: "14px", color: T.text, fontWeight: "600" }}>¿No querés esperar la próxima vez?</div>
+        <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Reservá tu mesa con anticipación por OpenTable.</div>
+        <a href={OT_LINK} target="_blank" rel="noopener noreferrer" style={{
+          display: "inline-block", marginTop: "12px", padding: "10px 24px", borderRadius: "10px",
+          background: T.accent, color: "#fff", fontSize: "14px", fontWeight: "600",
+          textDecoration: "none", fontFamily: f.sans,
+        }}>Reservar en OpenTable →</a>
+      </Card>
+
+      <div style={{ marginTop: "12px" }}>
         <Btn variant="ghost" onClick={handleCancel} style={{ color: T.danger, fontSize: "14px" }}>
           Salir de la fila
         </Btn>
