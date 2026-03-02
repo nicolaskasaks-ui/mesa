@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { T, f } from "../../lib/tokens";
+import { T, f, APP_NAME } from "../../lib/tokens";
 
 const trustLabels = ["Nuevo", "Verificado", "Confiable", "★ Habitual"];
 const trustColors = ["#9B9B9B", "#2D7A4F", "#1A6B3C", "#D4842A"];

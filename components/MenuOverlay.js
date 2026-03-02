@@ -17,7 +17,7 @@ export default function MenuOverlay({ onClose }) {
       <div style={{ margin:"40px 8px 8px",flex:1,borderRadius:"20px",overflow:"hidden",background:T.bg,display:"flex",flexDirection:"column",boxShadow:"0 8px 32px rgba(0,0,0,0.2)" }} onClick={e=>e.stopPropagation()}>
         <div style={{ padding:"16px 20px 0",borderBottom:`1px solid ${T.border}` }}>
           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"14px" }}>
-            <div style={{ fontSize:"18px",fontWeight:"700",color:T.text,fontFamily:f.sans }}>📖 Menú</div>
+            <div style={{ fontSize:"18px",fontWeight:"700",color:T.text,fontFamily:f.display }}>Menú</div>
             <button onClick={onClose} style={{ width:"32px",height:"32px",borderRadius:"50%",background:T.bgPage,border:"none",cursor:"pointer",fontSize:"16px",color:T.textMed,display:"flex",alignItems:"center",justifyContent:"center" }}>✕</button>
           </div>
           <div style={{ display:"flex",gap:"4px",overflowX:"auto",paddingBottom:"0" }}>
