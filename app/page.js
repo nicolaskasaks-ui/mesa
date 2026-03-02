@@ -24,7 +24,10 @@ const Btn = ({ children, onClick, variant = "primary", disabled, style }) => {
 };
 const Logo = ({ light }) => (
   <div style={{ textAlign: "center", marginBottom: "8px" }}>
-    <img src={light ? "/logo-light.png" : "/logo-dark.png"} alt="Chuí" style={{ height: "40px", objectFit: "contain", marginBottom: "4px" }} />
+    <img src="/logo-light.png" alt="Chuí" style={{
+      height: "36px", objectFit: "contain", marginBottom: "4px",
+      filter: light ? "none" : "invert(1)",
+    }} />
     <div style={{ fontSize: "13px", color: light ? "#aaa" : T.textLight }}>{RESTAURANT.address}</div>
   </div>
 );

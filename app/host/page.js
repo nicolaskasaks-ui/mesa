@@ -94,8 +94,8 @@ export default function HostDashboard() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <img src="/logo-light.png" alt="Chuí" style={{ height: "28px", objectFit: "contain" }} />
-            <span style={{ fontSize: "14px", color: "#666" }}>· Hostess</span>
+            <img src="/logo-light.png" alt="Chuí" style={{ height: "36px", borderRadius: "6px", objectFit: "contain" }} />
+            <span style={{ fontSize: "14px", color: "#666" }}>Hostess</span>
           </div>
           <div style={{ fontSize: "13px", color: "#888", marginTop: "4px" }}>
             {new Date().toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "short" })}
