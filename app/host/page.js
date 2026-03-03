@@ -8,10 +8,10 @@ const trustColors = ["#9B9B9B", "#2D7A4F", "#1A6B3C", "#D4842A"];
 
 const STATUS_FLOW = ["libre", "sentado", "pidio_cuenta", "limpiando"];
 const STATUS_CONFIG = {
-  libre:        { label: "Libre",        color: "#2D7A4F", bg: "#1a2e1a", emoji: "🟢" },
-  sentado:      { label: "Sentado",      color: "#60A0FF", bg: "#1a2030", emoji: "🔵" },
-  pidio_cuenta: { label: "Pidió cuenta", color: "#E8A735", bg: "#2a2a1a", emoji: "🟡" },
-  limpiando:    { label: "Limpiando",    color: "#D93B3B", bg: "#2a1a1a", emoji: "🔴" },
+  libre:        { label: "Libre",        color: "#2D7A4F", bg: "#1a2e1a", dot: "#2D7A4F" },
+  sentado:      { label: "Sentado",      color: "#60A0FF", bg: "#1a2030", dot: "#60A0FF" },
+  pidio_cuenta: { label: "Pidió cuenta", color: "#E8A735", bg: "#2a2a1a", dot: "#E8A735" },
+  limpiando:    { label: "Limpiando",    color: "#D93B3B", bg: "#2a1a1a", dot: "#D93B3B" },
 };
 
 function timeSince(date) {
@@ -121,7 +121,7 @@ export default function HostDashboard() {
         }}>
           <div>
             <div style={{ fontSize: "15px", fontWeight: "700", color: T.accent }}>
-              🔔 Mesa libre — {notification.name} avisado/a
+              Mesa libre — {notification.name} avisado/a
             </div>
             <div style={{ fontSize: "13px", color: "#aaa", marginTop: "2px" }}>
               {notification.phone ? "Tocá para enviar WhatsApp" : "Llamar por nombre"}
@@ -132,7 +132,7 @@ export default function HostDashboard() {
               padding: "10px 16px", borderRadius: "10px", background: "#25D366",
               color: "#fff", border: "none", fontSize: "14px", fontWeight: "600",
               cursor: "pointer", whiteSpace: "nowrap",
-            }}>📲 WhatsApp</button>
+            }}>WhatsApp</button>
           )}
         </div>
       )}
@@ -152,20 +152,20 @@ export default function HostDashboard() {
             {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
               <div key={key} style={{ textAlign: "center" }}>
                 <div style={{ fontSize: "20px", fontWeight: "700", color: cfg.color }}>{stats[key] || 0}</div>
-                <div style={{ fontSize: "10px", color: "#666" }}>{cfg.emoji}</div>
+                <div style={{ fontSize: "10px", color: "#666" }}><span style={{ display:"inline-block", width:"8px", height:"8px", borderRadius:"50%", background:cfg.dot }} /></div>
               </div>
             ))}
             <div style={{ textAlign: "center", borderLeft: "1px solid #333", paddingLeft: "10px" }}>
               <div style={{ fontSize: "20px", fontWeight: "700", color: "#fff" }}>{stats.waiting}</div>
-              <div style={{ fontSize: "10px", color: "#666" }}>⏳</div>
+              <div style={{ fontSize: "10px", color: "#666" }}></div>
             </div>
           </div>
         </div>
 
         <div style={{ display: "flex", gap: "4px", marginBottom: "16px" }}>
           {[
-            { key: "tables", label: `🪑 Mesas (${tables.length})` },
-            { key: "queue", label: `⏳ Fila (${queue.length})` },
+            { key: "tables", label: `Mesas (${tables.length})` },
+            { key: "queue", label: `Fila (${queue.length})` },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)} style={{
               flex: 1, padding: "10px", borderRadius: "10px", fontSize: "14px", fontWeight: "600",
@@ -205,10 +205,10 @@ export default function HostDashboard() {
                     }}>
                       <div style={{ fontSize: "16px", fontWeight: "700", color: cfg.color }}>{table.id}</div>
                       <div style={{ fontSize: "10px", color: cfg.color, marginTop: "2px", opacity: 0.8 }}>{cfg.label}</div>
-                      <div style={{ fontSize: "10px", color: "#555", marginTop: "2px" }}>👤{table.capacity}</div>
-                      {time && <div style={{ fontSize: "11px", color: "#888", marginTop: "2px" }}>⏱ {time}</div>}
+                      <div style={{ fontSize: "10px", color: "#555", marginTop: "2px" }}>Cap {table.capacity}</div>
+                      {time && <div style={{ fontSize: "11px", color: "#888", marginTop: "2px" }}>{time}</div>}
                       {table.combined_with && (
-                        <div style={{ fontSize: "9px", color: "#E8A735", marginTop: "2px" }}>🔗 {table.combined_with}</div>
+                        <div style={{ fontSize: "9px", color: "#E8A735", marginTop: "2px" }}>+ {table.combined_with}</div>
                       )}
                       {table.waitlist?.guest_name && (
                         <div style={{ fontSize: "10px", color: "#aaa", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -223,7 +223,7 @@ export default function HostDashboard() {
               <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginTop: "16px", flexWrap: "wrap" }}>
                 {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
                   <div key={key} style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "12px", color: "#888" }}>
-                    <span style={{ color: cfg.color }}>{cfg.emoji}</span> {cfg.label}
+                    <span style={{ color: cfg.color }}><span style={{ display:"inline-block", width:"8px", height:"8px", borderRadius:"50%", background:cfg.dot }} /></span> {cfg.label}
                   </div>
                 ))}
               </div>
@@ -236,7 +236,7 @@ export default function HostDashboard() {
           {tab === "queue" && (
             queue.length === 0 ? (
               <div style={{ textAlign: "center", padding: "60px 20px" }}>
-                <div style={{ fontSize: "48px", marginBottom: "12px" }}>🪑</div>
+                <div style={{ fontSize: "16px", color: "#555", marginBottom: "12px", letterSpacing: "0.1em", textTransform: "uppercase" }}>sin espera</div>
                 <div style={{ fontSize: "18px", color: "#888" }}>Sin espera</div>
               </div>
             ) : (
@@ -257,8 +257,8 @@ export default function HostDashboard() {
                             {entry.guest_name}
                           </div>
                           <div style={{ fontSize: "13px", color: "#888", marginTop: "4px" }}>
-                            🪑 {entry.party_size} · ⏱ {timeSince(entry.joined_at)}
-                            {customer?.phone && <span> · 📱</span>}
+                            {entry.party_size} pers · {timeSince(entry.joined_at)}
+                            {customer?.phone && <span></span>}
                           </div>
                         </div>
                         <span style={{
@@ -266,14 +266,14 @@ export default function HostDashboard() {
                           background: isNotified ? "#443" : "#333",
                           color: isNotified ? T.warn : trustColors[trust],
                         }}>
-                          {isNotified ? "🔔 Avisado" : trustLabels[trust]}
+                          {isNotified ? "Avisado" : trustLabels[trust]}
                         </span>
                       </div>
                       {customer?.allergies?.length > 0 && (
                         <div style={{ marginTop: "8px", display: "flex", gap: "4px", flexWrap: "wrap" }}>
                           {customer.allergies.map(a => (
                             <span key={a} style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "6px", background: "#3a2020", color: "#e88" }}>
-                              ⚠️ {a}
+                              {a}
                             </span>
                           ))}
                         </div>
@@ -284,20 +284,20 @@ export default function HostDashboard() {
                             flex: 1, padding: "10px", borderRadius: "10px", background: "#1a3a1a",
                             color: T.accent, border: "none", fontSize: "14px", fontWeight: "600",
                             cursor: "pointer", fontFamily: f.sans,
-                          }}>📲 Avisar</button>
+                          }}>Avisar</button>
                         )}
                         <button onClick={() => updateWaitlistStatus(entry.id, "seated")} style={{
                           flex: 1, padding: "10px", borderRadius: "10px", background: T.accent,
                           color: "#fff", border: "none", fontSize: "14px", fontWeight: "600",
                           cursor: "pointer", fontFamily: f.sans,
-                        }}>✓ Sentar</button>
+                        }}>Sentar</button>
                         <button onClick={() => {
                           if (confirm(`¿Cancelar a ${entry.guest_name}?`))
                             updateWaitlistStatus(entry.id, "cancelled");
                         }} style={{
                           padding: "10px 14px", borderRadius: "10px", background: "#3a1a1a",
                           color: "#e55", border: "none", fontSize: "14px", cursor: "pointer",
-                        }}>✕</button>
+                        }}>×</button>
                       </div>
                     </div>
                   );

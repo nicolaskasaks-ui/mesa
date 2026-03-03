@@ -40,15 +40,15 @@ const Header = () => (
 const OT_LINK = RESTAURANT.otLink;
 
 const BAR_SUGGESTIONS = [
-  { emoji: "🍹", name: "Le Collins", desc: "Pastis, Lillet Blanc, lima, angostura, tónica", price: 13500 },
-  { emoji: "🥃", name: "Castagnoni", desc: "Beefeater, Campari, Carpano Rosso, cajú", price: 14000 },
-  { emoji: "🌊", name: "Pacífico", desc: "Ron añejo, sándalo rojo, almíbar especiado, ananá", price: 14500 },
-  { emoji: "🥂", name: "Temporada Alta", desc: "Sake, Lillet Blanc, banana, muña muña, melón", price: 14500 },
-  { emoji: "🥃", name: "Peni x Chuí", desc: "Johnnie Walker Black, miel de manzana, jengibre, limón", price: 14500 },
-  { emoji: "🍔", name: "Doble Magic", desc: "Brioche, gírgolas, papas paille, salsa de chiles verdes", price: 14000 },
-  { emoji: "🥟", name: "Bao Frito", desc: "Melena de león, tomate, lechuga, alioli de jalapeño", price: 13500 },
-  { emoji: "🧀", name: "Empanadas Ahumadas", desc: "Cebolla y queso ahumado con salsa yasgua", price: 7500 },
-  { emoji: "🍄", name: "Arancini de Hongos", desc: "Con salsa romesco", price: 9200 },
+  { name: "Le Collins", desc: "Pastis, Lillet Blanc, lima, angostura, tónica", price: 13500 },
+  { name: "Castagnoni", desc: "Beefeater, Campari, Carpano Rosso, cajú", price: 14000 },
+  { name: "Pacífico", desc: "Ron añejo, sándalo rojo, almíbar especiado, ananá", price: 14500 },
+  { name: "Temporada Alta", desc: "Sake, Lillet Blanc, banana, muña muña, melón", price: 14500 },
+  { name: "Peni x Chuí", desc: "Johnnie Walker Black, miel de manzana, jengibre, limón", price: 14500 },
+  { name: "Doble Magic", desc: "Brioche, gírgolas, papas paille, salsa de chiles verdes", price: 14000 },
+  { name: "Bao Frito", desc: "Melena de león, tomate, lechuga, alioli de jalapeño", price: 13500 },
+  { name: "Empanadas Ahumadas", desc: "Cebolla y queso ahumado con salsa yasgua", price: 7500 },
+  { name: "Arancini de Hongos", desc: "Con salsa romesco", price: 9200 },
 ];
 
 const COUNTRY_CODES = [
