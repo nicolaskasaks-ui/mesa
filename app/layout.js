@@ -17,13 +17,13 @@ export default function RootLayout({ children }) {
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <style>{`
           * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
           body { margin: 0; padding: 0; background: #FAFAF8; -webkit-font-smoothing: antialiased; }
-          input, select, button { font-family: 'Outfit', sans-serif; }
+          input, select, button { font-family: 'Nunito', sans-serif; }
           ::selection { background: #2D7A4F20; }
         `}</style>
       </head>

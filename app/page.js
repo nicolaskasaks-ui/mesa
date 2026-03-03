@@ -59,8 +59,8 @@ const COUNTRY_CODES = [
 ];
 
 const ALLERGY_OPTIONS = [
-  { id: "nuts", label: "🥜 Frutos secos" }, { id: "gluten", label: "🌾 Gluten" },
-  { id: "dairy", label: "🥛 Lácteos" }, { id: "egg", label: "🥚 Huevo" }, { id: "vegan", label: "🌱 Vegano" },
+  { id: "nuts", label: "Frutos secos" }, { id: "gluten", label: "Gluten" },
+  { id: "dairy", label: "Lácteos" }, { id: "egg", label: "Huevo" }, { id: "vegan", label: "Vegano" },
 ];
 
 function getRandomSuggestion() { return BAR_SUGGESTIONS[Math.floor(Math.random() * BAR_SUGGESTIONS.length)]; }
@@ -249,7 +249,7 @@ export default function MeantimeCustomer() {
       <div style={page}>
         <Header />
         <Card style={{ marginTop: "24px", textAlign: "center" }}>
-          <div style={{ fontSize: "40px", marginBottom: "8px" }}>🚶</div>
+          
           <div style={{ fontFamily: f.display, fontSize: "20px", color: T.text }}>Modo paseo</div>
           <div style={{ fontSize: "14px", color: T.textMed, marginTop: "6px" }}>
             Caminá por el barrio tranquilo. Te avisamos.
@@ -284,7 +284,7 @@ export default function MeantimeCustomer() {
     <div style={{ ...page, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
       <Header />
       <Card style={{ marginTop: "24px", textAlign: "center", maxWidth: "360px" }}>
-        <div style={{ fontSize: "48px", marginBottom: "12px" }}>🌿</div>
+        <div style={{ fontSize: "14px", color: T.textLight, marginBottom: "8px", letterSpacing: "0.1em", textTransform: "uppercase" }}>mesa lista</div>
         <div style={{ fontFamily: f.display, fontSize: "24px", color: T.text }}>Tu mesa te espera</div>
         <div style={{ fontSize: "14px", color: T.textMed, marginTop: "8px" }}>Acercate al hostess. Buen provecho.</div>
       </Card>
@@ -331,13 +331,12 @@ export default function MeantimeCustomer() {
         <Card style={{ marginTop: "14px", background: "#FFFBF5", border: `1px solid #F0E6D4` }}>
           <div style={{ fontSize: "15px", fontWeight: "600", color: T.text }}>¿Esperás en la barra?</div>
           <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Pedite algo mientras te preparamos la mesa.</div>
-          <div style={{ marginTop: "12px", padding: "12px 14px", borderRadius: "12px", background: "#fff", display: "flex", alignItems: "center", gap: "12px" }}>
-            <div style={{ fontSize: "28px" }}>{barSuggestion.emoji}</div>
+          <div style={{ marginTop: "12px", padding: "14px", borderRadius: "12px", background: "#fff", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: "14px", fontWeight: "600", color: T.text }}>{barSuggestion.name}</div>
-              <div style={{ fontSize: "12px", color: T.textLight }}>{barSuggestion.desc}</div>
+              <div style={{ fontSize: "14px", fontWeight: "700", color: T.text }}>{barSuggestion.name}</div>
+              <div style={{ fontSize: "12px", color: T.textLight, marginTop: "2px" }}>{barSuggestion.desc}</div>
             </div>
-            <div style={{ fontSize: "14px", fontWeight: "600", color: T.accent }}>${barSuggestion.price.toLocaleString()}</div>
+            <div style={{ fontSize: "14px", fontWeight: "700", color: T.accent, marginLeft: "12px" }}>${barSuggestion.price.toLocaleString()}</div>
           </div>
           <button onClick={() => setAtBar(true)} style={{
             marginTop: "12px", width: "100%", padding: "12px", borderRadius: "12px",
@@ -348,13 +347,13 @@ export default function MeantimeCustomer() {
       )}
       {atBar && (
         <Card style={{ marginTop: "14px", background: "#FFFBF5", border: `1px solid #F0E6D4`, textAlign: "center" }}>
-          <div style={{ fontSize: "14px", fontWeight: "600", color: T.warn }}>🍸 Estás en la barra — te avisamos desde ahí</div>
+          <div style={{ fontSize: "14px", fontWeight: "600", color: T.warn }}>Estás en la barra — te avisamos desde ahí</div>
         </Card>
       )}
 
       <div style={{ marginTop: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
         <Btn variant="outline" onClick={() => setShowMenu(true)}>Ver menú</Btn>
-        {!isNotified && <Btn variant="outline" onClick={startTracking}>🚶 Pasear por el barrio</Btn>}
+        {!isNotified && <Btn variant="outline" onClick={startTracking}>Pasear por el barrio</Btn>}
       </div>
 
       {/* OpenTable education */}
