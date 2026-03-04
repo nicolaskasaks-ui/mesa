@@ -85,6 +85,23 @@ export default function MeantimeCustomer() {
   const [countryCode, setCountryCode] = useState("+54");
   const [allergies, setAllergies] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  const [returning, setReturning] = useState(false);
+
+  // Restore returning customer
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("meantime_customer");
+      if (saved) {
+        const c = JSON.parse(saved);
+        if (c.name) setName(c.name);
+        if (c.phone) setPhone(c.phone);
+        if (c.countryCode) setCountryCode(c.countryCode);
+        if (c.allergies) setAllergies(c.allergies);
+        if (c.party) setParty(c.party);
+        setReturning(true);
+      }
+    } catch {}
+  }, []);
 
   const [entry, setEntry] = useState(null);
   const [position, setPosition] = useState(null);
@@ -110,6 +127,7 @@ export default function MeantimeCustomer() {
       });
       const data = await res.json();
       if (data.error) { alert(data.error); setSubmitting(false); return; }
+      try { localStorage.setItem("meantime_customer", JSON.stringify({ name: name.trim(), phone: phone.trim(), countryCode, allergies, party })); } catch {}
       setEntry(data);
       setView("waiting");
     } catch { alert("Error de conexión"); }
@@ -160,14 +178,25 @@ export default function MeantimeCustomer() {
       <Header />
       <Card style={{ marginTop: "28px", textAlign: "center" }}>
         <div style={{ fontFamily: f.display, fontSize: "24px", fontWeight: "700", color: T.text, lineHeight: 1.3 }}>
-          Tu mesa se está<br/>preparando
+          {returning ? `Hola de nuevo, ${name.split(" ")[0]}` : "Tu mesa se está\npreparando"}
         </div>
         <div style={{ fontSize: "14px", color: T.textMed, marginTop: "8px", lineHeight: 1.5 }}>
-          Anotate y te avisamos al celular cuando esté lista.
+          {returning ? "Un toque y estás en la fila." : "Anotate y te avisamos al celular cuando esté lista."}
         </div>
       </Card>
+      <div style={{ marginTop: "14px", padding: "16px 20px", borderRadius: T.radius, background: "#FFFBF5", border: "1px solid #F0E6D4", textAlign: "center" }}>
+        <div style={{ fontSize: "15px", fontWeight: "600", color: T.text }}>2x1 en barra mientras esperás</div>
+        <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Cerveza tirada, copa de vino o vermut — al registrarte.</div>
+      </div>
       <div style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "10px" }}>
-        <Btn onClick={() => setView("form")}>Quiero mi mesa</Btn>
+        {returning ? (
+          <>
+            <Btn onClick={() => setView("form")}>Quiero mi mesa — {party} pers.</Btn>
+            <Btn variant="ghost" onClick={() => { setReturning(false); setView("form"); }} style={{ fontSize: "13px" }}>Cambiar datos</Btn>
+          </>
+        ) : (
+          <Btn onClick={() => setView("form")}>Quiero mi mesa</Btn>
+        )}
         <Btn variant="outline" onClick={() => setShowMenu(true)}>Ver el menú</Btn>
       </div>
       <div style={{ textAlign: "center", marginTop: "32px", fontSize: "11px", color: T.textLight, letterSpacing: "0.05em", textTransform: "uppercase" }}>
@@ -326,28 +355,29 @@ export default function MeantimeCustomer() {
         )}
       </Card>
 
-      {/* Bar upsell */}
+      {/* Bar upsell with 2x1 benefit */}
       {!atBar && !isNotified && (
         <Card style={{ marginTop: "14px", background: "#FFFBF5", border: `1px solid #F0E6D4` }}>
-          <div style={{ fontSize: "15px", fontWeight: "600", color: T.text }}>¿Esperás en la barra?</div>
-          <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Pedite algo mientras te preparamos la mesa.</div>
-          <div style={{ marginTop: "12px", padding: "14px", borderRadius: "12px", background: "#fff", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: "14px", fontWeight: "700", color: T.text }}>{barSuggestion.name}</div>
-              <div style={{ fontSize: "12px", color: T.textLight, marginTop: "2px" }}>{barSuggestion.desc}</div>
-            </div>
-            <div style={{ fontSize: "14px", fontWeight: "700", color: T.accent, marginLeft: "12px" }}>${barSuggestion.price.toLocaleString()}</div>
+          <div style={{ fontSize: "15px", fontWeight: "600", color: T.text }}>Tu 2x1 en barra te espera</div>
+          <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Cerveza tirada, copa de vino o vermut — mientras te preparamos la mesa.</div>
+          <div style={{ marginTop: "12px", display: "flex", gap: "8px" }}>
+            {["Cerveza tirada", "Copa de vino", "Vermut"].map(item => (
+              <div key={item} style={{ flex: 1, padding: "12px 6px", borderRadius: "12px", background: "#fff", textAlign: "center" }}>
+                <div style={{ fontSize: "13px", fontWeight: "600", color: T.text }}>{item}</div>
+                <div style={{ fontSize: "11px", color: T.accent, marginTop: "4px", fontWeight: "700" }}>2x1</div>
+              </div>
+            ))}
           </div>
           <button onClick={() => setAtBar(true)} style={{
             marginTop: "12px", width: "100%", padding: "12px", borderRadius: "12px",
-            background: T.warn, color: "#fff", border: "none", fontSize: "14px",
+            background: T.accent, color: "#fff", border: "none", fontSize: "14px",
             fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
           }}>Sí, voy a la barra</button>
         </Card>
       )}
       {atBar && (
         <Card style={{ marginTop: "14px", background: "#FFFBF5", border: `1px solid #F0E6D4`, textAlign: "center" }}>
-          <div style={{ fontSize: "14px", fontWeight: "600", color: T.warn }}>Estás en la barra — te avisamos desde ahí</div>
+          <div style={{ fontSize: "14px", fontWeight: "600", color: T.accent }}>Pedí tu 2x1 en la barra — mostrá esta pantalla</div>
         </Card>
       )}
 

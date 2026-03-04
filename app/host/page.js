@@ -67,8 +67,13 @@ export default function HostDashboard() {
     });
     const data = await res.json();
     if (data.notified) {
-      setNotification({ name: data.notified.guest_name, phone: data.notified.customers?.phone, id: data.notified.id });
-      setTimeout(() => setNotification(null), 15000);
+      setNotification({
+        name: data.notified.guest_name,
+        phone: data.notified.customers?.phone,
+        id: data.notified.id,
+        sent: data.whatsappSent === true,
+      });
+      setTimeout(() => setNotification(null), data.whatsappSent ? 8000 : 15000);
     }
   };
 
@@ -80,22 +85,54 @@ export default function HostDashboard() {
     });
   };
 
-  const notifyWhatsApp = (entry) => {
+  const notifyWhatsApp = async (entry) => {
     const phone = entry.customers?.phone;
     if (!phone) { alert("Sin número de WhatsApp"); return; }
     const cleanPhone = phone.replace(/\D/g, "");
     const waitMin = Math.floor((Date.now() - new Date(entry.joined_at).getTime()) / 60000);
-    const msg = encodeURIComponent(
-      `¡Hola ${entry.guest_name}! 🌿\n\nTu mesa en *Chuí* está lista.\nAcercate cuando puedas, te esperamos en Loyola 1250.\n\nGracias por esperar${waitMin > 5 ? ` (${waitMin} min)` : ""} 🙏`
-    );
-    window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
+
+    try {
+      const res = await window.fetch("/api/whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: cleanPhone, guestName: entry.guest_name, waitMinutes: waitMin }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNotification({ name: entry.guest_name, phone, id: entry.id, sent: true });
+        setTimeout(() => setNotification(null), 8000);
+      } else {
+        // Fallback: open wa.me
+        const msg = encodeURIComponent(`Hola ${entry.guest_name}!\n\nTu mesa en *Chuí* está lista.\nAcercate cuando puedas, te esperamos en Loyola 1250.\n\nGracias por esperar${waitMin > 5 ? ` (${waitMin} min)` : ""}`);
+        window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
+      }
+    } catch {
+      // Fallback on network error
+      const msg = encodeURIComponent(`Hola ${entry.guest_name}!\n\nTu mesa en *Chuí* está lista.\nAcercate cuando puedas, te esperamos en Loyola 1250.`);
+      window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
+    }
     updateWaitlistStatus(entry.id, "notified");
   };
 
-  const whatsAppFromNotification = () => {
+  const whatsAppFromNotification = async () => {
     if (!notification?.phone) return;
     const cleanPhone = notification.phone.replace(/\D/g, "");
-    const msg = encodeURIComponent(`¡Hola ${notification.name}! 🌿\n\nTu mesa en *Chuí* está lista.\nAcercate, te esperamos en Loyola 1250. 🙏`);
+
+    try {
+      const res = await window.fetch("/api/whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: cleanPhone, guestName: notification.name, waitMinutes: 0 }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNotification(prev => prev ? { ...prev, sent: true } : null);
+        setTimeout(() => setNotification(null), 5000);
+        return;
+      }
+    } catch {}
+    // Fallback
+    const msg = encodeURIComponent(`Hola ${notification.name}!\n\nTu mesa en *Chuí* está lista.\nAcercate, te esperamos en Loyola 1250.`);
     window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
   };
 
@@ -120,14 +157,14 @@ export default function HostDashboard() {
           justifyContent: "space-between", boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
         }}>
           <div>
-            <div style={{ fontSize: "15px", fontWeight: "700", color: T.accent }}>
-              Mesa libre — {notification.name} avisado/a
+            <div style={{ fontSize: "15px", fontWeight: "700", color: notification.sent ? "#25D366" : T.accent }}>
+              {notification.sent ? `WhatsApp enviado a ${notification.name}` : `Mesa libre — ${notification.name} avisado/a`}
             </div>
             <div style={{ fontSize: "13px", color: "#aaa", marginTop: "2px" }}>
-              {notification.phone ? "Tocá para enviar WhatsApp" : "Llamar por nombre"}
+              {notification.sent ? "Mensaje automático confirmado" : notification.phone ? "Tocá para enviar WhatsApp" : "Llamar por nombre"}
             </div>
           </div>
-          {notification.phone && (
+          {notification.phone && !notification.sent && (
             <button onClick={whatsAppFromNotification} style={{
               padding: "10px 16px", borderRadius: "10px", background: "#25D366",
               color: "#fff", border: "none", fontSize: "14px", fontWeight: "600",
