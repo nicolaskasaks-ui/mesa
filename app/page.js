@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { T, f, RESTAURANT, APP_NAME } from "../lib/tokens";
 import MenuOverlay from "../components/MenuOverlay";
@@ -8,29 +8,37 @@ import MenuOverlay from "../components/MenuOverlay";
 // UI PRIMITIVES
 // ═══════════════════════════════════════════════════
 const Card = ({ children, style }) => (
-  <div style={{ background: T.card, borderRadius: T.radius, boxShadow: T.shadow, padding: "24px", ...style }}>{children}</div>
+  <div style={{
+    background: T.card, borderRadius: T.radius, border: `1px solid ${T.cardBorder}`,
+    boxShadow: T.shadow, padding: "28px", ...style,
+  }}>{children}</div>
 );
 
 const Btn = ({ children, onClick, variant = "primary", disabled, style }) => {
   const styles = {
-    primary: { background: T.accent, color: "#fff", border: "none" },
-    outline: { background: "transparent", color: T.accent, border: `1.5px solid ${T.accent}` },
+    primary: { background: T.accent, color: "#FFFFFF", border: "none" },
+    outline: { background: "transparent", color: T.text, border: `1.5px solid ${T.border}` },
     ghost: { background: "transparent", color: T.textMed, border: "none" },
+    gold: { background: T.gold, color: "#FFFFFF", border: "none" },
   };
   const s = styles[variant];
   return (
     <button onClick={onClick} disabled={disabled} style={{
       width: "100%", padding: "16px", borderRadius: "14px", fontSize: "15px", fontWeight: "600",
-      fontFamily: f.sans, cursor: disabled ? "default" : "pointer", letterSpacing: "-0.01em",
-      opacity: disabled ? 0.5 : 1, transition: "all 0.2s ease", ...s, ...style,
+      fontFamily: f.sans, cursor: disabled ? "default" : "pointer", letterSpacing: "0.01em",
+      opacity: disabled ? 0.4 : 1, transition: "all 0.2s ease", ...s, ...style,
     }}>{children}</button>
   );
 };
 
+const Divider = () => (
+  <div style={{ height: "1px", background: T.border, margin: "24px 0" }} />
+);
+
 const Header = () => (
-  <div style={{ textAlign: "center", marginBottom: "12px" }}>
-    <img src="/logo-dark.png" alt={RESTAURANT.name} style={{ height: "44px", objectFit: "contain", marginBottom: "6px" }} />
-    <div style={{ fontSize: "13px", color: T.textLight, fontFamily: f.sans, letterSpacing: "0.02em" }}>{RESTAURANT.address}</div>
+  <div style={{ textAlign: "center", marginBottom: "16px" }}>
+    <img src="/logo-dark.png" alt={RESTAURANT.name} style={{ height: "40px", objectFit: "contain", marginBottom: "6px" }} />
+    <div style={{ fontSize: "12px", color: T.textLight, fontFamily: f.sans, letterSpacing: "0.08em", textTransform: "uppercase" }}>{RESTAURANT.address}</div>
   </div>
 );
 
@@ -40,27 +48,27 @@ const Header = () => (
 const OT_LINK = RESTAURANT.otLink;
 
 const BAR_SUGGESTIONS = [
-  { name: "Le Collins", desc: "Pastis, Lillet Blanc, lima, angostura, tónica", price: 13500 },
-  { name: "Castagnoni", desc: "Beefeater, Campari, Carpano Rosso, cajú", price: 14000 },
-  { name: "Pacífico", desc: "Ron añejo, sándalo rojo, almíbar especiado, ananá", price: 14500 },
-  { name: "Temporada Alta", desc: "Sake, Lillet Blanc, banana, muña muña, melón", price: 14500 },
-  { name: "Peni x Chuí", desc: "Johnnie Walker Black, miel de manzana, jengibre, limón", price: 14500 },
-  { name: "Doble Magic", desc: "Brioche, gírgolas, papas paille, salsa de chiles verdes", price: 14000 },
-  { name: "Bao Frito", desc: "Melena de león, tomate, lechuga, alioli de jalapeño", price: 13500 },
+  { name: "Le Collins", desc: "Pastis, Lillet Blanc, lima, angostura, tonica", price: 13500 },
+  { name: "Castagnoni", desc: "Beefeater, Campari, Carpano Rosso, caju", price: 14000 },
+  { name: "Pacifico", desc: "Ron anejo, sandalo rojo, almibar especiado, anana", price: 14500 },
+  { name: "Temporada Alta", desc: "Sake, Lillet Blanc, banana, muna muna, melon", price: 14500 },
+  { name: "Peni x Chui", desc: "Johnnie Walker Black, miel de manzana, jengibre, limon", price: 14500 },
+  { name: "Doble Magic", desc: "Brioche, girgolas, papas paille, salsa de chiles verdes", price: 14000 },
+  { name: "Bao Frito", desc: "Melena de leon, tomate, lechuga, alioli de jalapeno", price: 13500 },
   { name: "Empanadas Ahumadas", desc: "Cebolla y queso ahumado con salsa yasgua", price: 7500 },
   { name: "Arancini de Hongos", desc: "Con salsa romesco", price: 9200 },
 ];
 
 const COUNTRY_CODES = [
-  { code: "+54", flag: "🇦🇷" }, { code: "+52", flag: "🇲🇽" }, { code: "+34", flag: "🇪🇸" },
-  { code: "+55", flag: "🇧🇷" }, { code: "+1", flag: "🇺🇸" }, { code: "+56", flag: "🇨🇱" },
-  { code: "+57", flag: "🇨🇴" }, { code: "+598", flag: "🇺🇾" }, { code: "+44", flag: "🇬🇧" },
-  { code: "+33", flag: "🇫🇷" }, { code: "+49", flag: "🇩🇪" }, { code: "+39", flag: "🇮🇹" },
+  { code: "+54", label: "AR +54" }, { code: "+52", label: "MX +52" }, { code: "+34", label: "ES +34" },
+  { code: "+55", label: "BR +55" }, { code: "+1", label: "US +1" }, { code: "+56", label: "CL +56" },
+  { code: "+57", label: "CO +57" }, { code: "+598", label: "UY +598" }, { code: "+44", label: "UK +44" },
+  { code: "+33", label: "FR +33" }, { code: "+49", label: "DE +49" }, { code: "+39", label: "IT +39" },
 ];
 
 const ALLERGY_OPTIONS = [
   { id: "nuts", label: "Frutos secos" }, { id: "gluten", label: "Gluten" },
-  { id: "dairy", label: "Lácteos" }, { id: "egg", label: "Huevo" }, { id: "vegan", label: "Vegano" },
+  { id: "dairy", label: "Lacteos" }, { id: "egg", label: "Huevo" }, { id: "vegan", label: "Vegano" },
 ];
 
 function getRandomSuggestion() { return BAR_SUGGESTIONS[Math.floor(Math.random() * BAR_SUGGESTIONS.length)]; }
@@ -109,9 +117,23 @@ export default function MeantimeCustomer() {
 
   const [distance, setDistance] = useState(null);
   const [watchId, setWatchId] = useState(null);
+  const pushInterval = useRef(null);
 
   const [barSuggestion] = useState(() => getRandomSuggestion());
   const [atBar, setAtBar] = useState(false);
+
+  // Push activity + distance to server every 15s
+  const pushActivity = useCallback(async (activity, dist) => {
+    if (!entry) return;
+    const body = { id: entry.id, activity };
+    if (dist !== null) body.distance_m = dist;
+    try {
+      await fetch("/api/waitlist", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch {}
+  }, [entry]);
 
   // ── Actions ──
   const handleJoin = async () => {
@@ -130,7 +152,7 @@ export default function MeantimeCustomer() {
       try { localStorage.setItem("meantime_customer", JSON.stringify({ name: name.trim(), phone: phone.trim(), countryCode, allergies, party })); } catch {}
       setEntry(data);
       setView("waiting");
-    } catch { alert("Error de conexión"); }
+    } catch { alert("Error de conexion"); }
     setSubmitting(false);
   };
 
@@ -156,16 +178,44 @@ export default function MeantimeCustomer() {
       (pos) => setDistance(Math.round(getDistance(pos.coords.latitude, pos.coords.longitude, RESTAURANT.lat, RESTAURANT.lng))),
       () => {}, { enableHighAccuracy: true, maximumAge: 5000 }
     );
-    setWatchId(id); setView("walkAround");
+    setWatchId(id);
+    setView("walkAround");
+    // Push activity every 15s
+    pushActivity("paseando", distance);
+    pushInterval.current = setInterval(() => {
+      pushActivity("paseando", distance);
+    }, 15000);
   };
 
-  const stopTracking = () => { if (watchId !== null) navigator.geolocation.clearWatch(watchId); setWatchId(null); setView("waiting"); };
+  const stopTracking = () => {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    setWatchId(null);
+    if (pushInterval.current) clearInterval(pushInterval.current);
+    pushInterval.current = null;
+    pushActivity("esperando", null);
+    setView("waiting");
+  };
+
+  // Push "en_barra" activity when user goes to bar
+  useEffect(() => {
+    if (atBar && entry) {
+      pushActivity("en_barra", 0);
+      const iv = setInterval(() => pushActivity("en_barra", 0), 15000);
+      return () => clearInterval(iv);
+    }
+  }, [atBar, entry, pushActivity]);
 
   const handleCancel = async () => {
-    if (!entry || !confirm("¿Seguro que querés salir de la fila?")) return;
+    if (!entry || !confirm("Seguro que queres salir de la fila?")) return;
     await fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: entry.id, status: "cancelled" }) });
     setEntry(null); setView("welcome");
+  };
+
+  const inputStyle = {
+    width: "100%", padding: "14px 16px", borderRadius: "12px", border: `1.5px solid ${T.border}`,
+    fontSize: "16px", fontFamily: f.sans, outline: "none", boxSizing: "border-box",
+    background: T.bg, color: T.text, transition: "border 0.2s",
   };
 
   const page = { minHeight: "100dvh", background: T.bgPage, padding: "56px 20px 40px", fontFamily: f.sans };
@@ -176,19 +226,24 @@ export default function MeantimeCustomer() {
   if (view === "welcome") return (
     <div style={page}>
       <Header />
-      <Card style={{ marginTop: "28px", textAlign: "center" }}>
-        <div style={{ fontFamily: f.display, fontSize: "24px", fontWeight: "700", color: T.text, lineHeight: 1.3 }}>
-          {returning ? `Hola de nuevo, ${name.split(" ")[0]}` : "Tu mesa se está\npreparando"}
+      <Card style={{ marginTop: "32px", textAlign: "center" }}>
+        <div style={{ fontFamily: f.display, fontSize: "26px", fontWeight: "700", color: T.text, lineHeight: 1.25 }}>
+          {returning ? `Hola de nuevo, ${name.split(" ")[0]}` : "Tu mesa se esta\npreparando"}
         </div>
-        <div style={{ fontSize: "14px", color: T.textMed, marginTop: "8px", lineHeight: 1.5 }}>
-          {returning ? "Un toque y estás en la fila." : "Anotate y te avisamos al celular cuando esté lista."}
+        <div style={{ fontSize: "14px", color: T.textMed, marginTop: "10px", lineHeight: 1.6 }}>
+          {returning ? "Un toque y estas en la fila." : "Anotate y te avisamos al celular cuando este lista."}
         </div>
       </Card>
-      <div style={{ marginTop: "14px", padding: "16px 20px", borderRadius: T.radius, background: "#FFFBF5", border: "1px solid #F0E6D4", textAlign: "center" }}>
-        <div style={{ fontSize: "15px", fontWeight: "600", color: T.text }}>2x1 en barra mientras esperás</div>
+
+      <div style={{
+        marginTop: "16px", padding: "18px 20px", borderRadius: T.radius,
+        background: T.goldLight, border: `1px solid ${T.gold}30`, textAlign: "center",
+      }}>
+        <div style={{ fontSize: "14px", fontWeight: "700", color: T.gold, letterSpacing: "0.04em", textTransform: "uppercase" }}>2x1 en barra</div>
         <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Cerveza tirada, copa de vino o vermut — al registrarte.</div>
       </div>
-      <div style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "10px" }}>
+
+      <div style={{ marginTop: "28px", display: "flex", flexDirection: "column", gap: "10px" }}>
         {returning ? (
           <>
             <Btn onClick={() => setView("form")}>Quiero mi mesa — {party} pers.</Btn>
@@ -197,9 +252,10 @@ export default function MeantimeCustomer() {
         ) : (
           <Btn onClick={() => setView("form")}>Quiero mi mesa</Btn>
         )}
-        <Btn variant="outline" onClick={() => setShowMenu(true)}>Ver el menú</Btn>
+        <Btn variant="outline" onClick={() => setShowMenu(true)}>Ver el menu</Btn>
       </div>
-      <div style={{ textAlign: "center", marginTop: "32px", fontSize: "11px", color: T.textLight, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+
+      <div style={{ textAlign: "center", marginTop: "40px", fontSize: "11px", color: T.textLight, letterSpacing: "0.08em", textTransform: "uppercase" }}>
         Powered by {APP_NAME}
       </div>
       {showMenu && <MenuOverlay onClose={() => setShowMenu(false)} />}
@@ -211,60 +267,65 @@ export default function MeantimeCustomer() {
   // ═══════════════════════════════════════════════════
   if (view === "form") return (
     <div style={page}>
-      <div style={{ fontFamily: f.display, fontSize: "24px", color: T.text, marginBottom: "24px" }}>Reservá tu lugar</div>
+      <div style={{ fontFamily: f.display, fontSize: "26px", fontWeight: "700", color: T.text, marginBottom: "24px" }}>Reserva tu lugar</div>
       <Card>
-        <label style={{ fontSize: "13px", fontWeight: "600", color: T.text, display: "block", marginBottom: "6px", letterSpacing: "0.02em" }}>Tu nombre</label>
-        <input value={name} onChange={e => setName(e.target.value)} placeholder="Nombre"
-          style={{ width: "100%", padding: "14px 16px", borderRadius: "12px", border: `1.5px solid ${T.border}`,
-            fontSize: "16px", fontFamily: f.sans, outline: "none", boxSizing: "border-box", marginBottom: "20px",
-            transition: "border 0.2s", }} onFocus={e => e.target.style.borderColor = T.accent} onBlur={e => e.target.style.borderColor = T.border} />
+        <label style={{ fontSize: "12px", fontWeight: "700", color: T.textLight, display: "block", marginBottom: "8px", letterSpacing: "0.08em", textTransform: "uppercase" }}>Nombre</label>
+        <input value={name} onChange={e => setName(e.target.value)} placeholder="Tu nombre"
+          style={inputStyle}
+          onFocus={e => e.target.style.borderColor = T.accent} onBlur={e => e.target.style.borderColor = T.border} />
 
-        <label style={{ fontSize: "13px", fontWeight: "600", color: T.text, display: "block", marginBottom: "6px", letterSpacing: "0.02em" }}>¿Cuántos son?</label>
-        <div style={{ display: "flex", gap: "6px", marginBottom: "20px" }}>
+        <div style={{ height: "20px" }} />
+
+        <label style={{ fontSize: "12px", fontWeight: "700", color: T.textLight, display: "block", marginBottom: "8px", letterSpacing: "0.08em", textTransform: "uppercase" }}>Cuantos son</label>
+        <div style={{ display: "flex", gap: "6px" }}>
           {[1,2,3,4,5,6].map(n => (
             <button key={n} onClick={() => setParty(n)} style={{
               flex: 1, padding: "14px 0", borderRadius: "12px", fontSize: "16px", fontWeight: "600",
               background: party === n ? T.accent : "transparent", color: party === n ? "#fff" : T.text,
-              border: party === n ? "none" : `1.5px solid ${T.border}`, cursor: "pointer", transition: "all 0.2s",
+              border: party === n ? "none" : `1.5px solid ${T.border}`, cursor: "pointer",
+              transition: "all 0.2s", fontFamily: f.sans,
             }}>{n}{n === 6 ? "+" : ""}</button>
           ))}
         </div>
 
-        <label style={{ fontSize: "13px", fontWeight: "600", color: T.text, display: "block", marginBottom: "6px", letterSpacing: "0.02em" }}>
-          WhatsApp <span style={{ fontWeight: "400", color: T.textLight }}>(te avisamos cuando la mesa esté lista)</span>
+        <div style={{ height: "20px" }} />
+
+        <label style={{ fontSize: "12px", fontWeight: "700", color: T.textLight, display: "block", marginBottom: "8px", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          WhatsApp <span style={{ fontWeight: "400", textTransform: "none", letterSpacing: "0" }}>(para avisarte)</span>
         </label>
-        <div style={{ display: "flex", gap: "8px", marginBottom: "20px" }}>
+        <div style={{ display: "flex", gap: "8px" }}>
           <select value={countryCode} onChange={e => setCountryCode(e.target.value)} style={{
             padding: "14px 8px", borderRadius: "12px", border: `1.5px solid ${T.border}`,
-            fontSize: "15px", fontFamily: f.sans, background: T.bg, outline: "none", width: "100px",
+            fontSize: "14px", fontFamily: f.sans, background: T.bg, outline: "none", width: "105px",
+            color: T.text,
           }}>
-            {COUNTRY_CODES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
+            {COUNTRY_CODES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
           </select>
           <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="11 2345 6789"
-            type="tel" inputMode="numeric" style={{
-              flex: 1, padding: "14px 16px", borderRadius: "12px", border: `1.5px solid ${T.border}`,
-              fontSize: "16px", fontFamily: f.sans, outline: "none",
-            }} />
+            type="tel" inputMode="numeric" style={{ ...inputStyle, width: "auto", flex: 1 }} />
         </div>
 
-        <label style={{ fontSize: "13px", fontWeight: "600", color: T.text, display: "block", marginBottom: "8px", letterSpacing: "0.02em" }}>Alergias o restricciones</label>
+        <div style={{ height: "20px" }} />
+
+        <label style={{ fontSize: "12px", fontWeight: "700", color: T.textLight, display: "block", marginBottom: "8px", letterSpacing: "0.08em", textTransform: "uppercase" }}>Alergias o restricciones</label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
           {ALLERGY_OPTIONS.map(a => {
             const sel = allergies.includes(a.id);
             return (
               <button key={a.id} onClick={() => setAllergies(sel ? allergies.filter(x=>x!==a.id) : [...allergies, a.id])} style={{
-                padding: "8px 14px", borderRadius: "20px", fontSize: "13px",
-                background: sel ? T.accentLight : "transparent", color: sel ? T.accent : T.textMed,
-                border: sel ? `1.5px solid ${T.accent}` : `1.5px solid ${T.border}`,
+                padding: "10px 16px", borderRadius: "20px", fontSize: "13px", fontWeight: "500",
+                background: sel ? T.accent : "transparent", color: sel ? "#fff" : T.textMed,
+                border: sel ? "none" : `1.5px solid ${T.border}`,
                 cursor: "pointer", fontFamily: f.sans, transition: "all 0.2s",
               }}>{a.label}</button>
             );
           })}
         </div>
       </Card>
-      <div style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "10px" }}>
+
+      <div style={{ marginTop: "28px", display: "flex", flexDirection: "column", gap: "10px" }}>
         <Btn onClick={handleJoin} disabled={!name.trim() || submitting}>{submitting ? "Anotando..." : "Confirmar"}</Btn>
-        <Btn variant="ghost" onClick={() => setView("welcome")}>← Volver</Btn>
+        <Btn variant="ghost" onClick={() => setView("welcome")}>Volver</Btn>
       </div>
     </div>
   );
@@ -277,29 +338,32 @@ export default function MeantimeCustomer() {
     return (
       <div style={page}>
         <Header />
-        <Card style={{ marginTop: "24px", textAlign: "center" }}>
-          
-          <div style={{ fontFamily: f.display, fontSize: "20px", color: T.text }}>Modo paseo</div>
-          <div style={{ fontSize: "14px", color: T.textMed, marginTop: "6px" }}>
-            Caminá por el barrio tranquilo. Te avisamos.
-          </div>
-          <div style={{ marginTop: "20px", padding: "20px", borderRadius: "14px", background: isNear ? T.accentLight : "#FFF8EE" }}>
-            <div style={{ fontFamily: f.display, fontSize: "36px", color: isNear ? T.accent : T.warn }}>
+        <Card style={{ marginTop: "28px", textAlign: "center" }}>
+          <div style={{ fontSize: "12px", fontWeight: "700", color: T.textLight, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "8px" }}>modo paseo</div>
+          <div style={{ fontFamily: f.display, fontSize: "22px", fontWeight: "700", color: T.text }}>Camina por el barrio tranquilo</div>
+          <div style={{ fontSize: "14px", color: T.textMed, marginTop: "6px" }}>Te avisamos cuando tu mesa este lista.</div>
+
+          <div style={{
+            marginTop: "24px", padding: "24px", borderRadius: "14px",
+            background: isNear ? T.successLight : T.warnLight,
+          }}>
+            <div style={{ fontFamily: f.display, fontSize: "42px", fontWeight: "700", color: isNear ? T.success : T.warn }}>
               {distance !== null ? `${distance}m` : "..."}
             </div>
-            <div style={{ fontSize: "13px", color: isNear ? T.accent : T.warn, marginTop: "4px" }}>
-              {isNear ? "Estás cerca de Chuí" : `~${RESTAURANT.walkAroundMinutes} min caminando`}
+            <div style={{ fontSize: "13px", color: isNear ? T.success : T.warn, marginTop: "4px", fontWeight: "600" }}>
+              {isNear ? "Estas cerca" : `~${RESTAURANT.walkAroundMinutes} min caminando`}
             </div>
           </div>
+
           {position && (
-            <div style={{ marginTop: "16px", fontSize: "14px", color: T.textMed }}>
-              Posición: <strong style={{ color: T.accent, fontFamily: f.display, fontSize: "18px" }}>#{position}</strong> de {queueCount}
+            <div style={{ marginTop: "20px", fontSize: "14px", color: T.textMed }}>
+              Posicion <strong style={{ color: T.accent, fontFamily: f.display, fontSize: "20px" }}>#{position}</strong> de {queueCount}
             </div>
           )}
         </Card>
-        <div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "10px" }}>
+        <div style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "10px" }}>
           <Btn onClick={stopTracking}>Volver a la espera</Btn>
-          <Btn variant="outline" onClick={() => setShowMenu(true)}>Ver menú</Btn>
+          <Btn variant="outline" onClick={() => setShowMenu(true)}>Ver menu</Btn>
         </div>
         {showMenu && <MenuOverlay onClose={() => setShowMenu(false)} />}
       </div>
@@ -312,10 +376,10 @@ export default function MeantimeCustomer() {
   if (entry?.status === "seated") return (
     <div style={{ ...page, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
       <Header />
-      <Card style={{ marginTop: "24px", textAlign: "center", maxWidth: "360px" }}>
-        <div style={{ fontSize: "14px", color: T.textLight, marginBottom: "8px", letterSpacing: "0.1em", textTransform: "uppercase" }}>mesa lista</div>
-        <div style={{ fontFamily: f.display, fontSize: "24px", color: T.text }}>Tu mesa te espera</div>
-        <div style={{ fontSize: "14px", color: T.textMed, marginTop: "8px" }}>Acercate al hostess. Buen provecho.</div>
+      <Card style={{ marginTop: "28px", textAlign: "center", maxWidth: "360px" }}>
+        <div style={{ fontSize: "12px", fontWeight: "700", color: T.success, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "8px" }}>mesa lista</div>
+        <div style={{ fontFamily: f.display, fontSize: "26px", fontWeight: "700", color: T.text }}>Tu mesa te espera</div>
+        <div style={{ fontSize: "14px", color: T.textMed, marginTop: "10px", lineHeight: 1.5 }}>Acercate al hostess. Buen provecho.</div>
       </Card>
     </div>
   );
@@ -329,79 +393,87 @@ export default function MeantimeCustomer() {
     <div style={page}>
       <Header />
 
-      <Card style={{ marginTop: "24px", textAlign: "center" }}>
+      <Card style={{ marginTop: "28px", textAlign: "center" }}>
         {isNotified ? (
           <>
-            <div style={{ fontFamily: f.display, fontSize: "22px", color: T.accent }}>¡Es tu turno!</div>
-            <div style={{ fontSize: "14px", color: T.textMed, marginTop: "8px" }}>Acercate al hostess para que te ubique.</div>
+            <div style={{ fontSize: "12px", fontWeight: "700", color: T.success, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "8px" }}>tu turno</div>
+            <div style={{ fontFamily: f.display, fontSize: "24px", fontWeight: "700", color: T.text }}>Tu mesa esta lista</div>
+            <div style={{ fontSize: "14px", color: T.textMed, marginTop: "10px" }}>Acercate al hostess para que te ubique.</div>
           </>
         ) : (
           <>
             <div style={{
-              width: "110px", height: "110px", borderRadius: "50%", margin: "0 auto 16px",
-              border: `3px solid ${T.accent}`, display: "flex", alignItems: "center", justifyContent: "center",
+              width: "110px", height: "110px", borderRadius: "50%", margin: "0 auto 20px",
+              border: `2px solid ${T.accent}`, display: "flex", alignItems: "center", justifyContent: "center",
               background: T.accentSoft,
             }}>
               <div>
-                <div style={{ fontFamily: f.display, fontSize: "36px", color: T.accent }}>{position || "—"}</div>
-                <div style={{ fontSize: "11px", color: T.textLight, fontFamily: f.sans }}>en la fila</div>
+                <div style={{ fontFamily: f.display, fontSize: "38px", fontWeight: "700", color: T.accent }}>{position || "--"}</div>
+                <div style={{ fontSize: "11px", color: T.textLight, fontFamily: f.sans, letterSpacing: "0.04em" }}>en la fila</div>
               </div>
             </div>
-            <div style={{ fontFamily: f.display, fontSize: "18px", color: T.text }}>{name}, estás en la fila</div>
-            <div style={{ fontSize: "13px", color: T.textLight, marginTop: "6px" }}>
+            <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "700", color: T.text }}>{name}, estas en la fila</div>
+            <div style={{ fontSize: "13px", color: T.textLight, marginTop: "8px" }}>
               {party} {party === 1 ? "persona" : "personas"} · {queueCount} en espera
             </div>
           </>
         )}
       </Card>
 
-      {/* Bar upsell with 2x1 benefit */}
+      {/* 2x1 bar upsell */}
       {!atBar && !isNotified && (
-        <Card style={{ marginTop: "14px", background: "#FFFBF5", border: `1px solid #F0E6D4` }}>
-          <div style={{ fontSize: "15px", fontWeight: "600", color: T.text }}>Tu 2x1 en barra te espera</div>
-          <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Cerveza tirada, copa de vino o vermut — mientras te preparamos la mesa.</div>
-          <div style={{ marginTop: "12px", display: "flex", gap: "8px" }}>
+        <Card style={{ marginTop: "14px", background: T.goldLight, border: `1px solid ${T.gold}25` }}>
+          <div style={{ fontSize: "14px", fontWeight: "700", color: T.gold, letterSpacing: "0.04em", textTransform: "uppercase" }}>2x1 en barra</div>
+          <div style={{ fontSize: "13px", color: T.textMed, marginTop: "6px", lineHeight: 1.5 }}>Cerveza tirada, copa de vino o vermut — mientras te preparamos la mesa.</div>
+          <div style={{ marginTop: "14px", display: "flex", gap: "8px" }}>
             {["Cerveza tirada", "Copa de vino", "Vermut"].map(item => (
-              <div key={item} style={{ flex: 1, padding: "12px 6px", borderRadius: "12px", background: "#fff", textAlign: "center" }}>
-                <div style={{ fontSize: "13px", fontWeight: "600", color: T.text }}>{item}</div>
-                <div style={{ fontSize: "11px", color: T.accent, marginTop: "4px", fontWeight: "700" }}>2x1</div>
+              <div key={item} style={{
+                flex: 1, padding: "14px 6px", borderRadius: "12px", background: "#fff",
+                textAlign: "center", border: `1px solid ${T.border}`,
+              }}>
+                <div style={{ fontSize: "12px", fontWeight: "600", color: T.text }}>{item}</div>
+                <div style={{ fontSize: "11px", color: T.gold, marginTop: "4px", fontWeight: "700" }}>2x1</div>
               </div>
             ))}
           </div>
           <button onClick={() => setAtBar(true)} style={{
-            marginTop: "12px", width: "100%", padding: "12px", borderRadius: "12px",
+            marginTop: "14px", width: "100%", padding: "14px", borderRadius: "12px",
             background: T.accent, color: "#fff", border: "none", fontSize: "14px",
             fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
-          }}>Sí, voy a la barra</button>
+          }}>Voy a la barra</button>
         </Card>
       )}
       {atBar && (
-        <Card style={{ marginTop: "14px", background: "#FFFBF5", border: `1px solid #F0E6D4`, textAlign: "center" }}>
-          <div style={{ fontSize: "14px", fontWeight: "600", color: T.accent }}>Pedí tu 2x1 en la barra — mostrá esta pantalla</div>
+        <Card style={{ marginTop: "14px", background: T.goldLight, border: `1px solid ${T.gold}25`, textAlign: "center" }}>
+          <div style={{ fontSize: "14px", fontWeight: "700", color: T.gold }}>Pedi tu 2x1 en la barra</div>
+          <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Mostra esta pantalla</div>
         </Card>
       )}
 
-      <div style={{ marginTop: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
-        <Btn variant="outline" onClick={() => setShowMenu(true)}>Ver menú</Btn>
+      <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
+        <Btn variant="outline" onClick={() => setShowMenu(true)}>Ver menu</Btn>
         {!isNotified && <Btn variant="outline" onClick={startTracking}>Pasear por el barrio</Btn>}
       </div>
 
-      {/* OpenTable education */}
-      <div style={{ marginTop: "20px", padding: "20px", borderRadius: T.radius, background: T.accentSoft, textAlign: "center", border: `1px solid ${T.accentLight}` }}>
-        <div style={{ fontSize: "14px", fontWeight: "600", color: T.text }}>¿No querés esperar la próxima?</div>
-        <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Reservá tu mesa con anticipación.</div>
+      {/* OpenTable */}
+      <div style={{
+        marginTop: "24px", padding: "24px", borderRadius: T.radius, background: T.accentSoft,
+        textAlign: "center", border: `1px solid ${T.cardBorder}`,
+      }}>
+        <div style={{ fontSize: "14px", fontWeight: "700", color: T.text }}>No queres esperar la proxima?</div>
+        <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Reserva tu mesa con anticipacion.</div>
         <a href={OT_LINK} target="_blank" rel="noopener noreferrer" style={{
-          display: "inline-block", marginTop: "12px", padding: "10px 28px", borderRadius: "12px",
+          display: "inline-block", marginTop: "14px", padding: "12px 32px", borderRadius: "12px",
           background: T.accent, color: "#fff", fontSize: "14px", fontWeight: "600",
-          textDecoration: "none", fontFamily: f.sans, letterSpacing: "-0.01em",
-        }}>Reservar en OpenTable →</a>
+          textDecoration: "none", fontFamily: f.sans,
+        }}>Reservar en OpenTable</a>
       </div>
 
-      <div style={{ marginTop: "14px" }}>
+      <div style={{ marginTop: "16px" }}>
         <Btn variant="ghost" onClick={handleCancel} style={{ color: T.danger, fontSize: "13px" }}>Salir de la fila</Btn>
       </div>
 
-      <div style={{ textAlign: "center", marginTop: "24px", fontSize: "11px", color: T.textLight, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+      <div style={{ textAlign: "center", marginTop: "28px", fontSize: "11px", color: T.textLight, letterSpacing: "0.08em", textTransform: "uppercase" }}>
         Powered by {APP_NAME}
       </div>
 

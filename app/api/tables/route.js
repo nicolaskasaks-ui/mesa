@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { sendWhatsApp } from "../../../lib/twilio";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
@@ -46,28 +47,16 @@ export async function PATCH(request) {
         .update({ status: "notified", notified_at: new Date().toISOString() })
         .eq("id", nextInLine.id);
 
-      // Auto-send WhatsApp via Twilio
+      // Auto-send WhatsApp directly (no self-fetch)
       const phone = nextInLine.customers?.phone;
       let whatsappSent = false;
       if (phone) {
-        try {
-          const baseUrl = process.env.VERCEL_URL
-            ? `https://${process.env.VERCEL_URL}`
-            : process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-          const waRes = await fetch(`${baseUrl}/api/whatsapp`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              to: phone.replace(/\D/g, ""),
-              guestName: nextInLine.guest_name,
-              waitMinutes: 0,
-            }),
-          });
-          const waData = await waRes.json();
-          whatsappSent = waData.success === true;
-        } catch (e) {
-          console.error("Auto WhatsApp failed:", e);
-        }
+        const result = await sendWhatsApp({
+          to: phone,
+          guestName: nextInLine.guest_name,
+          waitMinutes: 0,
+        });
+        whatsappSent = result.ok;
       }
 
       const { data: table, error } = await supabase

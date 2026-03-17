@@ -1,17 +1,37 @@
 "use client";
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { T, f, APP_NAME } from "../../lib/tokens";
+import { f, APP_NAME } from "../../lib/tokens";
 
-const trustLabels = ["Nuevo", "Verificado", "Confiable", "★ Habitual"];
-const trustColors = ["#9B9B9B", "#2D7A4F", "#1A6B3C", "#D4842A"];
+// Host dashboard uses its own dark palette
+const H = {
+  bg: "#111111",
+  card: "#1A1A1A",
+  cardBorder: "#2A2A2A",
+  text: "#FFFFFF",
+  textMed: "#999999",
+  textLight: "#666666",
+  accent: "#FFFFFF",
+  success: "#3DA66A",
+  warn: "#D4942A",
+  danger: "#C93B3B",
+};
+
+const trustLabels = ["Nuevo", "Verificado", "Confiable", "Habitual"];
+const trustColors = ["#666", "#3DA66A", "#2D8A5F", "#D4942A"];
 
 const STATUS_FLOW = ["libre", "sentado", "pidio_cuenta", "limpiando"];
 const STATUS_CONFIG = {
-  libre:        { label: "Libre",        color: "#2D7A4F", bg: "#1a2e1a", dot: "#2D7A4F" },
-  sentado:      { label: "Sentado",      color: "#60A0FF", bg: "#1a2030", dot: "#60A0FF" },
-  pidio_cuenta: { label: "Pidió cuenta", color: "#E8A735", bg: "#2a2a1a", dot: "#E8A735" },
-  limpiando:    { label: "Limpiando",    color: "#D93B3B", bg: "#2a1a1a", dot: "#D93B3B" },
+  libre:        { label: "Libre",        color: "#3DA66A", bg: "#162016", border: "#2A3D2A" },
+  sentado:      { label: "Sentado",      color: "#6EA8E0", bg: "#161E28", border: "#2A3444" },
+  pidio_cuenta: { label: "Cuenta",       color: "#E8A735", bg: "#221E14", border: "#3A3220" },
+  limpiando:    { label: "Limpiando",    color: "#D06060", bg: "#221616", border: "#3A2020" },
+};
+
+const ACTIVITY_CONFIG = {
+  esperando: { label: "Esperando", color: H.textMed },
+  en_barra:  { label: "En barra",  color: "#3DA66A" },
+  paseando:  { label: "Paseando",  color: "#6EA8E0" },
 };
 
 function timeSince(date) {
@@ -20,6 +40,13 @@ function timeSince(date) {
   if (m < 1) return "ahora";
   if (m < 60) return `${m}m`;
   return `${Math.floor(m / 60)}h${m % 60}m`;
+}
+
+function distanceColor(d) {
+  if (d === null || d === undefined) return H.textLight;
+  if (d < 300) return "#3DA66A";
+  if (d <= 800) return "#E8A735";
+  return "#D06060";
 }
 
 export default function HostDashboard() {
@@ -87,7 +114,7 @@ export default function HostDashboard() {
 
   const notifyWhatsApp = async (entry) => {
     const phone = entry.customers?.phone;
-    if (!phone) { alert("Sin número de WhatsApp"); return; }
+    if (!phone) { alert("Sin numero de WhatsApp"); return; }
     const cleanPhone = phone.replace(/\D/g, "");
     const waitMin = Math.floor((Date.now() - new Date(entry.joined_at).getTime()) / 60000);
 
@@ -103,12 +130,11 @@ export default function HostDashboard() {
         setTimeout(() => setNotification(null), 8000);
       } else {
         // Fallback: open wa.me
-        const msg = encodeURIComponent(`Hola ${entry.guest_name}!\n\nTu mesa en *Chuí* está lista.\nAcercate cuando puedas, te esperamos en Loyola 1250.\n\nGracias por esperar${waitMin > 5 ? ` (${waitMin} min)` : ""}`);
+        const msg = encodeURIComponent(`Hola ${entry.guest_name}\n\nTu mesa en Chui esta lista.\nAcercate cuando puedas, te esperamos en Loyola 1250.\n\nGracias por esperar${waitMin > 5 ? ` (${waitMin} min)` : ""}`);
         window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
       }
     } catch {
-      // Fallback on network error
-      const msg = encodeURIComponent(`Hola ${entry.guest_name}!\n\nTu mesa en *Chuí* está lista.\nAcercate cuando puedas, te esperamos en Loyola 1250.`);
+      const msg = encodeURIComponent(`Hola ${entry.guest_name}\n\nTu mesa en Chui esta lista.\nAcercate cuando puedas, te esperamos en Loyola 1250.`);
       window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
     }
     updateWaitlistStatus(entry.id, "notified");
@@ -117,7 +143,6 @@ export default function HostDashboard() {
   const whatsAppFromNotification = async () => {
     if (!notification?.phone) return;
     const cleanPhone = notification.phone.replace(/\D/g, "");
-
     try {
       const res = await window.fetch("/api/whatsapp", {
         method: "POST",
@@ -131,8 +156,7 @@ export default function HostDashboard() {
         return;
       }
     } catch {}
-    // Fallback
-    const msg = encodeURIComponent(`Hola ${notification.name}!\n\nTu mesa en *Chuí* está lista.\nAcercate, te esperamos en Loyola 1250.`);
+    const msg = encodeURIComponent(`Hola ${notification.name}\n\nTu mesa en Chui esta lista.\nAcercate, te esperamos en Loyola 1250.`);
     window.open(`https://wa.me/${cleanPhone}?text=${msg}`, "_blank");
   };
 
@@ -147,26 +171,27 @@ export default function HostDashboard() {
   const filteredTables = zoneFilter === "all" ? tables : tables.filter(t => t.zone === zoneFilter);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#1a1a1a", fontFamily: f.sans, color: "#fff" }}>
+    <div style={{ minHeight: "100vh", background: H.bg, fontFamily: f.sans, color: H.text }}>
 
+      {/* Notification banner */}
       {notification && (
         <div style={{
           position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
-          background: "linear-gradient(135deg, #1a3a1a 0%, #2a4a2a 100%)",
+          background: notification.sent ? "#162016" : "#1A1A1A",
           padding: "16px 20px", display: "flex", alignItems: "center",
-          justifyContent: "space-between", boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+          justifyContent: "space-between", borderBottom: `1px solid ${notification.sent ? "#2A3D2A" : "#333"}`,
         }}>
           <div>
-            <div style={{ fontSize: "15px", fontWeight: "700", color: notification.sent ? "#25D366" : T.accent }}>
-              {notification.sent ? `WhatsApp enviado a ${notification.name}` : `Mesa libre — ${notification.name} avisado/a`}
+            <div style={{ fontSize: "15px", fontWeight: "700", color: notification.sent ? H.success : H.text }}>
+              {notification.sent ? `WhatsApp enviado a ${notification.name}` : `Mesa libre — ${notification.name}`}
             </div>
-            <div style={{ fontSize: "13px", color: "#aaa", marginTop: "2px" }}>
-              {notification.sent ? "Mensaje automático confirmado" : notification.phone ? "Tocá para enviar WhatsApp" : "Llamar por nombre"}
+            <div style={{ fontSize: "13px", color: H.textMed, marginTop: "2px" }}>
+              {notification.sent ? "Mensaje automatico confirmado" : notification.phone ? "Toca para enviar WhatsApp" : "Llamar por nombre"}
             </div>
           </div>
           {notification.phone && !notification.sent && (
             <button onClick={whatsAppFromNotification} style={{
-              padding: "10px 16px", borderRadius: "10px", background: "#25D366",
+              padding: "10px 20px", borderRadius: "10px", background: H.success,
               color: "#fff", border: "none", fontSize: "14px", fontWeight: "600",
               cursor: "pointer", whiteSpace: "nowrap",
             }}>WhatsApp</button>
@@ -175,58 +200,62 @@ export default function HostDashboard() {
       )}
 
       <div style={{ padding: "20px", paddingTop: notification ? "80px" : "20px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <img src="/logo-light.png" alt="Chuí" style={{ height: "36px", borderRadius: "6px", objectFit: "contain" }} />
-              <span style={{ fontSize: "14px", color: "#666" }}>Hostess</span>
+              <img src="/logo-light.png" alt="Chui" style={{ height: "32px", borderRadius: "6px", objectFit: "contain" }} />
+              <span style={{ fontSize: "12px", color: H.textLight, letterSpacing: "0.08em", textTransform: "uppercase" }}>Hostess</span>
             </div>
-            <div style={{ fontSize: "13px", color: "#888", marginTop: "4px" }}>
+            <div style={{ fontSize: "12px", color: H.textLight, marginTop: "6px" }}>
               {new Date().toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "short" })}
             </div>
           </div>
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
             {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
               <div key={key} style={{ textAlign: "center" }}>
                 <div style={{ fontSize: "20px", fontWeight: "700", color: cfg.color }}>{stats[key] || 0}</div>
-                <div style={{ fontSize: "10px", color: "#666" }}><span style={{ display:"inline-block", width:"8px", height:"8px", borderRadius:"50%", background:cfg.dot }} /></div>
+                <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: cfg.color, margin: "4px auto 0" }} />
               </div>
             ))}
-            <div style={{ textAlign: "center", borderLeft: "1px solid #333", paddingLeft: "10px" }}>
-              <div style={{ fontSize: "20px", fontWeight: "700", color: "#fff" }}>{stats.waiting}</div>
-              <div style={{ fontSize: "10px", color: "#666" }}></div>
+            <div style={{ textAlign: "center", borderLeft: `1px solid ${H.cardBorder}`, paddingLeft: "12px" }}>
+              <div style={{ fontSize: "20px", fontWeight: "700", color: H.text }}>{stats.waiting}</div>
+              <div style={{ fontSize: "10px", color: H.textLight, marginTop: "4px" }}>fila</div>
             </div>
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: "4px", marginBottom: "16px" }}>
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: "4px", marginBottom: "20px", background: H.card, borderRadius: "12px", padding: "4px" }}>
           {[
             { key: "tables", label: `Mesas (${tables.length})` },
             { key: "queue", label: `Fila (${queue.length})` },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)} style={{
-              flex: 1, padding: "10px", borderRadius: "10px", fontSize: "14px", fontWeight: "600",
-              background: tab === t.key ? "#333" : "transparent", color: tab === t.key ? "#fff" : "#666",
-              border: "none", cursor: "pointer", fontFamily: f.sans,
+              flex: 1, padding: "12px", borderRadius: "10px", fontSize: "14px", fontWeight: "600",
+              background: tab === t.key ? H.accent : "transparent", color: tab === t.key ? H.bg : H.textLight,
+              border: "none", cursor: "pointer", fontFamily: f.sans, transition: "all 0.15s",
             }}>{t.label}</button>
           ))}
         </div>
       </div>
 
       {loading ? (
-        <div style={{ textAlign: "center", padding: "40px", color: "#888" }}>Cargando...</div>
+        <div style={{ textAlign: "center", padding: "40px", color: H.textLight }}>Cargando...</div>
       ) : (
         <div style={{ padding: "0 20px 40px" }}>
 
+          {/* TABLES TAB */}
           {tab === "tables" && (
             <>
-              <div style={{ display: "flex", gap: "6px", marginBottom: "14px" }}>
-                {[{ key: "all", label: "Todas" }, { key: "interior", label: "Interior" }, { key: "jardin", label: "Jardín" }].map(z => (
+              <div style={{ display: "flex", gap: "6px", marginBottom: "16px" }}>
+                {[{ key: "all", label: "Todas" }, { key: "interior", label: "Interior" }, { key: "jardin", label: "Jardin" }].map(z => (
                   <button key={z.key} onClick={() => setZoneFilter(z.key)} style={{
-                    padding: "6px 14px", borderRadius: "8px", fontSize: "13px", fontWeight: "500",
-                    background: zoneFilter === z.key ? "#333" : "transparent",
-                    color: zoneFilter === z.key ? "#fff" : "#666",
-                    border: "1px solid #333", cursor: "pointer", fontFamily: f.sans,
+                    padding: "8px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: "500",
+                    background: zoneFilter === z.key ? H.accent : "transparent",
+                    color: zoneFilter === z.key ? H.bg : H.textLight,
+                    border: zoneFilter === z.key ? "none" : `1px solid ${H.cardBorder}`,
+                    cursor: "pointer", fontFamily: f.sans, transition: "all 0.15s",
                   }}>{z.label}</button>
                 ))}
               </div>
@@ -237,18 +266,18 @@ export default function HostDashboard() {
                   const time = table.seated_at ? timeSince(table.seated_at) : "";
                   return (
                     <button key={table.id} onClick={() => cycleTableStatus(table)} style={{
-                      padding: "12px 8px", borderRadius: "12px", border: `2px solid ${cfg.color}40`,
+                      padding: "14px 8px", borderRadius: "12px", border: `1px solid ${cfg.border}`,
                       background: cfg.bg, cursor: "pointer", textAlign: "center", transition: "all 0.15s",
                     }}>
-                      <div style={{ fontSize: "16px", fontWeight: "700", color: cfg.color }}>{table.id}</div>
-                      <div style={{ fontSize: "10px", color: cfg.color, marginTop: "2px", opacity: 0.8 }}>{cfg.label}</div>
-                      <div style={{ fontSize: "10px", color: "#555", marginTop: "2px" }}>Cap {table.capacity}</div>
-                      {time && <div style={{ fontSize: "11px", color: "#888", marginTop: "2px" }}>{time}</div>}
+                      <div style={{ fontSize: "18px", fontWeight: "700", color: cfg.color }}>{table.id}</div>
+                      <div style={{ fontSize: "10px", color: cfg.color, marginTop: "2px", opacity: 0.7 }}>{cfg.label}</div>
+                      <div style={{ fontSize: "10px", color: H.textLight, marginTop: "2px" }}>Cap {table.capacity}</div>
+                      {time && <div style={{ fontSize: "11px", color: H.textMed, marginTop: "2px" }}>{time}</div>}
                       {table.combined_with && (
-                        <div style={{ fontSize: "9px", color: "#E8A735", marginTop: "2px" }}>+ {table.combined_with}</div>
+                        <div style={{ fontSize: "9px", color: H.warn, marginTop: "2px" }}>+ {table.combined_with}</div>
                       )}
                       {table.waitlist?.guest_name && (
-                        <div style={{ fontSize: "10px", color: "#aaa", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div style={{ fontSize: "10px", color: H.textMed, marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {table.waitlist.guest_name}
                         </div>
                       )}
@@ -257,84 +286,118 @@ export default function HostDashboard() {
                 })}
               </div>
 
-              <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginTop: "16px", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: "14px", justifyContent: "center", marginTop: "18px", flexWrap: "wrap" }}>
                 {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
-                  <div key={key} style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "12px", color: "#888" }}>
-                    <span style={{ color: cfg.color }}><span style={{ display:"inline-block", width:"8px", height:"8px", borderRadius:"50%", background:cfg.dot }} /></span> {cfg.label}
+                  <div key={key} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: H.textLight }}>
+                    <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: cfg.color, display: "inline-block" }} /> {cfg.label}
                   </div>
                 ))}
               </div>
-              <div style={{ textAlign: "center", marginTop: "8px", fontSize: "12px", color: "#555" }}>
-                Tocá una mesa para cambiar su estado →
+              <div style={{ textAlign: "center", marginTop: "8px", fontSize: "12px", color: H.textLight }}>
+                Toca una mesa para cambiar su estado
               </div>
             </>
           )}
 
+          {/* QUEUE TAB */}
           {tab === "queue" && (
             queue.length === 0 ? (
               <div style={{ textAlign: "center", padding: "60px 20px" }}>
-                <div style={{ fontSize: "16px", color: "#555", marginBottom: "12px", letterSpacing: "0.1em", textTransform: "uppercase" }}>sin espera</div>
-                <div style={{ fontSize: "18px", color: "#888" }}>Sin espera</div>
+                <div style={{ fontSize: "12px", color: H.textLight, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "8px" }}>sin espera</div>
+                <div style={{ fontSize: "18px", color: H.textMed }}>La fila esta vacia</div>
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                 {queue.map((entry, i) => {
                   const customer = entry.customers;
                   const trust = customer?.trust_level || 0;
+                  const visits = customer?.visit_count || 1;
                   const isNotified = entry.status === "notified";
+                  const activity = ACTIVITY_CONFIG[entry.activity] || ACTIVITY_CONFIG.esperando;
+                  const dist = entry.distance_m;
+
                   return (
                     <div key={entry.id} style={{
-                      background: isNotified ? "#2a2a1a" : "#252525", borderRadius: "14px", padding: "16px",
-                      borderLeft: isNotified ? `3px solid ${T.warn}` : `3px solid ${T.accent}`,
+                      background: H.card, borderRadius: "14px", padding: "18px",
+                      borderLeft: isNotified ? `3px solid ${H.warn}` : `3px solid ${H.cardBorder}`,
+                      border: `1px solid ${H.cardBorder}`,
                     }}>
+                      {/* Row 1: Name + trust */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                         <div>
-                          <div style={{ fontSize: "16px", fontWeight: "700" }}>
-                            <span style={{ color: T.accent, marginRight: "8px" }}>#{i + 1}</span>
-                            {entry.guest_name}
+                          <div style={{ fontSize: "16px", fontWeight: "700", display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span style={{ color: H.textLight, fontWeight: "500" }}>#{i + 1}</span>
+                            <span>{entry.guest_name}</span>
+                            {visits > 1 && (
+                              <span style={{ fontSize: "12px", fontWeight: "600", color: H.warn }}>x{visits}</span>
+                            )}
                           </div>
-                          <div style={{ fontSize: "13px", color: "#888", marginTop: "4px" }}>
-                            {entry.party_size} pers · {timeSince(entry.joined_at)}
-                            {customer?.phone && <span></span>}
+                          <div style={{ fontSize: "13px", color: H.textMed, marginTop: "4px", display: "flex", gap: "8px", alignItems: "center" }}>
+                            <span>{entry.party_size} pers</span>
+                            <span style={{ color: H.textLight }}>·</span>
+                            <span>{timeSince(entry.joined_at)}</span>
                           </div>
                         </div>
                         <span style={{
-                          fontSize: "11px", fontWeight: "600", padding: "3px 8px", borderRadius: "8px",
-                          background: isNotified ? "#443" : "#333",
-                          color: isNotified ? T.warn : trustColors[trust],
+                          fontSize: "11px", fontWeight: "600", padding: "4px 10px", borderRadius: "8px",
+                          background: isNotified ? "#221E14" : H.card,
+                          color: isNotified ? H.warn : trustColors[trust],
+                          border: `1px solid ${isNotified ? "#3A3220" : H.cardBorder}`,
                         }}>
                           {isNotified ? "Avisado" : trustLabels[trust]}
                         </span>
                       </div>
+
+                      {/* Row 2: Activity + distance */}
+                      <div style={{ display: "flex", gap: "10px", marginTop: "10px", alignItems: "center" }}>
+                        <span style={{
+                          fontSize: "11px", fontWeight: "600", padding: "3px 8px", borderRadius: "6px",
+                          background: `${activity.color}15`, color: activity.color,
+                        }}>
+                          {activity.label}
+                        </span>
+                        {dist !== null && dist !== undefined && (
+                          <span style={{ fontSize: "12px", fontWeight: "600", color: distanceColor(dist) }}>
+                            {dist}m
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Allergies */}
                       {customer?.allergies?.length > 0 && (
-                        <div style={{ marginTop: "8px", display: "flex", gap: "4px", flexWrap: "wrap" }}>
+                        <div style={{ marginTop: "10px", display: "flex", gap: "4px", flexWrap: "wrap" }}>
                           {customer.allergies.map(a => (
-                            <span key={a} style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "6px", background: "#3a2020", color: "#e88" }}>
+                            <span key={a} style={{
+                              fontSize: "11px", padding: "3px 8px", borderRadius: "6px",
+                              background: "#221616", color: "#D06060", border: "1px solid #3A2020",
+                            }}>
                               {a}
                             </span>
                           ))}
                         </div>
                       )}
-                      <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+
+                      {/* Actions */}
+                      <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
                         {!isNotified && (
                           <button onClick={() => notifyWhatsApp(entry)} style={{
-                            flex: 1, padding: "10px", borderRadius: "10px", background: "#1a3a1a",
-                            color: T.accent, border: "none", fontSize: "14px", fontWeight: "600",
+                            flex: 1, padding: "12px", borderRadius: "10px", background: "#162016",
+                            color: H.success, border: `1px solid #2A3D2A`, fontSize: "14px", fontWeight: "600",
                             cursor: "pointer", fontFamily: f.sans,
                           }}>Avisar</button>
                         )}
                         <button onClick={() => updateWaitlistStatus(entry.id, "seated")} style={{
-                          flex: 1, padding: "10px", borderRadius: "10px", background: T.accent,
-                          color: "#fff", border: "none", fontSize: "14px", fontWeight: "600",
+                          flex: 1, padding: "12px", borderRadius: "10px", background: H.accent,
+                          color: H.bg, border: "none", fontSize: "14px", fontWeight: "600",
                           cursor: "pointer", fontFamily: f.sans,
                         }}>Sentar</button>
                         <button onClick={() => {
-                          if (confirm(`¿Cancelar a ${entry.guest_name}?`))
+                          if (confirm(`Cancelar a ${entry.guest_name}?`))
                             updateWaitlistStatus(entry.id, "cancelled");
                         }} style={{
-                          padding: "10px 14px", borderRadius: "10px", background: "#3a1a1a",
-                          color: "#e55", border: "none", fontSize: "14px", cursor: "pointer",
-                        }}>×</button>
+                          padding: "12px 16px", borderRadius: "10px", background: "#221616",
+                          color: H.danger, border: `1px solid #3A2020`, fontSize: "14px", cursor: "pointer",
+                        }}>x</button>
                       </div>
                     </div>
                   );
