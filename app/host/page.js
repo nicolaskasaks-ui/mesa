@@ -385,6 +385,7 @@ export default function HostDashboard() {
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                       <span style={{ fontFamily: f.display, fontSize: "14px", color: T.textLight, fontWeight: "600" }}>#{i+1}</span>
                       <span style={{ fontFamily: f.display, fontSize: "17px", fontWeight: "700" }}>{entry.guest_name}</span>
+                      {c?.trust_level >= 1 && <span style={{ fontSize: "10px", fontWeight: "700", color: S.libre.bg }}>✓</span>}
                       <span style={{ fontSize: "13px", color: T.textMed }}>{entry.party_size}p</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -435,19 +436,26 @@ export default function HostDashboard() {
                         </>
                       );
                     })() : (
-                      <span style={{
-                        fontSize: "10px", fontWeight: "600", padding: "3px 8px", borderRadius: "6px",
-                        background: isExtended ? S.sentado.bg : `${act.color}10`,
-                        color: isExtended ? S.sentado.color : act.color,
-                      }}>
-                        {isExtended ? "Paso turno" : act.label}
-                      </span>
+                      entry.activity !== "en_barra" ? (
+                        <span style={{
+                          fontSize: "10px", fontWeight: "600", padding: "3px 8px", borderRadius: "6px",
+                          background: isExtended ? S.sentado.bg : `${act.color}10`,
+                          color: isExtended ? S.sentado.color : act.color,
+                        }}>
+                          {isExtended ? "Paso turno" : act.label}
+                        </span>
+                      ) : null
                     )}
                     {c?.allergies?.map(a => (
                       <span key={a} style={{ fontSize: "10px", padding: "3px 8px", borderRadius: "6px", background: S.pidio_cuenta.bg, color: S.pidio_cuenta.color }}>{a}</span>
                     ))}
                     {entry.activity === "en_barra" && (
                       <span style={{ fontFamily: "monospace", fontSize: "10px", fontWeight: "600", padding: "3px 8px", borderRadius: "6px", background: T.goldLight, color: T.gold }}>{entry.id?.slice(0, 8).toUpperCase()}</span>
+                    )}
+                    {c?.trust_level >= 2 && (
+                      <span style={{ fontSize: "10px", fontWeight: "600", padding: "3px 8px", borderRadius: "6px", background: "#E8F5EE", color: "#2D7A4F" }}>
+                        {c.trust_level >= 3 ? "Habitual" : "Confiable"}
+                      </span>
                     )}
                   </div>
 
