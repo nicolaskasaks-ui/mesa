@@ -371,7 +371,7 @@ export default function MeantimeCustomer() {
         <Header />
         <Card style={{ marginTop: "28px", textAlign: "center" }}>
           <div style={{ fontSize: "12px", fontWeight: "700", color: T.success, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "8px" }}>tu turno</div>
-          <div style={{ fontFamily: f.display, fontSize: "26px", fontWeight: "700", color: T.text }}>Tu mesa esta lista</div>
+          <div style={{ fontFamily: f.display, fontSize: "26px", fontWeight: "700", color: T.text }}>{name}, tu mesa esta lista</div>
 
           {/* Countdown */}
           <div style={{
