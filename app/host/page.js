@@ -441,20 +441,28 @@ export default function HostDashboard() {
                     </div>
                   )}
 
-                  {/* Table prediction */}
+                  {/* Table prediction — tapeable to assign */}
                   {pred && (
-                    <div style={{
-                      marginTop: "10px", padding: "8px 14px", borderRadius: "8px",
-                      background: T.bgPage, border: `1px solid ${T.cardBorder}`,
+                    <button onClick={() => {
+                      if (pred.status === "libre") {
+                        if (confirm(`Asignar mesa ${pred.tableId} a ${entry.guest_name}?`)) {
+                          doNotify(entry); fetchAll();
+                        }
+                      }
+                    }} style={{
+                      marginTop: "10px", padding: "10px 14px", borderRadius: "8px", width: "100%",
+                      background: pred.status === "libre" ? S.libre.bg : T.bgPage,
+                      border: pred.status === "libre" ? "none" : `1px solid ${T.cardBorder}`,
                       display: "flex", justifyContent: "space-between", alignItems: "center",
+                      cursor: pred.status === "libre" ? "pointer" : "default",
                     }}>
-                      <span style={{ fontSize: "11px", color: T.textLight }}>
-                        {pred.status === "libre" ? "Mesa disponible" : pred.status === "postre" ? "Proxima mesa" : "Siguiente en liberar"}
+                      <span style={{ fontSize: "11px", fontWeight: "600", color: pred.status === "libre" ? "#fff" : T.textLight }}>
+                        {pred.status === "libre" ? "Asignar mesa" : pred.status === "postre" ? "Proxima mesa" : "Siguiente en liberar"}
                       </span>
-                      <span style={{ fontFamily: f.display, fontSize: "14px", fontWeight: "700", color: T.text }}>
-                        {pred.tableId} <span style={{ fontSize: "11px", fontWeight: "500", color: T.textLight }}>({pred.capacity}p)</span>
+                      <span style={{ fontFamily: f.display, fontSize: "14px", fontWeight: "700", color: pred.status === "libre" ? "#fff" : T.text }}>
+                        {pred.tableId} <span style={{ fontSize: "11px", fontWeight: "500", color: pred.status === "libre" ? "rgba(255,255,255,0.7)" : T.textLight }}>({pred.capacity}p)</span>
                       </span>
-                    </div>
+                    </button>
                   )}
 
                   {/* Actions */}
