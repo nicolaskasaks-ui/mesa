@@ -26,6 +26,41 @@ function ago(d) {
   return `${Math.floor(m/60)}h${m%60}m`;
 }
 
+// Predict which table each queue entry will likely get
+function predictTable(tables, queue) {
+  const predictions = {};
+  // Tables sorted by availability priority: libre > limpiando > pidio_cuenta
+  const priority = { libre: 0, limpiando: 1, pidio_cuenta: 2 };
+  const available = tables
+    .filter(t => t.status === "libre" || t.status === "limpiando" || t.status === "pidio_cuenta")
+    .sort((a, b) => {
+      const pa = priority[a.status] ?? 9;
+      const pb = priority[b.status] ?? 9;
+      if (pa !== pb) return pa - pb;
+      return a.capacity - b.capacity;
+    });
+
+  const used = new Set();
+  const waiting = queue.filter(e => e.status === "waiting" || e.status === "extended");
+
+  for (const entry of waiting) {
+    // Find best table: exact capacity match first, then smallest that fits
+    let best = null;
+    for (const t of available) {
+      if (used.has(t.id) || t.capacity < entry.party_size) continue;
+      if (!best || Math.abs(t.capacity - entry.party_size) < Math.abs(best.capacity - entry.party_size)) {
+        best = t;
+        if (t.capacity === entry.party_size) break; // exact match
+      }
+    }
+    if (best) {
+      predictions[entry.id] = { tableId: best.id, status: best.status, capacity: best.capacity };
+      used.add(best.id);
+    }
+  }
+  return predictions;
+}
+
 function getCandidates(queue, capacity) {
   return queue
     .filter(e => e.status === "waiting" && e.party_size <= capacity)
@@ -135,7 +170,7 @@ export default function HostDashboard() {
 
   const libre = tables.filter(t => t.status === "libre").length;
   const waiting = queue.filter(q => q.status === "waiting").length;
-  const sentado = tables.filter(t => t.status === "sentado").length;
+  const predictions = predictTable(tables, queue);
 
   if (loading) return (
     <div style={{ minHeight: "100dvh", background: T.bgPage, display: "flex", alignItems: "center", justifyContent: "center", color: T.textLight, fontFamily: f.sans }}>
@@ -288,6 +323,7 @@ export default function HostDashboard() {
               const isNotified = entry.status === "notified";
               const isExtended = entry.status === "extended";
               const act = ACT[entry.activity] || ACT.esperando;
+              const pred = predictions[entry.id];
 
               return (
                 <div key={entry.id} style={{
@@ -328,6 +364,22 @@ export default function HostDashboard() {
                     }}>
                       <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "11px", fontWeight: "700", color: T.gold, letterSpacing: "0.08em" }}>BARRA 2x1</span>
                       <span style={{ fontFamily: "monospace", fontSize: "13px", fontWeight: "700", color: T.accent, letterSpacing: "0.05em" }}>{entry.id?.slice(0, 8).toUpperCase()}</span>
+                    </div>
+                  )}
+
+                  {/* Table prediction */}
+                  {pred && (
+                    <div style={{
+                      marginTop: "10px", padding: "8px 14px", borderRadius: "8px",
+                      background: T.bgPage, border: `1px solid ${T.cardBorder}`,
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                    }}>
+                      <span style={{ fontSize: "11px", color: T.textLight }}>
+                        {pred.status === "libre" ? "Mesa disponible" : pred.status === "limpiando" ? "Proxima mesa" : "Siguiente en liberar"}
+                      </span>
+                      <span style={{ fontFamily: f.display, fontSize: "14px", fontWeight: "700", color: T.text }}>
+                        {pred.tableId} <span style={{ fontSize: "11px", fontWeight: "500", color: T.textLight }}>({pred.capacity}p)</span>
+                      </span>
                     </div>
                   )}
 
