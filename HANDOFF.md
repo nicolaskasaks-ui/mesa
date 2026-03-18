@@ -75,8 +75,32 @@ Mostrar WA / Walk-in / OT segun source del waitlist entry
 - Source breakdown (direct vs walkin vs whatsapp_bot)
 - Ticket promedio post-promo vs sin promo
 
-### 6. Otras mejoras pendientes
+### 6. Trust scoring system
+La tabla `customers` ya tiene `trust_level` (0-3) y `visit_count`.
+
+**Reglas:**
+- `trust_level 0` (Nuevo): solo puede anotarse escaneando QR en el restaurante (source: "qr")
+- `trust_level 1` (Verificado): se sentó al menos 1 vez sin no-show. Puede anotarse remoto via WhatsApp link
+- `trust_level 2` (Confiable): 3+ visitas sin no-show. Acceso remoto + prioridad en la fila
+- `trust_level 3` (Habitual): 5+ visitas. Acceso remoto + prioridad + promos exclusivas
+
+**Auto-scoring en el backend:**
+- Seated exitoso → trust_level sube (si cumple threshold de visitas)
+- No-show (vencido) → trust_level baja a 0, necesita volver a anotarse presencial
+- El POST de waitlist chequea trust_level antes de permitir registro remoto
+
+**Cliente:**
+- Si trust >= 1: puede acceder a `mesa-xi.vercel.app` sin QR y anotarse
+- Si trust == 0: la app detecta que no esta cerca del restaurante (GPS) y le dice "Acercate a Chuí para anotarte"
+- Mostrar bandera verde/dorada en el perfil del cliente segun trust level
+
+**Host:**
+- Ya muestra trust labels (Nuevo/Verificado/Confiable/Habitual) en la fila
+
+### 7. Otras mejoras pendientes
 - Twilio produccion (salir del sandbox)
 - Auth para host (ahora /host es publico)
 - Multi-restaurante
 - Registro marca Meantime + dominio
+- Dashboard analytics por noche (cubiertos, revenue barra, espera, no-show)
+- Bar POS lite (vista barman con consumos post-2x1)

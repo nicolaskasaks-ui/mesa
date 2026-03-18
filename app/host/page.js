@@ -247,7 +247,7 @@ export default function HostDashboard() {
           </div>
           <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontFamily: f.display, fontSize: "24px", fontWeight: "700", color: S.libre.color }}>{libre}</div>
+              <div style={{ fontFamily: f.display, fontSize: "24px", fontWeight: "700", color: S.libre.bg }}>{libre}</div>
               <div style={{ fontSize: "10px", color: T.textLight, fontWeight: "600", letterSpacing: "0.04em" }}>libres</div>
             </div>
             <div style={{ width: "1px", height: "28px", background: T.border }} />
