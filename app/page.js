@@ -242,14 +242,14 @@ export default function MeantimeCustomer() {
         </div>
       </Card>
       <div style={{ marginTop: "16px", padding: "18px 20px", borderRadius: T.radius, background: T.goldLight, border: `1px solid ${T.gold}30`, textAlign: "center" }}>
-        <div style={{ fontSize: "14px", fontWeight: "700", color: T.gold, letterSpacing: "0.04em", textTransform: "uppercase" }}>2x1 en barra</div>
+        <div style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "15px", fontWeight: "700", color: T.gold, letterSpacing: "0.06em", textTransform: "uppercase" }}>2x1 en barra</div>
         <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Cerveza tirada, copa de vino o vermut — al registrarte.</div>
       </div>
       <div style={{ marginTop: "28px", display: "flex", flexDirection: "column", gap: "10px" }}>
         {returning ? (
           <>
             <Btn onClick={() => setView("form")}>Quiero mi mesa — {party} pers.</Btn>
-            <Btn variant="ghost" onClick={() => { setReturning(false); setView("form"); }} style={{ fontSize: "13px" }}>Cambiar datos</Btn>
+            <Btn variant="outline" onClick={() => { setReturning(false); setView("form"); }}>Mis datos</Btn>
           </>
         ) : (
           <Btn onClick={() => setView("form")}>Quiero mi mesa</Btn>
@@ -431,7 +431,7 @@ export default function MeantimeCustomer() {
       {/* 2x1 bar */}
       {!atBar && (
         <Card style={{ marginTop: "14px", background: T.goldLight, border: `1px solid ${T.gold}25` }}>
-          <div style={{ fontSize: "14px", fontWeight: "700", color: T.gold, letterSpacing: "0.04em", textTransform: "uppercase" }}>2x1 en barra</div>
+          <div style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "15px", fontWeight: "700", color: T.gold, letterSpacing: "0.06em", textTransform: "uppercase" }}>2x1 en barra</div>
           <div style={{ fontSize: "13px", color: T.textMed, marginTop: "6px" }}>Cerveza tirada, copa de vino o vermut.</div>
           <button onClick={() => setAtBar(true)} style={{
             marginTop: "14px", width: "100%", padding: "14px", borderRadius: "12px",
