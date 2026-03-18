@@ -147,6 +147,24 @@ export default function MeantimeCustomer() {
     return () => { supabase.removeChannel(channel); };
   }, [entry]);
 
+  // Always track distance to Chuí and push every 15s
+  useEffect(() => {
+    if (!entry || !navigator.geolocation) return;
+    const updateDist = (pos) => {
+      const d = Math.round(getDistance(pos.coords.latitude, pos.coords.longitude, RESTAURANT.lat, RESTAURANT.lng));
+      setDistance(d);
+    };
+    const geoId = navigator.geolocation.watchPosition(updateDist, () => {}, { enableHighAccuracy: true, maximumAge: 10000 });
+    // Push distance every 15s
+    const pushId = setInterval(() => {
+      if (distance !== null) {
+        const body = { id: entry.id, distance_m: distance };
+        fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => {});
+      }
+    }, 15000);
+    return () => { navigator.geolocation.clearWatch(geoId); clearInterval(pushId); };
+  }, [entry, distance]);
+
   // Arrival countdown when notified
   useEffect(() => {
     if (entry?.status !== "notified" || !entry?.notified_at) { setArrivalCountdown(null); return; }
