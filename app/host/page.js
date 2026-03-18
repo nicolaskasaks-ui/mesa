@@ -496,8 +496,8 @@ export default function HostDashboard() {
                   <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
                     {!isNotified && !isExtended && (
                       <button onClick={() => doNotify(entry)} style={{
-                        flex: 1, padding: "11px", borderRadius: "10px", background: S.libre.bg,
-                        color: S.libre.color, border: `1px solid ${S.libre.border}`,
+                        flex: 1, padding: "11px", borderRadius: "10px", background: T.bgPage,
+                        color: T.text, border: `1px solid ${T.border}`,
                         fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
                       }}>Avisar</button>
                     )}
