@@ -319,6 +319,18 @@ export default function HostDashboard() {
                     ))}
                   </div>
 
+                  {/* Bar 2x1 badge */}
+                  {entry.activity === "en_barra" && (
+                    <div style={{
+                      marginTop: "10px", padding: "10px 14px", borderRadius: "10px",
+                      background: T.goldLight, border: `1px solid ${T.gold}30`,
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                    }}>
+                      <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "11px", fontWeight: "700", color: T.gold, letterSpacing: "0.08em" }}>BARRA 2x1</span>
+                      <span style={{ fontFamily: "monospace", fontSize: "13px", fontWeight: "700", color: T.accent, letterSpacing: "0.05em" }}>{entry.id?.slice(0, 8).toUpperCase()}</span>
+                    </div>
+                  )}
+
                   {/* Actions */}
                   <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
                     {!isNotified && (
