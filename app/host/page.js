@@ -260,40 +260,74 @@ export default function HostDashboard() {
       </div>
 
       {/* ── TABLE GRID ── */}
-      <div style={{ padding: "20px 16px 8px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px" }}>
-          {tables.map(table => {
-            const cfg = S[table.status] || S.libre;
-            const time = table.seated_at ? ago(table.seated_at) : "";
-            const guestName = table.waitlist?.guest_name;
-            return (
-              <button key={table.id} onClick={() => cycleTable(table)} style={{
-                padding: "20px 6px 12px", borderRadius: T.radius, border: "none",
-                background: cfg.bg, cursor: "pointer", textAlign: "center",
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start",
-                minHeight: "100px",
-              }}>
-                <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "800", color: cfg.color, lineHeight: 1 }}>{table.id}</div>
-                <div style={{ fontSize: "11px", color: cfg.color, marginTop: "4px", fontWeight: "600", opacity: 0.8 }}>{cfg.label}</div>
-                <div style={{ fontSize: "10px", color: cfg.color, marginTop: "4px", opacity: 0.6 }}>{table.capacity} pers</div>
-                <div style={{ fontSize: "11px", color: cfg.color, marginTop: "2px", fontWeight: "500", opacity: time ? 0.7 : 0, height: "14px" }}>{time || "-"}</div>
-                <div style={{ fontSize: "10px", color: cfg.color, marginTop: "2px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "500", opacity: guestName ? 0.7 : 0, height: "13px" }}>
-                  {guestName || "-"}
-                </div>
-              </button>
-            );
-          })}
-        </div>
+      {(() => {
+        const active = tables.filter(t => t.status !== "sentado");
+        const seated = tables.filter(t => t.status === "sentado");
+        return (
+          <div style={{ padding: "20px 16px 8px" }}>
+            {/* Active tables: libre, postre, cuenta — large tiles */}
+            {active.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginBottom: "12px" }}>
+                {active.map(table => {
+                  const cfg = S[table.status] || S.libre;
+                  const time = table.seated_at ? ago(table.seated_at) : "";
+                  const guestName = table.waitlist?.guest_name;
+                  return (
+                    <button key={table.id} onClick={() => cycleTable(table)} style={{
+                      padding: "18px 8px 14px", borderRadius: T.radius, border: "none",
+                      background: cfg.bg, cursor: "pointer", textAlign: "center",
+                      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start",
+                      minHeight: "110px",
+                    }}>
+                      <div style={{ fontFamily: f.display, fontSize: "22px", fontWeight: "800", color: cfg.color, lineHeight: 1 }}>{table.id}</div>
+                      <div style={{ fontSize: "11px", color: cfg.color, marginTop: "5px", fontWeight: "600", opacity: 0.8 }}>{cfg.label}</div>
+                      <div style={{ fontSize: "10px", color: cfg.color, marginTop: "4px", opacity: 0.6 }}>{table.capacity}p</div>
+                      <div style={{ fontSize: "11px", color: cfg.color, marginTop: "3px", fontWeight: "500", opacity: time ? 0.7 : 0, height: "14px" }}>{time || "-"}</div>
+                      <div style={{ fontSize: "10px", color: cfg.color, marginTop: "2px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "500", opacity: guestName ? 0.7 : 0, height: "13px" }}>
+                        {guestName || "-"}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
-        {/* Legend */}
-        <div style={{ display: "flex", gap: "16px", justifyContent: "center", padding: "14px 0 6px" }}>
-          {Object.entries(S).map(([k, v]) => (
-            <div key={k} style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "11px", color: T.textLight }}>
-              <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: v.bg }} /> {v.label}
+            {/* Seated tables — compact strip */}
+            {seated.length > 0 && (
+              <>
+                <div style={{ fontSize: "10px", fontWeight: "700", color: T.textLight, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "6px", paddingLeft: "2px" }}>
+                  Sentados ({seated.length})
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "12px" }}>
+                  {seated.map(table => {
+                    const time = table.seated_at ? ago(table.seated_at) : "";
+                    return (
+                      <button key={table.id} onClick={() => cycleTable(table)} style={{
+                        padding: "8px 12px", borderRadius: "10px", border: "none",
+                        background: S.sentado.bg, cursor: "pointer",
+                        display: "flex", alignItems: "center", gap: "6px",
+                      }}>
+                        <span style={{ fontFamily: f.display, fontSize: "13px", fontWeight: "800", color: S.sentado.color }}>{table.id}</span>
+                        <span style={{ fontSize: "9px", color: S.sentado.color, opacity: 0.5 }}>{table.capacity}p</span>
+                        {time && <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "9px", color: S.sentado.color, opacity: 0.5 }}>{time}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* Legend */}
+            <div style={{ display: "flex", gap: "16px", justifyContent: "center", padding: "8px 0 6px" }}>
+              {Object.entries(S).map(([k, v]) => (
+                <div key={k} style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "11px", color: T.textLight }}>
+                  <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: v.bg }} /> {v.label}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
+        );
+      })()}
 
       {/* ── QUEUE ── */}
       {queue.length > 0 && (
