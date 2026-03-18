@@ -96,7 +96,16 @@ export default function HostDashboard() {
   };
 
   const setStatus = async (id, status) => {
-    await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+    try {
+      const res = await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+      const data = await res.json();
+      if (data.error) { console.error("setStatus error:", data.error); alert("Error: " + data.error); return; }
+      // Force refresh
+      fetchAll();
+    } catch (err) {
+      console.error("setStatus fetch error:", err);
+      alert("Error de conexion");
+    }
   };
 
   const libre = tables.filter(t => t.status === "libre").length;
