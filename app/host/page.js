@@ -268,9 +268,9 @@ export default function HostDashboard() {
             const guestName = table.waitlist?.guest_name;
             return (
               <button key={table.id} onClick={() => cycleTable(table)} style={{
-                padding: "12px 6px", borderRadius: T.radius, border: "none",
+                padding: "20px 6px 12px", borderRadius: T.radius, border: "none",
                 background: cfg.bg, cursor: "pointer", textAlign: "center",
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start",
                 minHeight: "100px",
               }}>
                 <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "800", color: cfg.color, lineHeight: 1 }}>{table.id}</div>
