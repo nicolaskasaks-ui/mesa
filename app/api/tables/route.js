@@ -1,13 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { sendWhatsApp } from "../../../lib/twilio";
+import { sendWhatsApp, msgTableReady } from "../../../lib/twilio";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
 );
 
-// GET — all tables with current status
 export async function GET() {
   const { data, error } = await supabase
     .from("tables")
@@ -17,10 +16,8 @@ export async function GET() {
   return NextResponse.json(data);
 }
 
-// PATCH — change table status
 export async function PATCH(request) {
   const { id, status, waitlist_id } = await request.json();
-
   const updates = { status, updated_at: new Date().toISOString() };
 
   if (status === "sentado") {
@@ -32,7 +29,6 @@ export async function PATCH(request) {
     updates.seated_at = null;
     updates.waitlist_id = null;
 
-    // Auto-notify: find next waiting person and mark as notified
     const { data: nextInLine } = await supabase
       .from("waitlist")
       .select("id, guest_name, customers(phone)")
@@ -42,19 +38,17 @@ export async function PATCH(request) {
       .single();
 
     if (nextInLine) {
-      await supabase
-        .from("waitlist")
+      await supabase.from("waitlist")
         .update({ status: "notified", notified_at: new Date().toISOString() })
         .eq("id", nextInLine.id);
 
-      // Auto-send WhatsApp directly (no self-fetch)
       const phone = nextInLine.customers?.phone;
       let whatsappSent = false;
       if (phone) {
         const result = await sendWhatsApp({
           to: phone,
           guestName: nextInLine.guest_name,
-          waitMinutes: 0,
+          message: msgTableReady({ guestName: nextInLine.guest_name, arrivalMinutes: 10 }),
         });
         whatsappSent = result.ok;
       }
