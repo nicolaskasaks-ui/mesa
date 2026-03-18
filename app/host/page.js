@@ -339,9 +339,10 @@ export default function HostDashboard() {
                       <span style={{ fontSize: "13px", color: T.textMed }}>{entry.party_size}p</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      {entry.distance_m != null && (
+                      {entry.distance_m != null && entry.distance_m > 0 && (
                         <span style={{
-                          fontSize: "11px", fontWeight: "600",
+                          fontSize: "11px", fontWeight: "600", padding: "2px 6px", borderRadius: "4px",
+                          background: entry.distance_m < 300 ? "#E8F5EE" : entry.distance_m < 800 ? "#FFF6EC" : "#FCEDED",
                           color: entry.distance_m < 300 ? "#2D7A4F" : entry.distance_m < 800 ? "#D4942A" : "#C93B3B",
                         }}>{entry.distance_m}m</span>
                       )}
