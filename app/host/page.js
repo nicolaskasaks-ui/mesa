@@ -69,6 +69,15 @@ export default function HostDashboard() {
   }, []);
 
   const cycleTable = async (table) => {
+    // If table is libre and there are candidates, show picker instead of cycling
+    if (table.status === "libre") {
+      const candidates = getCandidates(queue, table.capacity);
+      if (candidates.length > 0) {
+        setPicker({ table, candidates });
+        return;
+      }
+    }
+
     const next = STATUS_FLOW[(STATUS_FLOW.indexOf(table.status) + 1) % STATUS_FLOW.length];
 
     await window.fetch("/api/tables", {
@@ -76,7 +85,7 @@ export default function HostDashboard() {
       body: JSON.stringify({ id: table.id, status: next }),
     });
 
-    // When table goes libre, show seat picker if there are candidates
+    // When table transitions to libre, show picker
     if (next === "libre") {
       const candidates = getCandidates(queue, table.capacity);
       if (candidates.length > 0) {
@@ -99,17 +108,24 @@ export default function HostDashboard() {
         });
         const data = await res.json();
         if (!data.success) {
-          const msg = encodeURIComponent(`${entry.guest_name}, tu mesa en Chui esta lista! Te la guardamos 10 min.\nLoyola 1250.`);
+          const msg = encodeURIComponent(`${entry.guest_name}, tu mesa en Chuí esta lista! Te la guardamos 10 min.\nLoyola 1250.`);
           window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
         }
       } catch {
-        const msg = encodeURIComponent(`${entry.guest_name}, tu mesa en Chui esta lista! Te la guardamos 10 min.\nLoyola 1250.`);
+        const msg = encodeURIComponent(`${entry.guest_name}, tu mesa en Chuí esta lista! Te la guardamos 10 min.\nLoyola 1250.`);
         window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
       }
     }
   };
 
-  const seatGuest = async (entry) => {
+  const notifyFromPicker = async (entry) => {
+    await doNotify(entry);
+    setPicker(null);
+    fetchAll();
+  };
+
+  const seatDirect = async (entry) => {
+    // For when person is physically at the restaurant
     await doNotify(entry);
     try {
       await window.fetch("/api/waitlist", {
@@ -117,12 +133,6 @@ export default function HostDashboard() {
         body: JSON.stringify({ id: entry.id, status: "seated" }),
       });
     } catch {}
-    setPicker(null);
-    fetchAll();
-  };
-
-  const notifyOnly = async (entry) => {
-    await doNotify(entry);
     setPicker(null);
     fetchAll();
   };
@@ -221,16 +231,16 @@ export default function HostDashboard() {
 
                     {/* Action buttons */}
                     <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
-                      <button onClick={() => seatGuest(entry)} style={{
+                      <button onClick={() => notifyFromPicker(entry)} style={{
                         flex: 1, padding: "12px", borderRadius: "10px", background: T.accent,
                         color: "#fff", border: "none", fontSize: "14px", fontWeight: "600",
                         cursor: "pointer", fontFamily: f.sans,
-                      }}>Sentar</button>
-                      <button onClick={() => notifyOnly(entry)} style={{
+                      }}>Avisar</button>
+                      <button onClick={() => seatDirect(entry)} style={{
                         flex: 1, padding: "12px", borderRadius: "10px", background: S.libre.bg,
                         color: S.libre.color, border: `1px solid ${S.libre.border}`, fontSize: "14px", fontWeight: "600",
                         cursor: "pointer", fontFamily: f.sans,
-                      }}>Solo avisar</button>
+                      }}>Sentar directo</button>
                     </div>
                   </div>
                 );
