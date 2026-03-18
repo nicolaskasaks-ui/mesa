@@ -276,12 +276,10 @@ export default function HostDashboard() {
                 <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "800", color: cfg.color, lineHeight: 1 }}>{table.id}</div>
                 <div style={{ fontSize: "11px", color: cfg.color, marginTop: "4px", fontWeight: "600", opacity: 0.8 }}>{cfg.label}</div>
                 <div style={{ fontSize: "10px", color: cfg.color, marginTop: "4px", opacity: 0.6 }}>{table.capacity} pers</div>
-                {time && <div style={{ fontSize: "11px", color: cfg.color, marginTop: "2px", fontWeight: "500", opacity: 0.7 }}>{time}</div>}
-                {guestName && (
-                  <div style={{ fontSize: "10px", color: cfg.color, marginTop: "2px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "500", opacity: 0.7 }}>
-                    {guestName}
-                  </div>
-                )}
+                <div style={{ fontSize: "11px", color: cfg.color, marginTop: "2px", fontWeight: "500", opacity: time ? 0.7 : 0, height: "14px" }}>{time || "-"}</div>
+                <div style={{ fontSize: "10px", color: cfg.color, marginTop: "2px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "500", opacity: guestName ? 0.7 : 0, height: "13px" }}>
+                  {guestName || "-"}
+                </div>
               </button>
             );
           })}
