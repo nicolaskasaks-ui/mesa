@@ -4,10 +4,10 @@ import { supabase } from "../../lib/supabase";
 import { T, f } from "../../lib/tokens";
 
 const S = {
-  libre:        { label: "Libre",     color: "#2D7A4F", bg: "#E8F5EE", border: "#C3E5D0" },
-  sentado:      { label: "Sentado",   color: "#3B7BC0", bg: "#EDF3FA", border: "#C0D8F0" },
-  pidio_cuenta: { label: "Cuenta",    color: "#C4872A", bg: "#FFF8F0", border: "#F0DFC0" },
-  limpiando:    { label: "Limpiando", color: "#B83B3B", bg: "#FDF0F0", border: "#F0C0C0" },
+  libre:        { label: "Libre",     color: "#fff", bg: "#2D7A4F", border: "#246B42" },
+  sentado:      { label: "Sentado",   color: "#fff", bg: "#1A1A1A", border: "#333" },
+  pidio_cuenta: { label: "Cuenta",    color: "#fff", bg: "#C93B3B", border: "#A83030" },
+  limpiando:    { label: "Limpiando", color: "#fff", bg: "#D4942A", border: "#B87E20" },
 };
 const STATUS_FLOW = ["libre", "sentado", "pidio_cuenta", "limpiando"];
 
@@ -233,17 +233,17 @@ export default function HostDashboard() {
             const guestName = table.waitlist?.guest_name;
             return (
               <button key={table.id} onClick={() => cycleTable(table)} style={{
-                padding: "12px 6px", borderRadius: T.radius, border: `1.5px solid ${cfg.border}`,
+                padding: "12px 6px", borderRadius: T.radius, border: "none",
                 background: cfg.bg, cursor: "pointer", textAlign: "center",
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                 minHeight: "100px",
               }}>
                 <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "800", color: cfg.color, lineHeight: 1 }}>{table.id}</div>
-                <div style={{ fontSize: "11px", color: cfg.color, marginTop: "4px", fontWeight: "600" }}>{cfg.label}</div>
-                <div style={{ fontSize: "10px", color: T.textLight, marginTop: "4px" }}>{table.capacity} pers</div>
-                {time && <div style={{ fontSize: "11px", color: T.textMed, marginTop: "2px", fontWeight: "500" }}>{time}</div>}
+                <div style={{ fontSize: "11px", color: cfg.color, marginTop: "4px", fontWeight: "600", opacity: 0.8 }}>{cfg.label}</div>
+                <div style={{ fontSize: "10px", color: cfg.color, marginTop: "4px", opacity: 0.6 }}>{table.capacity} pers</div>
+                {time && <div style={{ fontSize: "11px", color: cfg.color, marginTop: "2px", fontWeight: "500", opacity: 0.7 }}>{time}</div>}
                 {guestName && (
-                  <div style={{ fontSize: "10px", color: T.textMed, marginTop: "2px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "500" }}>
+                  <div style={{ fontSize: "10px", color: cfg.color, marginTop: "2px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "500", opacity: 0.7 }}>
                     {guestName}
                   </div>
                 )}
@@ -256,7 +256,7 @@ export default function HostDashboard() {
         <div style={{ display: "flex", gap: "16px", justifyContent: "center", padding: "14px 0 6px" }}>
           {Object.entries(S).map(([k, v]) => (
             <div key={k} style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "11px", color: T.textLight }}>
-              <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: v.color }} /> {v.label}
+              <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: v.bg }} /> {v.label}
             </div>
           ))}
         </div>
