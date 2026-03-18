@@ -224,7 +224,7 @@ export default function HostDashboard() {
                   }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        {i === 0 && <span style={{ fontSize: "9px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px", background: S.libre.color, color: "#fff" }}>RECOMENDADO</span>}
+                        {i === 0 && <span style={{ fontSize: "9px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px", background: S.libre.bg, color: "#fff" }}>RECOMENDADO</span>}
                         <span style={{ fontSize: "16px", fontWeight: "700" }}>{entry.guest_name}</span>
                       </div>
                       <span style={{ fontSize: "13px", fontWeight: "600", color: isExact ? S.libre.color : T.textMed }}>{entry.party_size}p · {ago(entry.joined_at)}</span>
@@ -380,26 +380,31 @@ export default function HostDashboard() {
                   border: `1px solid ${T.cardBorder}`, boxShadow: T.shadow,
                   borderLeft: isNotified ? `3px solid ${S.pidio_cuenta.color}` : isExtended ? `3px solid ${S.sentado.color}` : `3px solid transparent`,
                 }}>
-                  {/* Row 1 */}
+                  {/* Row 1: name + location + time */}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                       <span style={{ fontFamily: f.display, fontSize: "14px", color: T.textLight, fontWeight: "600" }}>#{i+1}</span>
                       <span style={{ fontFamily: f.display, fontSize: "17px", fontWeight: "700" }}>{entry.guest_name}</span>
                       <span style={{ fontSize: "13px", color: T.textMed }}>{entry.party_size}p</span>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      {entry.distance_m != null && entry.distance_m > 0 && (
-                        <span style={{
-                          fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "11px", fontWeight: "600", padding: "2px 6px", borderRadius: "4px",
-                          background: entry.distance_m < 300 ? "#E8F5EE" : entry.distance_m < 800 ? "#FFF6EC" : "#FCEDED",
-                          color: entry.distance_m < 300 ? "#2D7A4F" : entry.distance_m < 800 ? "#D4942A" : "#C93B3B",
-                        }}>{entry.distance_m}m</span>
-                      )}
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      {/* Location pill */}
+                      {(() => {
+                        const dist = entry.distance_m;
+                        const inBar = entry.activity === "en_barra";
+                        const atChui = dist != null && dist <= 50;
+                        const label = inBar ? "BARRA" : atChui ? "CHUÍ" : dist != null && dist > 0 ? `${dist}m` : null;
+                        const bg = inBar ? T.gold : atChui ? S.libre.bg : dist != null && dist < 300 ? "#2D7A4F" : dist != null && dist < 800 ? "#D4942A" : dist != null ? "#C93B3B" : null;
+                        return label ? (
+                          <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "10px", fontWeight: "700", padding: "3px 8px", borderRadius: "4px", background: bg, color: "#fff", letterSpacing: "0.04em" }}>{label}</span>
+                        ) : null;
+                      })()}
+                      {/* Wait time pill */}
                       {(() => {
                         const waitMin = Math.floor((now - new Date(entry.joined_at).getTime()) / 60000);
                         const wBg = waitMin >= 45 ? "#C93B3B" : waitMin >= 31 ? "#D4942A" : waitMin >= 15 ? "#E8A735" : "#2D7A4F";
                         return (
-                          <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "11px", fontWeight: "600", padding: "2px 8px", borderRadius: "4px", background: wBg, color: "#fff" }}>
+                          <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "10px", fontWeight: "700", padding: "3px 8px", borderRadius: "4px", background: wBg, color: "#fff" }}>
                             {ago(entry.joined_at)}
                           </span>
                         );
