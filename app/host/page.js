@@ -298,18 +298,21 @@ export default function HostDashboard() {
                 <div style={{ fontSize: "10px", fontWeight: "700", color: T.textLight, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "6px", paddingLeft: "2px" }}>
                   Sentados ({seated.length})
                 </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "12px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: "6px", marginBottom: "12px" }}>
                   {seated.map(table => {
                     const time = table.seated_at ? ago(table.seated_at) : "";
                     return (
                       <button key={table.id} onClick={() => cycleTable(table)} style={{
-                        padding: "8px 12px", borderRadius: "10px", border: "none",
+                        padding: "8px 6px", borderRadius: "10px", border: "none",
                         background: S.sentado.bg, cursor: "pointer",
-                        display: "flex", alignItems: "center", gap: "6px",
+                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                        height: "48px",
                       }}>
-                        <span style={{ fontFamily: f.display, fontSize: "13px", fontWeight: "800", color: S.sentado.color }}>{table.id}</span>
-                        <span style={{ fontSize: "9px", color: S.sentado.color, opacity: 0.5 }}>{table.capacity}p</span>
-                        {time && <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "9px", color: S.sentado.color, opacity: 0.5 }}>{time}</span>}
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                          <span style={{ fontFamily: f.display, fontSize: "13px", fontWeight: "800", color: S.sentado.color }}>{table.id}</span>
+                          <span style={{ fontSize: "9px", color: S.sentado.color, opacity: 0.5 }}>{table.capacity}p</span>
+                        </div>
+                        {time && <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "9px", color: S.sentado.color, opacity: 0.4, marginTop: "1px" }}>{time}</span>}
                       </button>
                     );
                   })}
