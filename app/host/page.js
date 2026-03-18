@@ -372,7 +372,7 @@ export default function HostDashboard() {
                         <>
                           <span style={{
                             fontSize: "12px", fontWeight: "700", padding: "4px 10px", borderRadius: "6px",
-                            fontFamily: "monospace",
+                            fontFamily: "'Futura', 'Outfit', sans-serif",
                             background: graceExpired ? S.pidio_cuenta.bg : expired ? S.limpiando.bg : S.libre.bg,
                             color: "#fff",
                           }}>
