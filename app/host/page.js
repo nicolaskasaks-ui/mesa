@@ -6,10 +6,11 @@ import { T, f } from "../../lib/tokens";
 const S = {
   libre:        { label: "Libre",     color: "#fff", bg: "#2D7A4F", border: "#246B42" },
   sentado:      { label: "Sentado",   color: "#fff", bg: "#1A1A1A", border: "#333" },
+  postre:       { label: "Postre",    color: "#fff", bg: "#7C5CBF", border: "#6A4DAA" },
   pidio_cuenta: { label: "Cuenta",    color: "#fff", bg: "#C93B3B", border: "#A83030" },
   limpiando:    { label: "Limpiando", color: "#fff", bg: "#D4942A", border: "#B87E20" },
 };
-const STATUS_FLOW = ["libre", "sentado", "pidio_cuenta", "limpiando"];
+const STATUS_FLOW = ["libre", "sentado", "postre", "pidio_cuenta", "limpiando"];
 
 const ACT = {
   esperando:  { label: "Esperando", color: T.textLight },
@@ -252,7 +253,7 @@ export default function HostDashboard() {
             </div>
             <div style={{ width: "1px", height: "28px", background: T.border }} />
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontFamily: f.display, fontSize: "24px", fontWeight: "700" }}>{waiting}</div>
+              <div style={{ fontFamily: f.display, fontSize: "24px", fontWeight: "700", color: waiting > 0 ? S.pidio_cuenta.bg : T.text }}>{waiting}</div>
               <div style={{ fontSize: "10px", color: T.textLight, fontWeight: "600", letterSpacing: "0.04em" }}>en fila</div>
             </div>
           </div>
