@@ -346,7 +346,15 @@ export default function HostDashboard() {
                           color: entry.distance_m < 300 ? "#2D7A4F" : entry.distance_m < 800 ? "#D4942A" : "#C93B3B",
                         }}>{entry.distance_m}m</span>
                       )}
-                      <span style={{ fontSize: "12px", color: T.textLight }}>{ago(entry.joined_at)}</span>
+                      {(() => {
+                        const waitMin = Math.floor((now - new Date(entry.joined_at).getTime()) / 60000);
+                        const wBg = waitMin >= 45 ? "#C93B3B" : waitMin >= 31 ? "#D4942A" : waitMin >= 15 ? "#E8A735" : "#2D7A4F";
+                        return (
+                          <span style={{ fontSize: "11px", fontWeight: "600", padding: "2px 8px", borderRadius: "4px", background: wBg, color: "#fff" }}>
+                            {ago(entry.joined_at)}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
 
