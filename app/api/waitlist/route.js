@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseServer as supabase } from "../../../lib/supabase-server";
+import { sendWhatsApp, msgPositionUpdate } from "../../../lib/twilio";
 
 export async function GET() {
   const { data, error } = await supabase
@@ -79,5 +80,31 @@ export async function PATCH(request) {
   const { data, error } = await supabase
     .from("waitlist").update(updates).eq("id", id).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // When someone leaves the queue, notify #2 and #3 of their new position
+  if (status === "seated" || status === "cancelled") {
+    try {
+      const { data: remaining } = await supabase.from("waitlist")
+        .select("id, guest_name, customers(phone)")
+        .in("status", ["waiting", "extended"])
+        .order("joined_at", { ascending: true });
+      if (remaining) {
+        const total = remaining.length;
+        for (let i = 0; i < Math.min(3, total); i++) {
+          const pos = i + 1;
+          if (pos > 3) break;
+          const phone = remaining[i].customers?.phone;
+          if (phone && (pos === 2 || pos === 3 || pos === 1)) {
+            sendWhatsApp({
+              to: phone.replace(/\D/g, ""),
+              guestName: remaining[i].guest_name,
+              message: msgPositionUpdate({ guestName: remaining[i].guest_name, position: pos, total }),
+            }).catch(() => {}); // fire and forget
+          }
+        }
+      }
+    } catch {}
+  }
+
   return NextResponse.json(data);
 }
