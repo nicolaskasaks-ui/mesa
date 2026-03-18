@@ -26,15 +26,25 @@ function ago(d) {
   return `${Math.floor(m/60)}h${m%60}m`;
 }
 
-function findMatch(queue, capacity) {
-  return queue.find(e => e.status === "waiting" && e.party_size <= capacity) || null;
+// Get all candidates sorted: exact match first, then smaller parties
+function getCandidates(queue, capacity) {
+  return queue
+    .filter(e => e.status === "waiting" && e.party_size <= capacity)
+    .sort((a, b) => {
+      // Exact or closer match first
+      const diffA = capacity - a.party_size;
+      const diffB = capacity - b.party_size;
+      if (diffA !== diffB) return diffA - diffB;
+      // Then by wait time (longest first = earliest joined_at)
+      return new Date(a.joined_at) - new Date(b.joined_at);
+    });
 }
 
 export default function HostDashboard() {
   const [tables, setTables] = useState([]);
   const [queue, setQueue] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [suggest, setSuggest] = useState(null);
+  const [picker, setPicker] = useState(null); // { table, candidates[] }
 
   const fetchAll = async () => {
     if (!supabase) return;
@@ -60,50 +70,73 @@ export default function HostDashboard() {
 
   const cycleTable = async (table) => {
     const next = STATUS_FLOW[(STATUS_FLOW.indexOf(table.status) + 1) % STATUS_FLOW.length];
+
+    await window.fetch("/api/tables", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: table.id, status: next }),
+    });
+
+    // When table goes libre, show seat picker if there are candidates
     if (next === "libre") {
-      await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: table.id, status: "libre" }) });
-      const match = findMatch(queue, table.capacity);
-      if (match) { setSuggest({ table: { ...table, status: "libre" }, match }); return; }
-      return;
+      const candidates = getCandidates(queue, table.capacity);
+      if (candidates.length > 0) {
+        setPicker({ table: { ...table, status: "libre" }, candidates });
+      }
     }
-    await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: table.id, status: next }) });
   };
 
   const doNotify = async (entry) => {
     const phone = entry.customers?.phone?.replace(/\D/g, "");
-    await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "notified" }) });
+    await window.fetch("/api/waitlist", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: entry.id, status: "notified" }),
+    });
     if (phone) {
       try {
-        const res = await window.fetch("/api/whatsapp", { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ to: phone, guestName: entry.guest_name, type: "ready", arrivalMinutes: 10 }) });
+        const res = await window.fetch("/api/whatsapp", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to: phone, guestName: entry.guest_name, type: "ready", arrivalMinutes: 10 }),
+        });
         const data = await res.json();
         if (!data.success) {
-          const msg = encodeURIComponent(`${entry.guest_name}, tu mesa en Chui esta lista.\nTenes 10 min para llegar.\nLoyola 1250.`);
+          const msg = encodeURIComponent(`${entry.guest_name}, tu mesa en Chui esta lista! Te la guardamos 10 min.\nLoyola 1250.`);
           window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
         }
       } catch {
-        const msg = encodeURIComponent(`${entry.guest_name}, tu mesa en Chui esta lista.\nTenes 10 min para llegar.\nLoyola 1250.`);
+        const msg = encodeURIComponent(`${entry.guest_name}, tu mesa en Chui esta lista! Te la guardamos 10 min.\nLoyola 1250.`);
         window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
       }
     }
   };
 
-  const seatFromSuggestion = async () => {
-    if (!suggest) return;
-    await doNotify(suggest.match);
-    await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: suggest.match.id, status: "seated" }) });
-    setSuggest(null);
+  const seatGuest = async (entry) => {
+    await doNotify(entry);
+    try {
+      await window.fetch("/api/waitlist", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: entry.id, status: "seated" }),
+      });
+    } catch {}
+    setPicker(null);
+    fetchAll();
+  };
+
+  const notifyOnly = async (entry) => {
+    await doNotify(entry);
+    setPicker(null);
+    fetchAll();
   };
 
   const setStatus = async (id, status) => {
     try {
-      const res = await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+      const res = await window.fetch("/api/waitlist", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status }),
+      });
       const data = await res.json();
-      if (data.error) { console.error("setStatus error:", data.error); alert("Error: " + data.error); return; }
-      // Force refresh
+      if (data.error) { alert("Error: " + data.error); return; }
       fetchAll();
     } catch (err) {
-      console.error("setStatus fetch error:", err);
       alert("Error de conexion");
     }
   };
@@ -111,51 +144,110 @@ export default function HostDashboard() {
   const libre = tables.filter(t => t.status === "libre").length;
   const waiting = queue.filter(q => q.status === "waiting").length;
 
-  if (loading) return <div style={{ minHeight: "100vh", background: T.bgPage, display: "flex", alignItems: "center", justifyContent: "center", color: T.textLight, fontFamily: f.sans }}>Cargando...</div>;
+  if (loading) return (
+    <div style={{ minHeight: "100vh", background: T.bgPage, display: "flex", alignItems: "center", justifyContent: "center", color: T.textLight, fontFamily: f.sans }}>
+      Cargando...
+    </div>
+  );
 
   return (
     <div style={{ minHeight: "100vh", background: T.bgPage, fontFamily: f.sans, color: T.text }}>
 
-      {/* Suggestion overlay */}
-      {suggest && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
-          <div style={{ background: T.card, borderRadius: "20px", padding: "32px", width: "100%", maxWidth: "360px", border: `1px solid ${T.cardBorder}`, boxShadow: T.shadow, textAlign: "center" }}>
-            <div style={{ fontSize: "12px", color: S.libre.color, fontWeight: "700", letterSpacing: "0.1em", textTransform: "uppercase" }}>Mesa {suggest.table.id} libre</div>
-            <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Capacidad: {suggest.table.capacity}</div>
-
-            <div style={{ margin: "24px 0", padding: "20px", borderRadius: "14px", background: T.bgPage, border: `1px solid ${T.cardBorder}` }}>
-              <div style={{ fontSize: "22px", fontWeight: "700" }}>{suggest.match.guest_name}</div>
-              <div style={{ fontSize: "14px", color: T.textMed, marginTop: "6px" }}>
-                {suggest.match.party_size} {suggest.match.party_size === 1 ? "persona" : "personas"} · {ago(suggest.match.joined_at)}
-              </div>
-              {suggest.match.customers?.allergies?.length > 0 && (
-                <div style={{ marginTop: "8px", display: "flex", gap: "4px", justifyContent: "center", flexWrap: "wrap" }}>
-                  {suggest.match.customers.allergies.map(a => (
-                    <span key={a} style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "6px", background: S.limpiando.bg, color: S.limpiando.color }}>{a}</span>
-                  ))}
+      {/* ── SEAT PICKER OVERLAY ── */}
+      {picker && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setPicker(null); }}>
+          <div style={{
+            background: T.card, borderRadius: "20px 20px 0 0", padding: "28px 20px 32px", width: "100%", maxWidth: "480px",
+            border: `1px solid ${T.cardBorder}`, boxShadow: "0 -8px 40px rgba(0,0,0,0.12)",
+            maxHeight: "75vh", overflowY: "auto",
+          }}>
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+              <div>
+                <div style={{ fontSize: "12px", color: S.libre.color, fontWeight: "700", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                  Mesa {picker.table.id} libre
                 </div>
-              )}
+                <div style={{ fontSize: "13px", color: T.textMed, marginTop: "2px" }}>
+                  Cap. {picker.table.capacity} · {picker.candidates.length} {picker.candidates.length === 1 ? "candidato" : "candidatos"}
+                </div>
+              </div>
+              <button onClick={() => setPicker(null)} style={{
+                width: "32px", height: "32px", borderRadius: "50%", background: T.bgPage,
+                border: `1px solid ${T.border}`, cursor: "pointer", fontSize: "14px", color: T.textLight,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>x</button>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <button onClick={seatFromSuggestion} style={{
-                width: "100%", padding: "16px", borderRadius: "14px", background: T.accent, color: "#fff",
-                border: "none", fontSize: "16px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans,
-              }}>Avisar y sentar</button>
-              <button onClick={() => { doNotify(suggest.match); setSuggest(null); }} style={{
-                width: "100%", padding: "14px", borderRadius: "14px", background: "transparent",
-                color: S.libre.color, border: `1.5px solid ${S.libre.border}`, fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
-              }}>Solo avisar</button>
-              <button onClick={() => setSuggest(null)} style={{
-                width: "100%", padding: "12px", borderRadius: "14px", background: "transparent",
-                color: T.textLight, border: "none", fontSize: "13px", cursor: "pointer", fontFamily: f.sans,
-              }}>Ignorar</button>
+            {/* Candidates */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {picker.candidates.map((entry, i) => {
+                const c = entry.customers;
+                const act = ACT[entry.activity] || ACT.esperando;
+                const isExact = entry.party_size === picker.table.capacity;
+                const visits = c?.visit_count || 1;
+
+                return (
+                  <div key={entry.id} style={{
+                    background: i === 0 ? T.bgWarm : T.bgPage, borderRadius: "14px", padding: "16px",
+                    border: `1px solid ${i === 0 ? S.libre.border : T.cardBorder}`,
+                  }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
+                        {i === 0 && (
+                          <span style={{ fontSize: "9px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px", background: S.libre.color, color: "#fff", letterSpacing: "0.05em" }}>
+                            RECOMENDADO
+                          </span>
+                        )}
+                        <span style={{ fontSize: "16px", fontWeight: "700" }}>{entry.guest_name}</span>
+                        {visits > 1 && <span style={{ fontSize: "11px", color: S.pidio_cuenta.color, fontWeight: "600" }}>x{visits}</span>}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ fontSize: "13px", fontWeight: "600", color: isExact ? S.libre.color : T.textMed }}>
+                          {entry.party_size}p
+                        </span>
+                        <span style={{ fontSize: "11px", color: T.textLight }}>{ago(entry.joined_at)}</span>
+                      </div>
+                    </div>
+
+                    {/* Tags row */}
+                    <div style={{ display: "flex", gap: "6px", marginTop: "8px", alignItems: "center", flexWrap: "wrap" }}>
+                      <span style={{ fontSize: "10px", fontWeight: "600", padding: "2px 6px", borderRadius: "4px", background: `${act.color}12`, color: act.color }}>{act.label}</span>
+                      {isExact && <span style={{ fontSize: "10px", fontWeight: "600", padding: "2px 6px", borderRadius: "4px", background: S.libre.bg, color: S.libre.color }}>Match exacto</span>}
+                      {c?.allergies?.map(a => (
+                        <span key={a} style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: S.limpiando.bg, color: S.limpiando.color }}>{a}</span>
+                      ))}
+                    </div>
+
+                    {/* Action buttons */}
+                    <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+                      <button onClick={() => seatGuest(entry)} style={{
+                        flex: 1, padding: "12px", borderRadius: "10px", background: T.accent,
+                        color: "#fff", border: "none", fontSize: "14px", fontWeight: "600",
+                        cursor: "pointer", fontFamily: f.sans,
+                      }}>Sentar</button>
+                      <button onClick={() => notifyOnly(entry)} style={{
+                        flex: 1, padding: "12px", borderRadius: "10px", background: S.libre.bg,
+                        color: S.libre.color, border: `1px solid ${S.libre.border}`, fontSize: "14px", fontWeight: "600",
+                        cursor: "pointer", fontFamily: f.sans,
+                      }}>Solo avisar</button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+
+            {/* Skip all */}
+            <button onClick={() => setPicker(null)} style={{
+              width: "100%", padding: "14px", marginTop: "14px", borderRadius: "12px",
+              background: "transparent", color: T.textLight, border: "none",
+              fontSize: "13px", cursor: "pointer", fontFamily: f.sans,
+            }}>No sentar a nadie</button>
           </div>
         </div>
       )}
 
-      {/* Header */}
+      {/* ── HEADER ── */}
       <div style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${T.cardBorder}`, background: T.card }}>
         <img src="/logo-dark.png" alt="Chui" style={{ height: "28px", objectFit: "contain" }} />
         <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
@@ -171,7 +263,7 @@ export default function HostDashboard() {
         </div>
       </div>
 
-      {/* Table grid */}
+      {/* ── TABLE GRID ── */}
       <div style={{ padding: "16px 12px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "8px" }}>
           {tables.map(table => {
@@ -204,10 +296,12 @@ export default function HostDashboard() {
         </div>
       </div>
 
-      {/* Queue */}
+      {/* ── QUEUE ── */}
       {queue.length > 0 && (
         <div style={{ padding: "0 12px 32px" }}>
-          <div style={{ fontSize: "12px", fontWeight: "700", color: T.textLight, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "12px", paddingLeft: "4px" }}>Fila ({queue.length})</div>
+          <div style={{ fontSize: "12px", fontWeight: "700", color: T.textLight, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: "12px", paddingLeft: "4px" }}>
+            Fila ({queue.length})
+          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             {queue.map((entry, i) => {
               const c = entry.customers;
