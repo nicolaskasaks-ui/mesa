@@ -165,9 +165,19 @@ export default function MeantimeCustomer() {
     return () => { navigator.geolocation.clearWatch(geoId); clearInterval(pushId); };
   }, [entry, distance]);
 
-  // Arrival countdown when notified
+  // Arrival countdown + vibrate + flash title when notified
   useEffect(() => {
     if (entry?.status !== "notified" || !entry?.notified_at) { setArrivalCountdown(null); return; }
+    // Vibrate
+    if (navigator.vibrate) navigator.vibrate([300, 100, 300, 100, 500]);
+    // Flash tab title
+    const originalTitle = document.title;
+    let flash = true;
+    const titleIv = setInterval(() => {
+      document.title = flash ? "🔔 Tu mesa esta lista!" : originalTitle;
+      flash = !flash;
+    }, 1000);
+    // Countdown
     const deadline = new Date(entry.notified_at).getTime() + ARRIVAL_MINUTES * 60000;
     const tick = () => {
       const left = Math.max(0, Math.floor((deadline - Date.now()) / 1000));
@@ -175,7 +185,7 @@ export default function MeantimeCustomer() {
     };
     tick();
     const iv = setInterval(tick, 1000);
-    return () => clearInterval(iv);
+    return () => { clearInterval(iv); clearInterval(titleIv); document.title = originalTitle; };
   }, [entry?.status, entry?.notified_at]);
 
   // Walk tracking
