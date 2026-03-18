@@ -112,6 +112,18 @@ export default function HostDashboard() {
     try { await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "seated" }) }); } catch {}
     setPicker(null); fetchAll();
   };
+  const clearQueue = async (mode) => {
+    const label = mode === "all" ? "toda la fila" : "los de mas de 5 horas";
+    if (!confirm(`Limpiar ${label}?`)) return;
+    try {
+      const res = await window.fetch(`/api/waitlist?mode=${mode}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.error) { alert("Error: " + data.error); return; }
+      alert(`${data.cancelled} cancelados`);
+      fetchAll();
+    } catch { alert("Error de conexion"); }
+  };
+
   const setStatus = async (id, status) => {
     try {
       const res = await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
@@ -253,12 +265,22 @@ export default function HostDashboard() {
       {/* ── QUEUE ── */}
       {queue.length > 0 && (
         <div style={{ padding: "8px 16px 40px" }}>
-          <div style={{
-            fontSize: "12px", fontWeight: "700", color: T.textLight,
-            letterSpacing: "0.1em", textTransform: "uppercase",
-            marginBottom: "12px", paddingLeft: "2px",
-          }}>
-            Fila ({queue.length})
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+            <div style={{ fontSize: "12px", fontWeight: "700", color: T.textLight, letterSpacing: "0.1em", textTransform: "uppercase", paddingLeft: "2px" }}>
+              Fila ({queue.length})
+            </div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button onClick={() => clearQueue("old")} style={{
+                padding: "6px 12px", borderRadius: "8px", fontSize: "11px", fontWeight: "600",
+                background: T.bgPage, color: T.textLight, border: `1px solid ${T.border}`,
+                cursor: "pointer", fontFamily: f.sans,
+              }}>Limpiar viejos</button>
+              <button onClick={() => clearQueue("all")} style={{
+                padding: "6px 12px", borderRadius: "8px", fontSize: "11px", fontWeight: "600",
+                background: S.limpiando.bg, color: S.limpiando.color, border: `1px solid ${S.limpiando.border}`,
+                cursor: "pointer", fontFamily: f.sans,
+              }}>Vaciar fila</button>
+            </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             {queue.map((entry, i) => {

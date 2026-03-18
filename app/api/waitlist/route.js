@@ -44,6 +44,25 @@ export async function POST(request) {
   return NextResponse.json(data);
 }
 
+// DELETE — cancel all or old entries
+export async function DELETE(request) {
+  const { searchParams } = new URL(request.url);
+  const mode = searchParams.get("mode") || "old"; // "all" or "old"
+
+  let query = supabase.from("waitlist")
+    .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+    .in("status", ["waiting", "notified", "extended"]);
+
+  if (mode === "old") {
+    const cutoff = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();
+    query = query.lt("joined_at", cutoff);
+  }
+
+  const { data, error } = await query.select();
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ cancelled: data?.length || 0 });
+}
+
 export async function PATCH(request) {
   const body = await request.json();
   const { id, status, extra_minutes, activity, distance_m } = body;
