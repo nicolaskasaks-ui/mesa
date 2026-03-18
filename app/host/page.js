@@ -456,7 +456,7 @@ export default function HostDashboard() {
                   )}
 
                   {/* Table prediction — tapeable to assign */}
-                  {pred && (
+                  {pred && !isNotified && (
                     confirmAssign?.entryId === entry.id ? (
                       <div style={{ marginTop: "10px", display: "flex", gap: "6px" }}>
                         <button onClick={() => { doNotify(entry); fetchAll(); setConfirmAssign(null); }} style={{
