@@ -78,7 +78,8 @@ export default function HostDashboard() {
   const [loading, setLoading] = useState(true);
   const [picker, setPicker] = useState(null);
   const [now, setNow] = useState(Date.now());
-  const [confirmAssign, setConfirmAssign] = useState(null); // { entryId, tableId }
+  const [confirmAssign, setConfirmAssign] = useState(null);
+  const [seatedToday, setSeatedToday] = useState(0);
 
   const fetchAll = async () => {
     if (!supabase) return;
@@ -91,6 +92,13 @@ export default function HostDashboard() {
     ]);
     if (t.data) setTables(t.data);
     if (q.data) setQueue(q.data);
+    // Count seated today
+    const today = new Date().toISOString().slice(0, 10);
+    const { count } = await supabase.from("waitlist")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "seated")
+      .gte("seated_at", `${today}T00:00:00`);
+    setSeatedToday(count || 0);
     setLoading(false);
   };
 
@@ -255,6 +263,11 @@ export default function HostDashboard() {
             <div style={{ textAlign: "center" }}>
               <div style={{ fontFamily: f.display, fontSize: "24px", fontWeight: "700", color: waiting > 0 ? S.pidio_cuenta.bg : T.text }}>{waiting}</div>
               <div style={{ fontSize: "10px", color: T.textLight, fontWeight: "600", letterSpacing: "0.04em" }}>en fila</div>
+            </div>
+            <div style={{ width: "1px", height: "28px", background: T.border }} />
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: f.display, fontSize: "24px", fontWeight: "700", color: T.text }}>{seatedToday}</div>
+              <div style={{ fontSize: "10px", color: T.textLight, fontWeight: "600", letterSpacing: "0.04em" }}>hoy</div>
             </div>
           </div>
         </div>
@@ -477,12 +490,19 @@ export default function HostDashboard() {
 
                   {/* Actions */}
                   <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
-                    {!isNotified && (
+                    {!isNotified && !isExtended && (
                       <button onClick={() => doNotify(entry)} style={{
                         flex: 1, padding: "11px", borderRadius: "10px", background: S.libre.bg,
                         color: S.libre.color, border: `1px solid ${S.libre.border}`,
                         fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
                       }}>Avisar</button>
+                    )}
+                    {(isNotified || isExtended) && (
+                      <button onClick={() => setStatus(entry.id, "waiting")} style={{
+                        padding: "11px 14px", borderRadius: "10px", background: T.bgPage,
+                        color: T.textLight, border: `1px solid ${T.border}`,
+                        fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
+                      }}>Deshacer</button>
                     )}
                     <button onClick={() => setStatus(entry.id, "seated")} style={{
                       flex: 1, padding: "11px", borderRadius: "10px", background: T.accent,
