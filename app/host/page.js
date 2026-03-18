@@ -6,11 +6,10 @@ import { T, f } from "../../lib/tokens";
 const S = {
   libre:        { label: "Libre",     color: "#fff", bg: "#2D7A4F", border: "#246B42" },
   sentado:      { label: "Sentado",   color: "#fff", bg: "#1A1A1A", border: "#333" },
-  postre:       { label: "Postre",    color: "#fff", bg: "#7C5CBF", border: "#6A4DAA" },
+  postre:       { label: "Postre",    color: "#fff", bg: "#D4942A", border: "#B87E20" },
   pidio_cuenta: { label: "Cuenta",    color: "#fff", bg: "#C93B3B", border: "#A83030" },
-  limpiando:    { label: "Limpiando", color: "#fff", bg: "#D4942A", border: "#B87E20" },
 };
-const STATUS_FLOW = ["libre", "sentado", "postre", "pidio_cuenta", "limpiando"];
+const STATUS_FLOW = ["libre", "sentado", "postre", "pidio_cuenta"];
 
 const ACT = {
   esperando:  { label: "Esperando", color: T.textLight },
@@ -30,10 +29,10 @@ function ago(d) {
 // Predict which table each queue entry will likely get
 function predictTable(tables, queue) {
   const predictions = {};
-  // Tables sorted by availability priority: libre > limpiando > pidio_cuenta
-  const priority = { libre: 0, limpiando: 1, pidio_cuenta: 2 };
+  // Tables sorted by availability priority: libre > postre > pidio_cuenta
+  const priority = { libre: 0, postre: 1, pidio_cuenta: 2 };
   const available = tables
-    .filter(t => t.status === "libre" || t.status === "limpiando" || t.status === "pidio_cuenta")
+    .filter(t => t.status === "libre" || t.status === "postre" || t.status === "pidio_cuenta")
     .sort((a, b) => {
       const pa = priority[a.status] ?? 9;
       const pb = priority[b.status] ?? 9;
@@ -114,8 +113,8 @@ export default function HostDashboard() {
     const next = STATUS_FLOW[(STATUS_FLOW.indexOf(table.status) + 1) % STATUS_FLOW.length];
     await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: table.id, status: next }) });
 
-    // Libre or limpiando → show picker (mesa is becoming available)
-    if (next === "libre" || next === "limpiando") {
+    // Libre or pidio_cuenta → show picker (mesa is becoming available)
+    if (next === "libre" || next === "pidio_cuenta") {
       const candidates = getCandidates(queue, table.capacity);
       if (candidates.length > 0) {
         setPicker({ table: { ...table, status: next }, candidates });
@@ -224,7 +223,7 @@ export default function HostDashboard() {
                     <div style={{ display: "flex", gap: "6px", marginTop: "8px", flexWrap: "wrap" }}>
                       <span style={{ fontSize: "10px", fontWeight: "600", padding: "2px 6px", borderRadius: "4px", background: `${act.color}12`, color: act.color }}>{act.label}</span>
                       {isExact && <span style={{ fontSize: "10px", fontWeight: "600", padding: "2px 6px", borderRadius: "4px", background: S.libre.bg, color: S.libre.color }}>Match exacto</span>}
-                      {c?.allergies?.map(a => <span key={a} style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: S.limpiando.bg, color: S.limpiando.color }}>{a}</span>)}
+                      {c?.allergies?.map(a => <span key={a} style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: S.pidio_cuenta.bg, color: S.pidio_cuenta.color }}>{a}</span>)}
                     </div>
                     <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
                       <button onClick={() => notifyFromPicker(entry)} style={{ flex: 1, padding: "12px", borderRadius: "10px", background: T.accent, color: "#fff", border: "none", fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans }}>Avisar</button>
@@ -313,7 +312,7 @@ export default function HostDashboard() {
               }}>Limpiar viejos</button>
               <button onClick={() => clearQueue("all")} style={{
                 padding: "6px 12px", borderRadius: "8px", fontSize: "11px", fontWeight: "600",
-                background: S.limpiando.bg, color: S.limpiando.color, border: `1px solid ${S.limpiando.border}`,
+                background: S.pidio_cuenta.bg, color: S.pidio_cuenta.color, border: `1px solid ${S.pidio_cuenta.border}`,
                 cursor: "pointer", fontFamily: f.sans,
               }}>Vaciar fila</button>
             </div>
@@ -374,7 +373,7 @@ export default function HostDashboard() {
                           <span style={{
                             fontSize: "12px", fontWeight: "700", padding: "4px 10px", borderRadius: "6px",
                             fontFamily: "'Futura', 'Outfit', sans-serif",
-                            background: graceExpired ? S.pidio_cuenta.bg : expired ? S.limpiando.bg : S.libre.bg,
+                            background: graceExpired ? S.pidio_cuenta.bg : expired ? S.pidio_cuenta.bg : S.libre.bg,
                             color: "#fff",
                           }}>
                             {graceExpired ? "VENCIDO" : expired ? `+${Math.floor((elapsed - 600) / 60)}:${String((elapsed - 600) % 60).padStart(2, "0")} gracia` : `${mins}:${secs.toString().padStart(2, "0")}`}
@@ -391,7 +390,7 @@ export default function HostDashboard() {
                       </span>
                     )}
                     {c?.allergies?.map(a => (
-                      <span key={a} style={{ fontSize: "10px", padding: "3px 8px", borderRadius: "6px", background: S.limpiando.bg, color: S.limpiando.color }}>{a}</span>
+                      <span key={a} style={{ fontSize: "10px", padding: "3px 8px", borderRadius: "6px", background: S.pidio_cuenta.bg, color: S.pidio_cuenta.color }}>{a}</span>
                     ))}
                   </div>
 
@@ -415,7 +414,7 @@ export default function HostDashboard() {
                       display: "flex", justifyContent: "space-between", alignItems: "center",
                     }}>
                       <span style={{ fontSize: "11px", color: T.textLight }}>
-                        {pred.status === "libre" ? "Mesa disponible" : pred.status === "limpiando" ? "Proxima mesa" : "Siguiente en liberar"}
+                        {pred.status === "libre" ? "Mesa disponible" : pred.status === "postre" ? "Proxima mesa" : "Siguiente en liberar"}
                       </span>
                       <span style={{ fontFamily: f.display, fontSize: "14px", fontWeight: "700", color: T.text }}>
                         {pred.tableId} <span style={{ fontSize: "11px", fontWeight: "500", color: T.textLight }}>({pred.capacity}p)</span>
@@ -438,8 +437,8 @@ export default function HostDashboard() {
                       fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
                     }}>Sentar</button>
                     <button onClick={() => confirm(`Cancelar a ${entry.guest_name}?`) && setStatus(entry.id, "cancelled")} style={{
-                      padding: "11px 14px", borderRadius: "10px", background: S.limpiando.bg,
-                      color: S.limpiando.color, border: `1px solid ${S.limpiando.border}`,
+                      padding: "11px 14px", borderRadius: "10px", background: S.pidio_cuenta.bg,
+                      color: S.pidio_cuenta.color, border: `1px solid ${S.pidio_cuenta.border}`,
                       fontSize: "13px", cursor: "pointer", fontFamily: f.sans,
                     }}>x</button>
                   </div>
