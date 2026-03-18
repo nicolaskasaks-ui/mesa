@@ -69,15 +69,21 @@ export default function HostDashboard() {
   }, []);
 
   const cycleTable = async (table) => {
+    // Libre → show picker if candidates, else cycle
     if (table.status === "libre") {
       const candidates = getCandidates(queue, table.capacity);
       if (candidates.length > 0) { setPicker({ table, candidates }); return; }
     }
+
     const next = STATUS_FLOW[(STATUS_FLOW.indexOf(table.status) + 1) % STATUS_FLOW.length];
     await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: table.id, status: next }) });
-    if (next === "libre") {
+
+    // Libre or limpiando → show picker (mesa is becoming available)
+    if (next === "libre" || next === "limpiando") {
       const candidates = getCandidates(queue, table.capacity);
-      if (candidates.length > 0) setPicker({ table: { ...table, status: "libre" }, candidates });
+      if (candidates.length > 0) {
+        setPicker({ table: { ...table, status: next }, candidates });
+      }
     }
   };
 
