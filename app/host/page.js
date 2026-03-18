@@ -338,7 +338,15 @@ export default function HostDashboard() {
                       <span style={{ fontFamily: f.display, fontSize: "17px", fontWeight: "700" }}>{entry.guest_name}</span>
                       <span style={{ fontSize: "13px", color: T.textMed }}>{entry.party_size}p</span>
                     </div>
-                    <span style={{ fontSize: "12px", color: T.textLight }}>{ago(entry.joined_at)}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      {entry.distance_m != null && (
+                        <span style={{
+                          fontSize: "11px", fontWeight: "600",
+                          color: entry.distance_m < 300 ? "#2D7A4F" : entry.distance_m < 800 ? "#D4942A" : "#C93B3B",
+                        }}>{entry.distance_m}m</span>
+                      )}
+                      <span style={{ fontSize: "12px", color: T.textLight }}>{ago(entry.joined_at)}</span>
+                    </div>
                   </div>
 
                   {/* Row 2: tags + notified timer */}
