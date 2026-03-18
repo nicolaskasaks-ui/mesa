@@ -3,6 +3,13 @@ import { supabaseServer as supabase } from "../../../lib/supabase-server";
 import { sendWhatsApp, msgPositionUpdate } from "../../../lib/twilio";
 
 export async function GET() {
+  // Auto-expire: notified guests past 15 min (10 + 5 grace) → cancelled
+  const expiryCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  await supabase.from("waitlist")
+    .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+    .eq("status", "notified")
+    .lt("notified_at", expiryCutoff);
+
   const { data, error } = await supabase
     .from("waitlist")
     .select("*, customers(name, phone, allergies, visit_count, trust_level)")

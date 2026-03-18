@@ -98,8 +98,8 @@ export default function HostDashboard() {
     if (!supabase) return;
     const ch1 = supabase.channel("host-tables").on("postgres_changes", { event: "*", schema: "public", table: "tables" }, fetchAll).subscribe();
     const ch2 = supabase.channel("host-queue").on("postgres_changes", { event: "*", schema: "public", table: "waitlist" }, fetchAll).subscribe();
-    // Tick every 30s to update times
-    const tick = setInterval(() => setNow(Date.now()), 30000);
+    // Tick every 5s to update times + countdowns
+    const tick = setInterval(() => setNow(Date.now()), 5000);
     return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); clearInterval(tick); };
   }, []);
 
@@ -341,15 +341,37 @@ export default function HostDashboard() {
                     <span style={{ fontSize: "12px", color: T.textLight }}>{ago(entry.joined_at)}</span>
                   </div>
 
-                  {/* Row 2: tags */}
+                  {/* Row 2: tags + notified timer */}
                   <div style={{ display: "flex", gap: "6px", marginTop: "8px", flexWrap: "wrap", alignItems: "center" }}>
-                    <span style={{
-                      fontSize: "10px", fontWeight: "600", padding: "3px 8px", borderRadius: "6px",
-                      background: isExtended ? S.sentado.bg : isNotified ? S.pidio_cuenta.bg : `${act.color}10`,
-                      color: isExtended ? S.sentado.color : isNotified ? S.pidio_cuenta.color : act.color,
-                    }}>
-                      {isExtended ? "Paso turno" : isNotified ? "Avisado" : act.label}
-                    </span>
+                    {isNotified && entry.notified_at ? (() => {
+                      const elapsed = Math.floor((now - new Date(entry.notified_at).getTime()) / 1000);
+                      const remaining = Math.max(0, 600 - elapsed); // 10 min
+                      const grace = Math.max(0, 900 - elapsed); // 10 + 5 min
+                      const mins = Math.floor(remaining / 60);
+                      const secs = remaining % 60;
+                      const expired = remaining === 0;
+                      const graceExpired = grace === 0;
+                      return (
+                        <>
+                          <span style={{
+                            fontSize: "12px", fontWeight: "700", padding: "4px 10px", borderRadius: "6px",
+                            fontFamily: "monospace",
+                            background: graceExpired ? S.pidio_cuenta.bg : expired ? S.limpiando.bg : S.libre.bg,
+                            color: "#fff",
+                          }}>
+                            {graceExpired ? "VENCIDO" : expired ? `+${Math.floor((elapsed - 600) / 60)}:${String((elapsed - 600) % 60).padStart(2, "0")} gracia` : `${mins}:${secs.toString().padStart(2, "0")}`}
+                          </span>
+                        </>
+                      );
+                    })() : (
+                      <span style={{
+                        fontSize: "10px", fontWeight: "600", padding: "3px 8px", borderRadius: "6px",
+                        background: isExtended ? S.sentado.bg : `${act.color}10`,
+                        color: isExtended ? S.sentado.color : act.color,
+                      }}>
+                        {isExtended ? "Paso turno" : act.label}
+                      </span>
+                    )}
                     {c?.allergies?.map(a => (
                       <span key={a} style={{ fontSize: "10px", padding: "3px 8px", borderRadius: "6px", background: S.limpiando.bg, color: S.limpiando.color }}>{a}</span>
                     ))}
