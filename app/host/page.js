@@ -446,19 +446,10 @@ export default function HostDashboard() {
                     {c?.allergies?.map(a => (
                       <span key={a} style={{ fontSize: "10px", padding: "3px 8px", borderRadius: "6px", background: S.pidio_cuenta.bg, color: S.pidio_cuenta.color }}>{a}</span>
                     ))}
+                    {entry.activity === "en_barra" && (
+                      <span style={{ fontFamily: "monospace", fontSize: "10px", fontWeight: "600", padding: "3px 8px", borderRadius: "6px", background: T.goldLight, color: T.gold }}>{entry.id?.slice(0, 8).toUpperCase()}</span>
+                    )}
                   </div>
-
-                  {/* Bar 2x1 badge */}
-                  {entry.activity === "en_barra" && (
-                    <div style={{
-                      marginTop: "10px", padding: "10px 14px", borderRadius: "10px",
-                      background: T.goldLight, border: `1px solid ${T.gold}30`,
-                      display: "flex", justifyContent: "space-between", alignItems: "center",
-                    }}>
-                      <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "11px", fontWeight: "700", color: T.gold, letterSpacing: "0.08em" }}>BARRA 2x1</span>
-                      <span style={{ fontFamily: "monospace", fontSize: "13px", fontWeight: "700", color: T.accent, letterSpacing: "0.05em" }}>{entry.id?.slice(0, 8).toUpperCase()}</span>
-                    </div>
-                  )}
 
                   {/* Table prediction — tapeable to assign */}
                   {pred && !isNotified && (
