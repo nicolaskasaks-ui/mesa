@@ -1,5 +1,5 @@
-import { supabaseServer } from "@/lib/supabase-server";
-import { sendWhatsApp } from "@/lib/twilio";
+import { supabaseServer } from "../../../../lib/supabase-server";
+import { sendWhatsApp } from "../../../../lib/twilio";
 import { NextResponse } from "next/server";
 
 // Generate daily ticket number (resets each day)

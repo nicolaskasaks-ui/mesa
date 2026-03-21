@@ -1,5 +1,5 @@
-import { supabaseServer } from "@/lib/supabase-server";
-import { sendWhatsApp } from "@/lib/twilio";
+import { supabaseServer } from "../../../../lib/supabase-server";
+import { sendWhatsApp } from "../../../../lib/twilio";
 import { NextResponse } from "next/server";
 
 // Generate a short unique redeem code (6 alphanumeric chars)

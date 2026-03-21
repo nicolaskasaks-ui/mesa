@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { T, f } from "@/lib/tokens";
+import { T, f } from "../../lib/tokens";
 
 const STAMPS_FOR_FREE = 10;
 

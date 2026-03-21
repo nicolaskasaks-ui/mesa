@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { f } from "@/lib/tokens";
+import { f } from "../../../lib/tokens";
 
 const PIN = "1234";
 const CATEGORIES = ["birras", "tragos", "comida", "otros"];

@@ -1,4 +1,4 @@
-import { supabaseServer } from "@/lib/supabase-server";
+import { supabaseServer } from "../../../../lib/supabase-server";
 import { NextResponse } from "next/server";
 
 // GET — fetch customer by phone or all customers
