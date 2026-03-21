@@ -283,7 +283,7 @@ export default function MeantimeCustomer() {
       </Card>
       <div style={{ marginTop: "16px", padding: "18px 20px", borderRadius: T.radius, background: T.goldLight, border: `1px solid ${T.gold}30`, textAlign: "center" }}>
         <div style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "12px", fontWeight: "700", color: T.gold, letterSpacing: "0.1em", textTransform: "uppercase" }}>2x1 en barra</div>
-        <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Cerveza tirada, copa de vino o vermut — al registrarte.</div>
+        <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Stella Artois, copa de vino o vermut — al registrarte.</div>
       </div>
       <div style={{ marginTop: "28px", display: "flex", flexDirection: "column", gap: "10px" }}>
         {returning ? (
@@ -505,7 +505,7 @@ export default function MeantimeCustomer() {
       {!atBar && (
         <Card style={{ marginTop: "14px", background: T.goldLight, border: `1px solid ${T.gold}25` }}>
           <div style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "12px", fontWeight: "700", color: T.gold, letterSpacing: "0.1em", textTransform: "uppercase" }}>2x1 en barra</div>
-          <div style={{ fontSize: "13px", color: T.textMed, marginTop: "6px" }}>Cerveza tirada, copa de vino o vermut.</div>
+          <div style={{ fontSize: "13px", color: T.textMed, marginTop: "6px" }}>Stella Artois, copa de vino o vermut.</div>
           <button onClick={() => setAtBar(true)} style={{
             marginTop: "14px", width: "100%", padding: "14px", borderRadius: "12px",
             background: T.accent, color: "#fff", border: "none", fontSize: "14px",
@@ -517,7 +517,7 @@ export default function MeantimeCustomer() {
         <Card style={{ marginTop: "14px", background: T.goldLight, border: `1px solid ${T.gold}25`, textAlign: "center" }}>
           <div style={{ fontSize: "14px", fontWeight: "700", color: T.gold, marginBottom: "14px" }}>Elegi tu 2x1</div>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {["Cerveza tirada", "Copa de vino", "Vermut"].map(item => (
+            {["Stella Artois Caña", "Copa de vino de la casa", "Vermut & Aperitivo"].map(item => (
               <button key={item} onClick={() => redeemBar(item)} style={{
                 padding: "16px", borderRadius: "12px", background: "#fff",
                 border: `1px solid ${T.border}`, cursor: "pointer", fontFamily: f.sans,
@@ -550,10 +550,12 @@ export default function MeantimeCustomer() {
         <div style={{ fontSize: "12px", color: T.textMed, marginTop: "4px" }}>Te lo preparamos y esta listo cuando llegues a la mesa</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "14px" }}>
           {[
-            { name: "Empanadas (3)", price: 4500 },
-            { name: "Provoleta", price: 5200 },
-            { name: "Tabla de fiambres", price: 8900 },
-            { name: "Agua con gas", price: 1800 },
+            { name: "Focaccia masa madre", price: 3300 },
+            { name: "Paté de hongos", price: 8900 },
+            { name: "Guacamole + totopos", price: 14500 },
+            { name: "Papas 3 cocciones", price: 12500 },
+            { name: "Agua Pellegrino", price: 7300 },
+            { name: "Negroni de Barrica", price: 13000 },
           ].map(item => (
             <button key={item.name} onClick={async () => {
               if (!entry) return;
