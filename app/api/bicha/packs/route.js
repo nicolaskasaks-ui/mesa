@@ -2,16 +2,41 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { sendWhatsApp } from "@/lib/twilio";
 import { NextResponse } from "next/server";
 
-// GET — fetch packs (available packs or customer's purchased packs)
+// Generate a short unique redeem code (6 alphanumeric chars)
+function generateRedeemCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I confusion
+  let code = "";
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+const GAME_LABELS = {
+  pingpong: "Ping Pong",
+  pool: "Pool",
+  metegol: "Metegol",
+};
+
+// GET — fetch packs (available packs, customer's purchased packs, or lookup by redeem code)
 export async function GET(req) {
   if (!supabaseServer) return NextResponse.json({ error: "DB not configured" }, { status: 500 });
 
   const { searchParams } = new URL(req.url);
   const phone = searchParams.get("phone");
-  const type = searchParams.get("type"); // "available" or "purchased"
+  const type = searchParams.get("type");
+  const code = searchParams.get("code"); // QR redeem code lookup
+
+  // Staff scans QR → lookup by redeem code
+  if (code) {
+    const { data, error } = await supabaseServer
+      .from("bicha_pack_purchases")
+      .select("*, bicha_packs(name, description, units, includes_game, game_type)")
+      .eq("redeem_code", code.toUpperCase())
+      .single();
+    if (error || !data) return NextResponse.json({ error: "Code not found" }, { status: 404 });
+    return NextResponse.json(data);
+  }
 
   if (type === "available") {
-    // Return pack definitions
     const { data, error } = await supabaseServer
       .from("bicha_packs")
       .select("*")
@@ -22,10 +47,9 @@ export async function GET(req) {
   }
 
   if (phone) {
-    // Return customer's purchased packs with remaining units
     const { data, error } = await supabaseServer
       .from("bicha_pack_purchases")
-      .select("*, bicha_packs(name, description, units, includes_pingpong)")
+      .select("*, bicha_packs(name, description, units, includes_game, game_type)")
       .eq("phone", phone)
       .gt("remaining", 0)
       .order("purchased_at", { ascending: false });
@@ -33,11 +57,11 @@ export async function GET(req) {
     return NextResponse.json(data);
   }
 
-  // All purchases (for admin)
+  // All purchases today (for staff dashboard)
   const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await supabaseServer
     .from("bicha_pack_purchases")
-    .select("*, bicha_packs(name, description, units, includes_pingpong)")
+    .select("*, bicha_packs(name, description, units, includes_game, game_type)")
     .gte("purchased_at", today + "T00:00:00")
     .order("purchased_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -49,13 +73,12 @@ export async function POST(req) {
   if (!supabaseServer) return NextResponse.json({ error: "DB not configured" }, { status: 500 });
 
   const body = await req.json();
-  const { pack_id, guest_name, phone, payment_method } = body;
+  const { pack_id, guest_name, phone, payment_method, game_type } = body;
 
   if (!pack_id || !guest_name || !phone || !payment_method) {
     return NextResponse.json({ error: "pack_id, guest_name, phone, payment_method required" }, { status: 400 });
   }
 
-  // Fetch pack details
   const { data: pack, error: packErr } = await supabaseServer
     .from("bicha_packs")
     .select("*")
@@ -63,43 +86,58 @@ export async function POST(req) {
     .single();
   if (packErr || !pack) return NextResponse.json({ error: "Pack not found" }, { status: 404 });
 
-  // Create purchase record (pending payment confirmation)
+  const redeem_code = generateRedeemCode();
+
   const { data, error } = await supabaseServer.from("bicha_pack_purchases").insert({
     pack_id,
+    redeem_code,
     guest_name,
     phone,
     payment_method,
-    payment_status: "pending",
+    payment_status: payment_method === "mercadopago" ? "pending" : "pending",
     remaining: pack.units,
-    pingpong_available: pack.includes_pingpong,
-  }).select("*, bicha_packs(name, description, units, includes_pingpong)");
+    game_available: pack.includes_game,
+    game_type: game_type || pack.game_type || null,
+  }).select("*, bicha_packs(name, description, units, includes_game, game_type)");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data[0], { status: 201 });
 }
 
-// PATCH — confirm payment or redeem unit from pack
+// PATCH — confirm payment, redeem unit, redeem game
 export async function PATCH(req) {
   if (!supabaseServer) return NextResponse.json({ error: "DB not configured" }, { status: 500 });
 
   const body = await req.json();
-  const { id, action } = body;
-  if (!id || !action) return NextResponse.json({ error: "id, action required" }, { status: 400 });
+  const { id, code, action } = body;
+
+  // Allow lookup by id or redeem_code
+  const lookupId = id;
+  const lookupCode = code?.toUpperCase();
+
+  if (!lookupId && !lookupCode) return NextResponse.json({ error: "id or code required" }, { status: 400 });
+  if (!action) return NextResponse.json({ error: "action required" }, { status: 400 });
+
+  // Build the query filter
+  const filter = lookupId ? { id: lookupId } : { redeem_code: lookupCode };
+  const filterKey = lookupId ? "id" : "redeem_code";
+  const filterVal = lookupId || lookupCode;
 
   if (action === "confirm_payment") {
     const { data, error } = await supabaseServer
       .from("bicha_pack_purchases")
       .update({ payment_status: "confirmed" })
-      .eq("id", id)
-      .select("*, bicha_packs(name, includes_pingpong)");
+      .eq(filterKey, filterVal)
+      .select("*, bicha_packs(name, includes_game, game_type)");
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     const purchase = data[0];
-    if (purchase.phone) {
-      const pingpongMsg = purchase.bicha_packs?.includes_pingpong
-        ? "\n🏓 ¡Incluye 1 hora de ping pong gratis!"
+    if (purchase?.phone) {
+      const gameLabel = GAME_LABELS[purchase.game_type] || "juego";
+      const gameMsg = purchase.game_available
+        ? `\n🎮 ¡Incluye 1 hora de ${gameLabel} gratis!`
         : "";
-      const msg = `¡${purchase.guest_name}! Tu pack "${purchase.bicha_packs?.name}" está confirmado. Mostrá este mensaje para canjear.${pingpongMsg}`;
+      const msg = `¡${purchase.guest_name}! Tu pack "${purchase.bicha_packs?.name}" está confirmado.\n\nTu código de canje: ${purchase.redeem_code}\nMostrá el QR en la app para canjear.${gameMsg}`;
       await sendWhatsApp({ to: purchase.phone, guestName: purchase.guest_name, message: msg });
     }
     return NextResponse.json(purchase);
@@ -108,8 +146,8 @@ export async function PATCH(req) {
   if (action === "redeem") {
     const { data: current } = await supabaseServer
       .from("bicha_pack_purchases")
-      .select("remaining, payment_status")
-      .eq("id", id)
+      .select("id, remaining, payment_status")
+      .eq(filterKey, filterVal)
       .single();
 
     if (!current || current.payment_status !== "confirmed") {
@@ -122,17 +160,17 @@ export async function PATCH(req) {
     const { data, error } = await supabaseServer
       .from("bicha_pack_purchases")
       .update({ remaining: current.remaining - 1 })
-      .eq("id", id)
+      .eq("id", current.id)
       .select("*, bicha_packs(name)");
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json(data[0]);
   }
 
-  if (action === "redeem_pingpong") {
+  if (action === "redeem_game") {
     const { data, error } = await supabaseServer
       .from("bicha_pack_purchases")
-      .update({ pingpong_available: false })
-      .eq("id", id)
+      .update({ game_available: false })
+      .eq(filterKey, filterVal)
       .select();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json(data[0]);
