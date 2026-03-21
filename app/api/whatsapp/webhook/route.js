@@ -43,10 +43,12 @@ export async function POST(request) {
   const reply = body.toLowerCase();
   let responseMsg = "";
 
-  // 1 = confirm / ya voy
-  if (reply === "1" || reply.includes("voy") || reply.includes("confirm") || reply.includes("si")) {
-    await supabase.from("waitlist").update({ activity: "confirmado" }).eq("id", entry.id);
-    responseMsg = `Genial ${entry.guest_name}! Te esperamos en Chuí. Loyola 1250.`;
+  // 1 = confirm / ya voy / sigo esperando
+  if (reply === "1" || reply.includes("voy") || reply.includes("confirm") || reply.includes("si") || reply.includes("espero") || reply.includes("quedo")) {
+    await supabase.from("waitlist").update({ activity: "confirmado", extensions_used: 1 }).eq("id", entry.id);
+    responseMsg = entry.status === "notified"
+      ? `Genial ${entry.guest_name}! Te esperamos en Chuí. Loyola 1250.`
+      : `Perfecto ${entry.guest_name}, te mantenemos en la fila! Te avisamos apenas se libere tu mesa.`;
   }
   // 2 = cancel
   else if (reply === "2" || reply.includes("cancel") || reply.includes("no")) {

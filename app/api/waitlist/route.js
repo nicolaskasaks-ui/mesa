@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseServer as supabase } from "../../../lib/supabase-server";
-import { sendWhatsApp, msgPositionUpdate, msgPostVisit, msgLevelUp, msgBirthday } from "../../../lib/twilio";
+import { sendWhatsApp, msgPositionUpdate, msgPostVisit, msgLevelUp, msgBirthday, msgStillWaiting } from "../../../lib/twilio";
 
 // ── Trust level thresholds ──
 const TRUST_THRESHOLDS = { 1: 1, 2: 3, 3: 5 }; // visits needed for each level
@@ -33,6 +33,43 @@ export async function GET() {
           no_show_count: (cust?.no_show_count || 0) + 1,
         }).eq("id", entry.customer_id);
       }
+    }
+  }
+
+  // ── Long wait check: 3h+ waiting → send "still waiting?" WhatsApp ──
+  const longWaitCutoff = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+  const longWaitAutoCancel = new Date(Date.now() - 3.5 * 60 * 60 * 1000).toISOString();
+
+  // Auto-cancel entries waiting 3.5h+ that haven't confirmed (extensions_used still 0 or null)
+  await supabase.from("waitlist")
+    .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+    .eq("status", "waiting")
+    .eq("extensions_used", 0)
+    .lt("joined_at", longWaitAutoCancel);
+
+  // Send "still waiting?" to entries between 3h and 3.5h (only if not yet checked)
+  // We use extensions_used = 0 → not yet asked, set to -1 after asking
+  const { data: longWaiters } = await supabase.from("waitlist")
+    .select("id, guest_name, customers(phone)")
+    .eq("status", "waiting")
+    .or("extensions_used.is.null,extensions_used.eq.0")
+    .lt("joined_at", longWaitCutoff)
+    .gte("joined_at", longWaitAutoCancel);
+
+  if (longWaiters?.length) {
+    for (const entry of longWaiters) {
+      const phone = entry.customers?.phone;
+      if (phone) {
+        sendWhatsApp({
+          to: phone.replace(/\D/g, ""),
+          guestName: entry.guest_name,
+          message: msgStillWaiting({ guestName: entry.guest_name }),
+        }).catch(() => {});
+      }
+      // Mark as checked so we don't resend
+      await supabase.from("waitlist")
+        .update({ extensions_used: -1 })
+        .eq("id", entry.id);
     }
   }
 
