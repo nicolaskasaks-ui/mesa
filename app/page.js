@@ -77,6 +77,8 @@ export default function MeantimeCustomer() {
   const [atBar, setAtBar] = useState(false);
   const [barRedeemed, setBarRedeemed] = useState(false);
   const [arrivalCountdown, setArrivalCountdown] = useState(null);
+  const [toast, setToast] = useState(null);
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
 
   // Restore returning customer + check referral code
   useEffect(() => {
@@ -125,11 +127,11 @@ export default function MeantimeCustomer() {
         }),
       });
       const data = await res.json();
-      if (data.error) { alert(data.error); setSubmitting(false); return; }
+      if (data.error) { showToast(data.error); setSubmitting(false); return; }
       try { localStorage.setItem("meantime_customer", JSON.stringify({ name: name.trim(), phone: phone.trim(), countryCode, allergies, party, birthday })); } catch {}
       setEntry(data);
       setView("waiting");
-    } catch { alert("Error de conexion"); }
+    } catch { showToast("Error de conexion"); }
     setSubmitting(false);
   };
 
@@ -564,8 +566,8 @@ export default function MeantimeCustomer() {
                   method: "POST", headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ waitlist_id: entry.id, customer_id: entry.customer_id, guest_name: entry.guest_name, items: [{ name: item.name, price: item.price, quantity: 1 }] }),
                 });
-                alert(`${item.name} pedido! Te lo preparamos.`);
-              } catch { alert("Error al pedir"); }
+                showToast(`${item.name} pedido ✓`);
+              } catch { showToast("Error al pedir"); }
             }} style={{
               padding: "12px 8px", borderRadius: "12px", background: T.bgPage,
               border: `1px solid ${T.cardBorder}`, cursor: "pointer", fontFamily: f.sans,
@@ -596,11 +598,11 @@ export default function MeantimeCustomer() {
                 navigator.share({ title: "Chui - Reserva tu mesa", text: "Veni a Chui! Usa mi link para anotarte y nos regalan un postre a los dos.", url: data.link });
               } else if (data.link) {
                 navigator.clipboard?.writeText(data.link);
-                alert("Link copiado!");
+                showToast("Link copiado ✓");
               } else if (data.error) {
-                alert(data.error);
+                showToast(data.error);
               }
-            } catch { alert("Error al generar link"); }
+            } catch { showToast("Error al generar link"); }
           }} style={{
             marginTop: "14px", padding: "12px 24px", borderRadius: "12px",
             background: T.accent, color: "#fff", border: "none", fontSize: "14px",
@@ -625,6 +627,15 @@ export default function MeantimeCustomer() {
       </div>
       <div style={{ textAlign: "center", marginTop: "28px", fontSize: "11px", color: T.textLight, letterSpacing: "0.08em", textTransform: "uppercase" }}>Powered by <a href="https://mesa-xi.vercel.app" aria-label="Meantime — Sistema de espera inteligente" style={{ color: "inherit", textDecoration: "none" }}>{APP_NAME}</a></div>
       {showMenu && <MenuOverlay onClose={() => setShowMenu(false)} />}
+      {toast && (
+        <div className="toast" style={{
+          position: "fixed", bottom: "32px", left: "50%", transform: "translateX(-50%)",
+          padding: "14px 28px", borderRadius: "14px", background: T.accent, color: "#fff",
+          fontSize: "14px", fontWeight: "600", fontFamily: f.sans,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.18)", zIndex: 999,
+          pointerEvents: "none", whiteSpace: "nowrap",
+        }}>{toast}</div>
+      )}
     </div>
   );
 }
