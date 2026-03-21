@@ -44,6 +44,20 @@ export async function POST(request) {
       if (newC) customer_id = newC.id;
     }
   }
+  // Prevent duplicate active entries for same customer
+  if (customer_id) {
+    const { data: activeEntry } = await supabase
+      .from("waitlist")
+      .select("id")
+      .eq("customer_id", customer_id)
+      .in("status", ["waiting", "notified", "extended"])
+      .limit(1)
+      .single();
+    if (activeEntry) {
+      return NextResponse.json({ error: "Ya estas en la fila" }, { status: 409 });
+    }
+  }
+
   const { data, error } = await supabase.from("waitlist").insert({
     customer_id, guest_name, party_size: party_size || 2,
     source: source || "qr", notes: notes || null, status: "waiting",

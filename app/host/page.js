@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import { T, f } from "../../lib/tokens";
 
@@ -23,7 +23,9 @@ function ago(d) {
   const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
   if (m < 1) return "ahora";
   if (m < 60) return `${m}m`;
-  return `${Math.floor(m/60)}h${m%60}m`;
+  const h = Math.floor(m / 60);
+  const rm = m % 60;
+  return rm > 0 ? `${h}h${rm}m` : `${h}h`;
 }
 
 // Predict which table each queue entry will likely get
@@ -72,7 +74,12 @@ function getCandidates(queue, capacity) {
     });
 }
 
+const HOST_PIN = "1250"; // Loyola 1250 — easy to remember for staff
+
 export default function HostDashboard() {
+  const [authed, setAuthed] = useState(false);
+  const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState(false);
   const [tables, setTables] = useState([]);
   const [queue, setQueue] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +87,16 @@ export default function HostDashboard() {
   const [now, setNow] = useState(Date.now());
   const [confirmAssign, setConfirmAssign] = useState(null);
   const [seatedToday, setSeatedToday] = useState(0);
+  const [undoTable, setUndoTable] = useState(null);
+  const longPressTimer = useRef(null);
+
+  // Check if already authed from session + set host title
+  useEffect(() => {
+    document.title = "Meantime — Panel Hostess";
+    try {
+      if (sessionStorage.getItem("meantime_host_auth") === "1") setAuthed(true);
+    } catch {}
+  }, []);
 
   const fetchAll = async () => {
     if (!supabase) return;
@@ -156,6 +173,30 @@ export default function HostDashboard() {
     try { await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "seated" }) }); } catch {}
     setPicker(null); fetchAll();
   };
+  const undoSeat = async (table) => {
+    // Revert table to libre and revert waitlist entry to waiting
+    await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: table.id, status: "libre" }) });
+    if (table.waitlist_id) {
+      await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: table.waitlist_id, status: "waiting" }) });
+    }
+    setUndoTable(null);
+    fetchAll();
+  };
+
+  const handleLongPressStart = (table) => {
+    if (table.status === "libre") return; // nothing to undo on free tables
+    longPressTimer.current = setTimeout(() => {
+      setUndoTable(table);
+    }, 600); // 600ms long press
+  };
+
+  const handleLongPressEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
   const clearQueue = async (mode) => {
     const label = mode === "all" ? "toda la fila" : "los de mas de 5 horas";
     if (!confirm(`Limpiar ${label}?`)) return;
@@ -181,6 +222,48 @@ export default function HostDashboard() {
   const waiting = queue.filter(q => q.status === "waiting").length;
   const predictions = predictTable(tables, queue);
 
+  // PIN screen
+  if (!authed) return (
+    <div style={{ minHeight: "100dvh", background: T.bgPage, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: f.sans }}>
+      <div style={{ textAlign: "center", width: "280px" }}>
+        <img src="/logo-dark.png" alt="Chuí" style={{ height: "32px", objectFit: "contain", marginBottom: "20px" }} />
+        <div style={{ fontSize: "14px", color: T.textMed, marginBottom: "20px" }}>Ingresa el PIN del hostess</div>
+        <input
+          type="tel" inputMode="numeric" maxLength={4}
+          value={pin} onChange={e => { setPin(e.target.value.replace(/\D/g, "")); setPinError(false); }}
+          onKeyDown={e => {
+            if (e.key === "Enter" && pin.length === 4) {
+              if (pin === HOST_PIN) {
+                try { sessionStorage.setItem("meantime_host_auth", "1"); } catch {}
+                setAuthed(true);
+              } else { setPinError(true); setPin(""); }
+            }
+          }}
+          placeholder="••••"
+          style={{
+            width: "100%", padding: "16px", borderRadius: "14px", fontSize: "28px", fontWeight: "700",
+            fontFamily: f.display, textAlign: "center", letterSpacing: "0.3em", outline: "none",
+            border: `2px solid ${pinError ? T.danger : T.border}`, background: T.bg, color: T.text,
+            boxSizing: "border-box",
+          }}
+          autoFocus
+        />
+        {pinError && <div style={{ fontSize: "13px", color: T.danger, marginTop: "10px" }}>PIN incorrecto</div>}
+        <button onClick={() => {
+          if (pin === HOST_PIN) {
+            try { sessionStorage.setItem("meantime_host_auth", "1"); } catch {}
+            setAuthed(true);
+          } else { setPinError(true); setPin(""); }
+        }} disabled={pin.length < 4} style={{
+          width: "100%", padding: "16px", borderRadius: "14px", marginTop: "16px",
+          background: pin.length === 4 ? T.accent : T.border, color: "#fff", border: "none",
+          fontSize: "15px", fontWeight: "600", cursor: pin.length === 4 ? "pointer" : "default",
+          fontFamily: f.sans, opacity: pin.length === 4 ? 1 : 0.5,
+        }}>Entrar</button>
+      </div>
+    </div>
+  );
+
   if (loading) return (
     <div style={{ minHeight: "100dvh", background: T.bgPage, display: "flex", alignItems: "center", justifyContent: "center", color: T.textLight, fontFamily: f.sans }}>
       Cargando...
@@ -189,6 +272,35 @@ export default function HostDashboard() {
 
   return (
     <div style={{ minHeight: "100dvh", background: T.bgPage, fontFamily: f.sans, color: T.text }}>
+
+      {/* ── UNDO TABLE (long-press) ── */}
+      {undoTable && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 250, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setUndoTable(null); }}>
+          <div style={{
+            background: T.card, borderRadius: "20px", padding: "28px 24px", width: "calc(100% - 48px)", maxWidth: "340px",
+            boxShadow: "0 12px 48px rgba(0,0,0,0.15)", textAlign: "center",
+          }}>
+            <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "700", color: T.text }}>Mesa {undoTable.id}</div>
+            <div style={{ fontSize: "13px", color: T.textMed, marginTop: "6px" }}>
+              {undoTable.waitlist?.guest_name ? `${undoTable.waitlist.guest_name} · ` : ""}{S[undoTable.status]?.label || undoTable.status} · {undoTable.capacity}p
+            </div>
+            <div style={{ fontSize: "14px", color: T.textMed, marginTop: "16px" }}>¿Liberar esta mesa?</div>
+            <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
+              <button onClick={() => setUndoTable(null)} style={{
+                flex: 1, padding: "14px", borderRadius: "12px", background: T.bgPage,
+                color: T.textMed, border: `1px solid ${T.border}`, fontSize: "14px",
+                fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
+              }}>Cancelar</button>
+              <button onClick={() => undoSeat(undoTable)} style={{
+                flex: 1, padding: "14px", borderRadius: "12px", background: S.pidio_cuenta.bg,
+                color: "#fff", border: "none", fontSize: "14px",
+                fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
+              }}>Liberar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── SEAT PICKER ── */}
       {picker && (
@@ -287,19 +399,33 @@ export default function HostDashboard() {
                   const time = table.seated_at ? ago(table.seated_at) : "";
                   const guestName = table.waitlist?.guest_name;
                   return (
-                    <button key={table.id} onClick={() => cycleTable(table)} style={{
-                      padding: "18px 8px 14px", borderRadius: T.radius, border: "none",
-                      background: cfg.bg, cursor: "pointer", textAlign: "center",
-                      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start",
-                      minHeight: "110px",
-                    }}>
+                    <button key={table.id}
+                      onClick={() => cycleTable(table)}
+                      onTouchStart={() => handleLongPressStart(table)}
+                      onTouchEnd={handleLongPressEnd}
+                      onTouchCancel={handleLongPressEnd}
+                      onMouseDown={() => handleLongPressStart(table)}
+                      onMouseUp={handleLongPressEnd}
+                      onMouseLeave={handleLongPressEnd}
+                      onContextMenu={(e) => e.preventDefault()}
+                      aria-label={`Mesa ${table.id} - ${cfg.label} - ${table.capacity} personas${guestName ? ` - ${guestName}` : ""}`}
+                      style={{
+                        padding: "14px 8px 12px", borderRadius: T.radius, border: "none",
+                        background: cfg.bg, cursor: "pointer", textAlign: "center",
+                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start",
+                        minHeight: "110px", WebkitTouchCallout: "none", userSelect: "none",
+                      }}>
                       <div style={{ fontFamily: f.display, fontSize: "22px", fontWeight: "800", color: cfg.color, lineHeight: 1 }}>{table.id}</div>
-                      <div style={{ fontSize: "11px", color: cfg.color, marginTop: "5px", fontWeight: "600", opacity: 0.8 }}>{cfg.label}</div>
-                      <div style={{ fontSize: "10px", color: cfg.color, marginTop: "4px", opacity: 0.6 }}>{table.capacity}p</div>
-                      <div style={{ fontSize: "11px", color: cfg.color, marginTop: "3px", fontWeight: "500", opacity: time ? 0.7 : 0, height: "14px" }}>{time || "-"}</div>
-                      <div style={{ fontSize: "10px", color: cfg.color, marginTop: "2px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "500", opacity: guestName ? 0.7 : 0, height: "13px" }}>
-                        {guestName || "-"}
-                      </div>
+                      <div style={{ fontSize: "11px", color: cfg.color, marginTop: "4px", fontWeight: "600", opacity: 0.8 }}>{cfg.label}</div>
+                      <div style={{ fontSize: "10px", color: cfg.color, marginTop: "3px", opacity: 0.6 }}>{table.capacity}p</div>
+                      {guestName && (
+                        <div style={{ fontSize: "10px", color: cfg.color, marginTop: "4px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "600", opacity: 0.85, padding: "2px 6px", borderRadius: "4px", background: "rgba(255,255,255,0.15)" }}>
+                          {guestName}
+                        </div>
+                      )}
+                      {time && (
+                        <div style={{ fontSize: "10px", color: cfg.color, marginTop: "3px", fontWeight: "500", opacity: 0.6 }}>{time}</div>
+                      )}
                     </button>
                   );
                 })}
@@ -315,17 +441,29 @@ export default function HostDashboard() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: "6px", marginBottom: "12px" }}>
                   {seated.map(table => {
                     const time = table.seated_at ? ago(table.seated_at) : "";
+                    const guestName = table.waitlist?.guest_name;
                     return (
-                      <button key={table.id} onClick={() => cycleTable(table)} style={{
-                        padding: "8px 6px", borderRadius: "10px", border: "none",
-                        background: S.sentado.bg, cursor: "pointer",
-                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                        height: "48px",
-                      }}>
+                      <button key={table.id}
+                        onClick={() => cycleTable(table)}
+                        onTouchStart={() => handleLongPressStart(table)}
+                        onTouchEnd={handleLongPressEnd}
+                        onTouchCancel={handleLongPressEnd}
+                        onMouseDown={() => handleLongPressStart(table)}
+                        onMouseUp={handleLongPressEnd}
+                        onMouseLeave={handleLongPressEnd}
+                        onContextMenu={(e) => e.preventDefault()}
+                        aria-label={`Mesa ${table.id} - Sentado - ${table.capacity} personas${guestName ? ` - ${guestName}` : ""}${time ? ` - ${time}` : ""}`}
+                        style={{
+                          padding: "6px 6px", borderRadius: "10px", border: "none",
+                          background: S.sentado.bg, cursor: "pointer",
+                          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                          minHeight: "48px", WebkitTouchCallout: "none", userSelect: "none",
+                        }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                           <span style={{ fontFamily: f.display, fontSize: "13px", fontWeight: "800", color: S.sentado.color }}>{table.id}</span>
                           <span style={{ fontSize: "9px", color: S.sentado.color, opacity: 0.5 }}>{table.capacity}p</span>
                         </div>
+                        {guestName && <span style={{ fontSize: "9px", color: S.sentado.color, opacity: 0.6, marginTop: "1px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "600" }}>{guestName}</span>}
                         {time && <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "9px", color: S.sentado.color, opacity: 0.4, marginTop: "1px" }}>{time}</span>}
                       </button>
                     );

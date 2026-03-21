@@ -1,0 +1,21 @@
+{
+  "name": "Meantime — Tu mesa se está preparando",
+  "short_name": "Meantime",
+  "description": "Sistema de espera inteligente para restaurantes",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAF9F7",
+  "theme_color": "#2D7A4F",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

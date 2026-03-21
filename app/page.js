@@ -284,7 +284,7 @@ export default function MeantimeCustomer() {
         )}
         <Btn variant="outline" onClick={() => setShowMenu(true)}>Ver el menu</Btn>
       </div>
-      <div style={{ textAlign: "center", marginTop: "40px", fontSize: "11px", color: T.textLight, letterSpacing: "0.08em", textTransform: "uppercase" }}>Powered by {APP_NAME}</div>
+      <div style={{ textAlign: "center", marginTop: "40px", fontSize: "11px", color: T.textLight, letterSpacing: "0.08em", textTransform: "uppercase" }}>Powered by <a href="https://mesa-xi.vercel.app" aria-label="Meantime — Sistema de espera inteligente" style={{ color: "inherit", textDecoration: "none" }}>{APP_NAME}</a></div>
       {showMenu && <MenuOverlay onClose={() => setShowMenu(false)} />}
     </div>
   );
@@ -518,7 +518,7 @@ export default function MeantimeCustomer() {
       <div style={{ marginTop: "16px" }}>
         <Btn variant="ghost" onClick={handleCancel} style={{ color: T.danger, fontSize: "13px" }}>Salir de la fila</Btn>
       </div>
-      <div style={{ textAlign: "center", marginTop: "28px", fontSize: "11px", color: T.textLight, letterSpacing: "0.08em", textTransform: "uppercase" }}>Powered by {APP_NAME}</div>
+      <div style={{ textAlign: "center", marginTop: "28px", fontSize: "11px", color: T.textLight, letterSpacing: "0.08em", textTransform: "uppercase" }}>Powered by <a href="https://mesa-xi.vercel.app" aria-label="Meantime — Sistema de espera inteligente" style={{ color: "inherit", textDecoration: "none" }}>{APP_NAME}</a></div>
       {showMenu && <MenuOverlay onClose={() => setShowMenu(false)} />}
     </div>
   );
