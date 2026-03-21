@@ -3,12 +3,20 @@ import { sendWhatsApp, msgTableReady } from "../../../lib/twilio";
 import { supabaseServer as supabase } from "../../../lib/supabase-server";
 
 export async function GET() {
-  // Auto-cleanup: tables seated for 6+ hours → reset to libre (zombie tables)
+  // Auto-cleanup: tables occupied for 6+ hours → reset to libre (zombie tables)
   const zombieCutoff = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+  // Clean by seated_at
   await supabase.from("tables")
     .update({ status: "libre", seated_at: null, waitlist_id: null, updated_at: new Date().toISOString() })
-    .eq("status", "sentado")
+    .in("status", ["sentado", "postre", "pidio_cuenta"])
+    .not("seated_at", "is", null)
     .lt("seated_at", zombieCutoff);
+  // Also clean tables stuck in postre/cuenta with no seated_at but old updated_at
+  await supabase.from("tables")
+    .update({ status: "libre", seated_at: null, waitlist_id: null, updated_at: new Date().toISOString() })
+    .in("status", ["sentado", "postre", "pidio_cuenta"])
+    .is("seated_at", null)
+    .lt("updated_at", zombieCutoff);
 
   const { data, error } = await supabase
     .from("tables")
