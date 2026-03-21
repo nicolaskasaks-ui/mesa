@@ -88,6 +88,7 @@ export default function HostDashboard() {
   const [confirmAssign, setConfirmAssign] = useState(null);
   const [seatedToday, setSeatedToday] = useState(0);
   const [undoTable, setUndoTable] = useState(null);
+  const [profileEntry, setProfileEntry] = useState(null);
   const longPressTimer = useRef(null);
 
   // Check if already authed from session + set host title
@@ -103,7 +104,7 @@ export default function HostDashboard() {
     const [t, q] = await Promise.all([
       supabase.from("tables").select("*, waitlist(guest_name, party_size)").order("id"),
       supabase.from("waitlist")
-        .select("*, customers(name, phone, allergies, visit_count, trust_level)")
+        .select("*, customers(id, name, phone, allergies, visit_count, trust_level, no_show_count, birthday, tags, last_visit)")
         .in("status", ["waiting", "notified", "extended"])
         .order("joined_at", { ascending: true }),
     ]);
@@ -275,12 +276,12 @@ export default function HostDashboard() {
 
       {/* ── UNDO TABLE (long-press) ── */}
       {undoTable && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 250, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}
+        <div className="glass-overlay" style={{ position: "fixed", inset: 0, zIndex: 250, background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}
           onClick={(e) => { if (e.target === e.currentTarget) setUndoTable(null); }}>
           <div style={{
             background: T.card, borderRadius: "20px", padding: "28px 24px", width: "calc(100% - 48px)", maxWidth: "340px",
-            boxShadow: "0 12px 48px rgba(0,0,0,0.15)", textAlign: "center",
-          }}>
+            boxShadow: T.shadowLg || "0 12px 48px rgba(0,0,0,0.15)", textAlign: "center",
+          }} className="modal-enter">
             <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "700", color: T.text }}>Mesa {undoTable.id}</div>
             <div style={{ fontSize: "13px", color: T.textMed, marginTop: "6px" }}>
               {undoTable.waitlist?.guest_name ? `${undoTable.waitlist.guest_name} · ` : ""}{S[undoTable.status]?.label || undoTable.status} · {undoTable.capacity}p
@@ -302,9 +303,100 @@ export default function HostDashboard() {
         </div>
       )}
 
+      {/* ── GUEST PROFILE DRAWER ── */}
+      {profileEntry && (() => {
+        const c = profileEntry.customers;
+        const trustNames = { 0: "Nuevo", 1: "Verificado", 2: "Confiable", 3: "Habitual" };
+        const trustColors = { 0: T.textLight, 1: S.libre.bg, 2: S.libre.bg, 3: T.gold };
+        return (
+          <div className="glass-overlay" style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}
+            onClick={(e) => { if (e.target === e.currentTarget) setProfileEntry(null); }}>
+            <div style={{
+              background: T.card, borderRadius: "20px 20px 0 0", padding: "24px 20px 32px", width: "100%", maxWidth: "480px",
+              boxShadow: "0 -8px 40px rgba(0,0,0,0.1)", maxHeight: "70vh", overflowY: "auto",
+            }}>
+              <div style={{ width: "36px", height: "4px", borderRadius: "2px", background: T.border, margin: "0 auto 20px" }} />
+              <div style={{ textAlign: "center", marginBottom: "20px" }}>
+                <div style={{ fontFamily: f.display, fontSize: "24px", fontWeight: "700" }}>{profileEntry.guest_name}</div>
+                <div style={{ display: "flex", justifyContent: "center", gap: "8px", marginTop: "8px" }}>
+                  <span style={{ fontSize: "11px", fontWeight: "700", padding: "4px 10px", borderRadius: "6px", background: `${trustColors[c?.trust_level || 0]}15`, color: trustColors[c?.trust_level || 0] }}>
+                    {trustNames[c?.trust_level || 0]}
+                  </span>
+                  <span style={{ fontSize: "11px", fontWeight: "600", padding: "4px 10px", borderRadius: "6px", background: T.bgPage, color: T.textMed }}>
+                    {c?.visit_count || 1} visitas
+                  </span>
+                  {(c?.no_show_count || 0) > 0 && (
+                    <span style={{ fontSize: "11px", fontWeight: "600", padding: "4px 10px", borderRadius: "6px", background: `${S.pidio_cuenta.bg}15`, color: S.pidio_cuenta.bg }}>
+                      {c.no_show_count} no-show{c.no_show_count > 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "16px" }}>
+                <div style={{ padding: "12px", borderRadius: "12px", background: T.bgPage, textAlign: "center" }}>
+                  <div style={{ fontSize: "10px", fontWeight: "700", color: T.textLight, letterSpacing: "0.06em", textTransform: "uppercase" }}>Grupo</div>
+                  <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "700", marginTop: "4px" }}>{profileEntry.party_size}p</div>
+                </div>
+                <div style={{ padding: "12px", borderRadius: "12px", background: T.bgPage, textAlign: "center" }}>
+                  <div style={{ fontSize: "10px", fontWeight: "700", color: T.textLight, letterSpacing: "0.06em", textTransform: "uppercase" }}>Espera</div>
+                  <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "700", marginTop: "4px" }}>{ago(profileEntry.joined_at)}</div>
+                </div>
+              </div>
+
+              {c?.phone && (
+                <div style={{ padding: "12px 16px", borderRadius: "12px", background: T.bgPage, marginBottom: "10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: "10px", fontWeight: "700", color: T.textLight, letterSpacing: "0.06em", textTransform: "uppercase" }}>WhatsApp</div>
+                    <div style={{ fontSize: "14px", fontWeight: "600", marginTop: "2px" }}>{c.phone}</div>
+                  </div>
+                  <a href={`https://wa.me/${c.phone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: "12px", fontWeight: "700", color: S.libre.bg, textDecoration: "none", padding: "8px 14px", borderRadius: "8px", background: `${S.libre.bg}10` }}>Abrir</a>
+                </div>
+              )}
+
+              {c?.birthday && (
+                <div style={{ padding: "12px 16px", borderRadius: "12px", background: T.bgPage, marginBottom: "10px" }}>
+                  <div style={{ fontSize: "10px", fontWeight: "700", color: T.textLight, letterSpacing: "0.06em", textTransform: "uppercase" }}>Cumpleaños</div>
+                  <div style={{ fontSize: "14px", fontWeight: "600", marginTop: "2px" }}>{new Date(c.birthday + "T12:00:00").toLocaleDateString("es-AR", { day: "numeric", month: "long" })}</div>
+                </div>
+              )}
+
+              {c?.allergies?.length > 0 && (
+                <div style={{ padding: "12px 16px", borderRadius: "12px", background: T.bgPage, marginBottom: "10px" }}>
+                  <div style={{ fontSize: "10px", fontWeight: "700", color: T.textLight, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "6px" }}>Alergias</div>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                    {c.allergies.map(a => <span key={a} style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "6px", background: `${S.pidio_cuenta.bg}15`, color: S.pidio_cuenta.bg, fontWeight: "600" }}>{a}</span>)}
+                  </div>
+                </div>
+              )}
+
+              {c?.last_visit && (
+                <div style={{ padding: "12px 16px", borderRadius: "12px", background: T.bgPage, marginBottom: "10px" }}>
+                  <div style={{ fontSize: "10px", fontWeight: "700", color: T.textLight, letterSpacing: "0.06em", textTransform: "uppercase" }}>Ultima visita</div>
+                  <div style={{ fontSize: "14px", fontWeight: "600", marginTop: "2px" }}>{new Date(c.last_visit).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" })}</div>
+                </div>
+              )}
+
+              {profileEntry.source && (
+                <div style={{ padding: "12px 16px", borderRadius: "12px", background: T.bgPage, marginBottom: "10px" }}>
+                  <div style={{ fontSize: "10px", fontWeight: "700", color: T.textLight, letterSpacing: "0.06em", textTransform: "uppercase" }}>Fuente</div>
+                  <div style={{ fontSize: "14px", fontWeight: "600", marginTop: "2px" }}>{profileEntry.source === "qr" ? "QR en local" : profileEntry.source === "whatsapp_bot" ? "WhatsApp" : profileEntry.source === "walkin" ? "Walk-in" : profileEntry.source}</div>
+                </div>
+              )}
+
+              <button onClick={() => setProfileEntry(null)} style={{
+                width: "100%", padding: "14px", borderRadius: "12px", marginTop: "8px",
+                background: T.accent, color: "#fff", border: "none", fontSize: "14px",
+                fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
+              }}>Cerrar</button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── SEAT PICKER ── */}
       {picker && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}
+        <div className="glass-overlay" style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}
           onClick={(e) => { if (e.target === e.currentTarget) setPicker(null); }}>
           <div style={{
             background: T.card, borderRadius: "20px 20px 0 0", padding: "24px 20px 32px", width: "100%", maxWidth: "480px",
@@ -464,7 +556,13 @@ export default function HostDashboard() {
                           <span style={{ fontSize: "9px", color: S.sentado.color, opacity: 0.5 }}>{table.capacity}p</span>
                         </div>
                         {guestName && <span style={{ fontSize: "9px", color: S.sentado.color, opacity: 0.6, marginTop: "1px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "600" }}>{guestName}</span>}
-                        {time && <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "9px", color: S.sentado.color, opacity: 0.4, marginTop: "1px" }}>{time}</span>}
+                        {time && (() => {
+                          const seatedMin = table.seated_at ? Math.floor((Date.now() - new Date(table.seated_at).getTime()) / 60000) : 0;
+                          const alertColor = seatedMin >= 180 ? S.pidio_cuenta.bg : seatedMin >= 120 ? S.postre.bg : null;
+                          return (
+                            <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "9px", color: alertColor || S.sentado.color, opacity: alertColor ? 1 : 0.4, marginTop: "1px", fontWeight: alertColor ? "700" : "400" }}>{time}{seatedMin >= 120 ? " ⚠" : ""}</span>
+                          );
+                        })()}
                       </button>
                     );
                   })}
@@ -522,8 +620,8 @@ export default function HostDashboard() {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                       <span style={{ fontFamily: f.display, fontSize: "14px", color: T.textLight, fontWeight: "600" }}>#{i+1}</span>
-                      <span style={{ fontFamily: f.display, fontSize: "17px", fontWeight: "700" }}>{entry.guest_name}</span>
-                      {c?.trust_level >= 1 && <span style={{ fontSize: "10px", fontWeight: "700", color: S.libre.bg }}>✓</span>}
+                      <span onClick={() => setProfileEntry(entry)} style={{ fontFamily: f.display, fontSize: "17px", fontWeight: "700", cursor: "pointer", textDecoration: "underline", textDecorationColor: T.border, textUnderlineOffset: "3px" }}>{entry.guest_name}</span>
+                      {c?.trust_level >= 1 && <span style={{ fontSize: "10px", fontWeight: "700", color: c.trust_level >= 3 ? T.gold : c.trust_level >= 2 ? S.libre.bg : S.libre.bg }}>{c.trust_level >= 3 ? "★" : "✓"}</span>}
                       <span style={{ fontSize: "13px", color: T.textMed }}>{entry.party_size}p</span>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -548,6 +646,12 @@ export default function HostDashboard() {
                           </span>
                         );
                       })()}
+                      {/* Source pill */}
+                      {entry.source && entry.source !== "qr" && (
+                        <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "9px", fontWeight: "700", padding: "3px 6px", borderRadius: "4px", background: T.border, color: T.textMed, letterSpacing: "0.04em" }}>
+                          {entry.source === "whatsapp_bot" ? "WA" : entry.source === "walkin" ? "WALK-IN" : entry.source.toUpperCase()}
+                        </span>
+                      )}
                     </div>
                   </div>
 

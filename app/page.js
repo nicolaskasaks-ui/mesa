@@ -5,23 +5,23 @@ import { T, f, RESTAURANT, APP_NAME } from "../lib/tokens";
 import MenuOverlay from "../components/MenuOverlay";
 
 // ── UI ──
-const Card = ({ children, style }) => (
-  <div style={{ background: T.card, borderRadius: T.radius, border: `1px solid ${T.cardBorder}`, boxShadow: T.shadow, padding: "28px", ...style }}>{children}</div>
+const Card = ({ children, style, className = "" }) => (
+  <div className={`card-enter ${className}`} style={{ background: T.card, borderRadius: T.radius, border: `1px solid ${T.cardBorder}`, boxShadow: T.shadow, padding: "28px", ...style }}>{children}</div>
 );
 
 const Btn = ({ children, onClick, variant = "primary", disabled, style }) => {
   const s = {
-    primary: { background: T.accent, color: "#fff", border: "none" },
+    primary: { background: T.accent, color: "#fff", border: "none", boxShadow: "0 2px 12px rgba(26,26,26,0.15)" },
     outline: { background: "transparent", color: T.text, border: `1.5px solid ${T.border}` },
     ghost: { background: "transparent", color: T.textMed, border: "none" },
-    success: { background: T.success, color: "#fff", border: "none" },
+    success: { background: T.success, color: "#fff", border: "none", boxShadow: "0 2px 12px rgba(45,122,79,0.25)" },
     danger: { background: "transparent", color: T.danger, border: `1.5px solid ${T.danger}40` },
   }[variant];
   return (
     <button onClick={onClick} disabled={disabled} style={{
-      width: "100%", padding: "16px", borderRadius: "14px", fontSize: "15px", fontWeight: "600",
+      width: "100%", padding: "17px", borderRadius: T.radiusSm || "14px", fontSize: "15px", fontWeight: "700",
       fontFamily: f.sans, cursor: disabled ? "default" : "pointer",
-      opacity: disabled ? 0.4 : 1, transition: "all 0.2s ease", ...s, ...style,
+      opacity: disabled ? 0.4 : 1, letterSpacing: "0.01em", ...s, ...style,
     }}>{children}</button>
   );
 };
@@ -62,6 +62,8 @@ export default function MeantimeCustomer() {
   const [phone, setPhone] = useState("");
   const [countryCode, setCountryCode] = useState("+54");
   const [allergies, setAllergies] = useState([]);
+  const [birthday, setBirthday] = useState("");
+  const [referralCode, setReferralCode] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [returning, setReturning] = useState(false);
 
@@ -76,7 +78,7 @@ export default function MeantimeCustomer() {
   const [barRedeemed, setBarRedeemed] = useState(false);
   const [arrivalCountdown, setArrivalCountdown] = useState(null);
 
-  // Restore returning customer
+  // Restore returning customer + check referral code
   useEffect(() => {
     try {
       const saved = localStorage.getItem("meantime_customer");
@@ -87,8 +89,15 @@ export default function MeantimeCustomer() {
         if (c.countryCode) setCountryCode(c.countryCode);
         if (c.allergies) setAllergies(c.allergies);
         if (c.party) setParty(c.party);
+        if (c.birthday) setBirthday(c.birthday);
         setReturning(true);
       }
+    } catch {}
+    // Check for referral in URL
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get("ref");
+      if (ref) setReferralCode(ref);
     } catch {}
   }, []);
 
@@ -109,12 +118,15 @@ export default function MeantimeCustomer() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           guest_name: name.trim(), party_size: party, allergies,
-          phone: phone.trim() ? `${countryCode}${phone.trim().replace(/^0+/,"")}` : null, source: "qr",
+          phone: phone.trim() ? `${countryCode}${phone.trim().replace(/^0+/,"")}` : null,
+          source: referralCode ? "referral" : "qr",
+          ...(birthday ? { birthday } : {}),
+          ...(referralCode ? { referral_code: referralCode } : {}),
         }),
       });
       const data = await res.json();
       if (data.error) { alert(data.error); setSubmitting(false); return; }
-      try { localStorage.setItem("meantime_customer", JSON.stringify({ name: name.trim(), phone: phone.trim(), countryCode, allergies, party })); } catch {}
+      try { localStorage.setItem("meantime_customer", JSON.stringify({ name: name.trim(), phone: phone.trim(), countryCode, allergies, party, birthday })); } catch {}
       setEntry(data);
       setView("waiting");
     } catch { alert("Error de conexion"); }
@@ -339,6 +351,14 @@ export default function MeantimeCustomer() {
             );
           })}
         </div>
+        <div style={{ height: "20px" }} />
+
+        <label style={{ fontSize: "12px", fontWeight: "700", color: T.textLight, display: "block", marginBottom: "8px", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          Cumpleaños <span style={{ fontWeight: "400", textTransform: "none", letterSpacing: "0" }}>(opcional — te regalamos postre)</span>
+        </label>
+        <input value={birthday} onChange={e => setBirthday(e.target.value)} type="date"
+          style={{ ...inputStyle, colorScheme: "light" }}
+          onFocus={e => e.target.style.borderColor = T.accent} onBlur={e => e.target.style.borderColor = T.border} />
       </Card>
       <div style={{ marginTop: "28px", display: "flex", flexDirection: "column", gap: "10px" }}>
         <Btn onClick={handleJoin} disabled={!name.trim() || submitting}>{submitting ? "Anotando..." : "Confirmar"}</Btn>
@@ -401,16 +421,31 @@ export default function MeantimeCustomer() {
           <div style={{ fontSize: "12px", fontWeight: "700", color: T.success, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "8px" }}>tu turno</div>
           <div style={{ fontFamily: f.display, fontSize: "26px", fontWeight: "700", color: T.text }}>{name}, tu mesa esta lista</div>
 
-          {/* Countdown */}
+          {/* Countdown — Live Activity style */}
           <div style={{
-            marginTop: "20px", padding: "20px", borderRadius: "14px",
-            background: urgent ? T.warnLight : T.successLight,
+            marginTop: "20px", padding: "24px", borderRadius: "18px",
+            background: urgent ? `linear-gradient(135deg, ${T.warnLight}, #FFF0E0)` : `linear-gradient(135deg, ${T.successLight}, #D4F0E0)`,
+            animation: "countdownPulse 2s ease-in-out infinite",
+            position: "relative", overflow: "hidden",
           }}>
-            <div style={{ fontFamily: f.display, fontSize: "36px", fontWeight: "700", color: urgent ? T.warn : T.success }}>
-              {mins}:{secs.toString().padStart(2, "0")}
+            {/* Progress ring */}
+            <div style={{ position: "relative", width: "100px", height: "100px", margin: "0 auto" }}>
+              <svg viewBox="0 0 100 100" style={{ transform: "rotate(-90deg)", width: "100%", height: "100%" }}>
+                <circle cx="50" cy="50" r="44" fill="none" stroke={urgent ? `${T.warn}20` : `${T.success}20`} strokeWidth="6" />
+                <circle cx="50" cy="50" r="44" fill="none" stroke={urgent ? T.warn : T.success} strokeWidth="6"
+                  strokeDasharray={`${2 * Math.PI * 44}`}
+                  strokeDashoffset={`${2 * Math.PI * 44 * (1 - (arrivalCountdown || 0) / (ARRIVAL_MINUTES * 60))}`}
+                  strokeLinecap="round"
+                  style={{ transition: "stroke-dashoffset 1s linear" }} />
+              </svg>
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
+                <div style={{ fontFamily: f.display, fontSize: "28px", fontWeight: "800", color: urgent ? T.warn : T.success, lineHeight: 1 }}>
+                  {mins}:{secs.toString().padStart(2, "0")}
+                </div>
+              </div>
             </div>
-            <div style={{ fontSize: "13px", color: urgent ? T.warn : T.success, marginTop: "4px" }}>
-              {urgent ? "Apurate, se te acaba el tiempo" : "para llegar"}
+            <div style={{ fontSize: "14px", color: urgent ? T.warn : T.success, marginTop: "12px", fontWeight: "600" }}>
+              {urgent ? "Apurate, se te acaba el tiempo" : "para llegar a tu mesa"}
             </div>
           </div>
 
@@ -433,24 +468,34 @@ export default function MeantimeCustomer() {
     <div style={page}>
       <Header />
 
-      <Card style={{ marginTop: "28px", textAlign: "center" }}>
-        <div style={{
-          width: "110px", height: "110px", borderRadius: "50%", margin: "0 auto 20px",
-          border: `2px solid ${T.accent}`, display: "flex", alignItems: "center", justifyContent: "center",
-          background: T.accentSoft,
-        }}>
-          <div>
-            <div style={{ fontFamily: f.display, fontSize: "38px", fontWeight: "700", color: T.accent }}>{position || "--"}</div>
-            <div style={{ fontSize: "11px", color: T.textLight, fontFamily: f.sans }}>en la fila</div>
+      <Card className="card-enter-delay-1" style={{ marginTop: "28px", textAlign: "center" }}>
+        {/* Position ring — Apple Watch style */}
+        <div style={{ position: "relative", width: "130px", height: "130px", margin: "0 auto 20px" }}>
+          <svg viewBox="0 0 130 130" style={{ width: "100%", height: "100%" }}>
+            <circle cx="65" cy="65" r="58" fill="none" stroke={`${T.accent}15`} strokeWidth="8" />
+            <circle cx="65" cy="65" r="58" fill="none" stroke={T.accent} strokeWidth="8"
+              strokeDasharray={`${2 * Math.PI * 58}`}
+              strokeDashoffset={`${2 * Math.PI * 58 * (1 - (position ? 1 / Math.max(position, 1) : 0))}`}
+              strokeLinecap="round"
+              style={{ transition: "stroke-dashoffset 0.8s cubic-bezier(0.16, 1, 0.3, 1)", transform: "rotate(-90deg)", transformOrigin: "center" }} />
+          </svg>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
+            <div style={{ fontFamily: f.display, fontSize: "42px", fontWeight: "800", color: T.accent, lineHeight: 1 }}>{position || "--"}</div>
+            <div style={{ fontSize: "11px", color: T.textLight, fontFamily: f.sans, marginTop: "2px", fontWeight: "600" }}>en la fila</div>
           </div>
         </div>
-        <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "700", color: T.text }}>{name}, estas en la fila</div>
-        <div style={{ fontSize: "13px", color: T.textLight, marginTop: "8px" }}>
-          {party} {party === 1 ? "persona" : "personas"} · {queueCount} en espera
+        <div style={{ fontFamily: f.display, fontSize: "22px", fontWeight: "700", color: T.text }}>{name}, estas en la fila</div>
+        <div style={{ display: "flex", justifyContent: "center", gap: "16px", marginTop: "12px" }}>
+          <div style={{ padding: "6px 14px", borderRadius: "10px", background: T.bgPage, fontSize: "13px", color: T.textMed, fontWeight: "600" }}>
+            {party} {party === 1 ? "persona" : "personas"}
+          </div>
+          <div style={{ padding: "6px 14px", borderRadius: "10px", background: T.bgPage, fontSize: "13px", color: T.textMed, fontWeight: "600" }}>
+            {queueCount} en espera
+          </div>
         </div>
-        {/* Position change notification */}
+        {/* Position change notification — animated */}
         {prevPosition !== null && prevPosition !== position && position > 0 && (
-          <div style={{ marginTop: "12px", fontSize: "13px", color: T.success, fontWeight: "600" }}>
+          <div className="card-enter" style={{ marginTop: "14px", fontSize: "13px", color: T.success, fontWeight: "700", padding: "8px 16px", borderRadius: "10px", background: T.successLight, display: "inline-block" }}>
             Avanzaste del #{prevPosition} al #{position}
           </div>
         )}
@@ -499,10 +544,68 @@ export default function MeantimeCustomer() {
         </Card>
       )}
 
+      {/* Pre-order — pedi algo mientras esperas */}
+      <Card style={{ marginTop: "14px" }}>
+        <div style={{ fontFamily: f.display, fontSize: "15px", fontWeight: "700", color: T.text }}>Pedí algo para cuando te sientes</div>
+        <div style={{ fontSize: "12px", color: T.textMed, marginTop: "4px" }}>Te lo preparamos y esta listo cuando llegues a la mesa</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "14px" }}>
+          {[
+            { name: "Empanadas (3)", price: 4500 },
+            { name: "Provoleta", price: 5200 },
+            { name: "Tabla de fiambres", price: 8900 },
+            { name: "Agua con gas", price: 1800 },
+          ].map(item => (
+            <button key={item.name} onClick={async () => {
+              if (!entry) return;
+              try {
+                await fetch("/api/preorder", {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ waitlist_id: entry.id, customer_id: entry.customer_id, guest_name: entry.guest_name, items: [{ name: item.name, price: item.price, quantity: 1 }] }),
+                });
+                alert(`${item.name} pedido! Te lo preparamos.`);
+              } catch { alert("Error al pedir"); }
+            }} style={{
+              padding: "12px 8px", borderRadius: "12px", background: T.bgPage,
+              border: `1px solid ${T.cardBorder}`, cursor: "pointer", fontFamily: f.sans,
+              textAlign: "center",
+            }}>
+              <div style={{ fontSize: "13px", fontWeight: "600", color: T.text }}>{item.name}</div>
+              <div style={{ fontSize: "11px", color: T.textMed, marginTop: "2px" }}>${item.price.toLocaleString("es-AR")}</div>
+            </button>
+          ))}
+        </div>
+      </Card>
+
       <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
         <Btn variant="outline" onClick={() => setShowMenu(true)}>Ver menu</Btn>
         <Btn variant="outline" onClick={startTracking}>Pasear por el barrio</Btn>
       </div>
+
+      {/* Referral — share with friends */}
+      {entry?.customer_id && (
+        <Card style={{ marginTop: "14px", background: T.accentSoft, border: `1px solid ${T.cardBorder}`, textAlign: "center" }}>
+          <div style={{ fontSize: "14px", fontWeight: "700", color: T.text }}>Invita a un amigo</div>
+          <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Compartile tu link y los dos ganan un postre</div>
+          <button onClick={async () => {
+            try {
+              const res = await fetch(`/api/referral?customer_id=${entry.customer_id}`);
+              const data = await res.json();
+              if (data.link && navigator.share) {
+                navigator.share({ title: "Chui - Reserva tu mesa", text: "Veni a Chui! Usa mi link para anotarte y nos regalan un postre a los dos.", url: data.link });
+              } else if (data.link) {
+                navigator.clipboard?.writeText(data.link);
+                alert("Link copiado!");
+              } else if (data.error) {
+                alert(data.error);
+              }
+            } catch { alert("Error al generar link"); }
+          }} style={{
+            marginTop: "14px", padding: "12px 24px", borderRadius: "12px",
+            background: T.accent, color: "#fff", border: "none", fontSize: "14px",
+            fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
+          }}>Compartir link</button>
+        </Card>
+      )}
 
       {/* OpenTable */}
       <div style={{ marginTop: "24px", padding: "24px", borderRadius: T.radius, background: T.accentSoft, textAlign: "center", border: `1px solid ${T.cardBorder}` }}>
