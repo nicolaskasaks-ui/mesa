@@ -1,5 +1,5 @@
 import { supabaseServer } from "../../../../lib/supabase-server";
-import { sendWhatsApp } from "../../../../lib/twilio";
+import { sendWhatsApp, msgBichaPackConfirmed } from "../../../../lib/twilio";
 import { NextResponse } from "next/server";
 
 // Generate a short unique redeem code (6 alphanumeric chars)
@@ -133,12 +133,9 @@ export async function PATCH(req) {
 
     const purchase = data[0];
     if (purchase?.phone) {
-      const gameLabel = GAME_LABELS[purchase.game_type] || "juego";
-      const gameMsg = purchase.game_available
-        ? `\n🎮 ¡Incluye 1 hora de ${gameLabel} gratis!`
-        : "";
-      const msg = `¡${purchase.guest_name}! Tu pack "${purchase.bicha_packs?.name}" está confirmado.\n\nTu código de canje: ${purchase.redeem_code}\nMostrá el QR en la app para canjear.${gameMsg}`;
-      await sendWhatsApp({ to: purchase.phone, guestName: purchase.guest_name, message: msg });
+      const gameLabel = purchase.game_available ? (GAME_LABELS[purchase.game_type] || "juego") : null;
+      const msg = msgBichaPackConfirmed({ guestName: purchase.guest_name, packName: purchase.bicha_packs?.name, redeemCode: purchase.redeem_code, gameLabel });
+      sendWhatsApp({ to: purchase.phone, guestName: purchase.guest_name, message: msg }).catch(() => {});
     }
     return NextResponse.json(purchase);
   }

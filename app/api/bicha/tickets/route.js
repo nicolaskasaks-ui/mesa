@@ -1,5 +1,5 @@
 import { supabaseServer } from "../../../../lib/supabase-server";
-import { sendWhatsApp } from "../../../../lib/twilio";
+import { sendWhatsApp, msgBichaOrderConfirmed, msgBichaOrderReady, msgBichaOrderDelivered } from "../../../../lib/twilio";
 import { NextResponse } from "next/server";
 
 // Generate daily ticket number (resets each day)
@@ -20,10 +20,23 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
   const id = searchParams.get("id");
+  const phone = searchParams.get("phone");
 
   if (id) {
     const { data, error } = await supabaseServer.from("bicha_tickets").select("*").eq("id", id).single();
     if (error) return NextResponse.json({ error: error.message }, { status: 404 });
+    return NextResponse.json(data);
+  }
+
+  // Customer order history by phone
+  if (phone) {
+    const { data, error } = await supabaseServer
+      .from("bicha_tickets")
+      .select("*")
+      .eq("phone", phone)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json(data);
   }
 
@@ -90,7 +103,15 @@ export async function POST(req) {
   }).select();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data[0], { status: 201 });
+
+  // Send WhatsApp confirmation
+  const createdTicket = data[0];
+  if (createdTicket.phone) {
+    const msg = msgBichaOrderConfirmed({ guestName: guest_name, ticketNumber: createdTicket.ticket_number, tableSector: table_sector });
+    sendWhatsApp({ to: createdTicket.phone, guestName: guest_name, message: msg }).catch(() => {});
+  }
+
+  return NextResponse.json(createdTicket, { status: 201 });
 }
 
 // PATCH — update ticket status (pending → preparing → ready → delivered)
@@ -119,8 +140,14 @@ export async function PATCH(req) {
 
   // Send WhatsApp when marked as ready
   if (status === "ready" && ticket.phone) {
-    const msg = `¡${ticket.guest_name}! Tu pedido #${String(ticket.ticket_number).padStart(3, "0")} está listo. Ya te lo llevamos a ${ticket.table_sector}. 🍺🔥`;
-    await sendWhatsApp({ to: ticket.phone, guestName: ticket.guest_name, message: msg });
+    const msg = msgBichaOrderReady({ guestName: ticket.guest_name, ticketNumber: ticket.ticket_number, tableSector: ticket.table_sector });
+    sendWhatsApp({ to: ticket.phone, guestName: ticket.guest_name, message: msg }).catch(() => {});
+  }
+
+  // Send WhatsApp when delivered
+  if (status === "delivered" && ticket.phone) {
+    const msg = msgBichaOrderDelivered({ guestName: ticket.guest_name, ticketNumber: ticket.ticket_number });
+    sendWhatsApp({ to: ticket.phone, guestName: ticket.guest_name, message: msg }).catch(() => {});
   }
 
   return NextResponse.json(ticket);

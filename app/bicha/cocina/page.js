@@ -2,8 +2,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { f } from "../../../lib/tokens";
 
-const PIN = "1234";
-
 const STATUS_CONFIG = {
   pending: { label: "Pendiente", color: "#999", bg: "#333", emoji: "🎫", next: "preparing", nextLabel: "Preparar" },
   preparing: { label: "Preparando", color: "#F5A623", bg: "#F5A62320", emoji: "👨‍🍳", next: "ready", nextLabel: "¡Listo!" },
@@ -14,10 +12,41 @@ const STATUS_CONFIG = {
 
 const GAME_LABELS = { pingpong: "🏓 Ping Pong", pool: "🎱 Pool", metegol: "⚽ Metegol" };
 
+// Play notification sound + vibrate
+function notifyNewTicket() {
+  try {
+    if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.type = "sine";
+    gain.gain.value = 0.3;
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+    osc.stop(ctx.currentTime + 0.3);
+    setTimeout(() => {
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.frequency.value = 1100;
+      osc2.type = "sine";
+      gain2.gain.value = 0.3;
+      osc2.start();
+      gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.6);
+      osc2.stop(ctx.currentTime + 0.6);
+    }, 150);
+  } catch {}
+}
+
 export default function CocinaPage() {
   const [authed, setAuthed] = useState(false);
   const [pin, setPin] = useState("");
   const [tickets, setTickets] = useState([]);
+  const prevTicketCountRef = useRef(0);
   const [filter, setFilter] = useState("active");
   const [showNewTicket, setShowNewTicket] = useState(false);
   const [packPurchases, setPackPurchases] = useState([]);
@@ -41,9 +70,18 @@ export default function CocinaPage() {
   }, []);
 
   const fetchTickets = useCallback(async () => {
-    const res = await fetch("/api/bicha/tickets");
-    const data = await res.json();
-    if (Array.isArray(data)) setTickets(data);
+    try {
+      const res = await fetch("/api/bicha/tickets");
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        const pendingCount = data.filter((t) => t.status === "pending").length;
+        if (prevTicketCountRef.current > 0 && pendingCount > prevTicketCountRef.current) {
+          notifyNewTicket();
+        }
+        prevTicketCountRef.current = pendingCount;
+        setTickets(data);
+      }
+    } catch {}
   }, []);
 
   const fetchPacks = useCallback(async () => {
@@ -67,8 +105,19 @@ export default function CocinaPage() {
     return () => clearInterval(interval);
   }, [authed, fetchTickets, fetchPacks, fetchWalletTopups]);
 
-  const handleLogin = () => {
-    if (pin === PIN) { setAuthed(true); sessionStorage.setItem("bicha_cocina_auth", "1"); }
+  const [authError, setAuthError] = useState("");
+
+  const handleLogin = async () => {
+    setAuthError("");
+    try {
+      const res = await fetch("/api/bicha/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin }),
+      });
+      if (res.ok) { setAuthed(true); sessionStorage.setItem("bicha_cocina_auth", "1"); }
+      else setAuthError("PIN incorrecto");
+    } catch { setAuthError("Error de conexión"); }
   };
 
   const updateStatus = async (id, newStatus) => {

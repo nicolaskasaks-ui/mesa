@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { T, f } from "../../lib/tokens";
+import { supabase } from "../../lib/supabase";
 
 const STAMPS_FOR_FREE = 10;
 
@@ -57,8 +58,37 @@ export default function BichaPage() {
   const [ticket, setTicket] = useState(null);
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [tab, setTab] = useState("pedir");
   const [showQR, setShowQR] = useState(null); // pack purchase to show QR for
+  const [mpResult, setMpResult] = useState(null); // { status, purchase_id }
+  const [orderHistory, setOrderHistory] = useState([]);
+
+  // Handle MercadoPago redirect back
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const mpStatus = params.get("mp_status");
+    const purchaseId = params.get("purchase_id");
+    if (mpStatus && purchaseId) {
+      setMpResult({ status: mpStatus, purchaseId });
+      // Restore user state from before redirect
+      const saved = sessionStorage.getItem("bicha_mp_redirect");
+      if (saved) {
+        try {
+          const s = JSON.parse(saved);
+          setName(s.name || "");
+          setPhone(s.phone || "");
+          setTableSector(s.tableSector || "");
+          setCountryCode(s.countryCode || "+54");
+          sessionStorage.removeItem("bicha_mp_redirect");
+        } catch {}
+      }
+      setView("mp-result");
+      // Clean URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem("bicha_customer");
@@ -96,11 +126,23 @@ export default function BichaPage() {
     if (Array.isArray(data)) setMyPacks(data);
   }, [fullPhone, phone]);
 
+  const fetchOrderHistory = useCallback(async () => {
+    if (!phone) return;
+    try {
+      const res = await fetch(`/api/bicha/tickets?phone=${fullPhone}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) setOrderHistory(data.filter((t) => t.status === "delivered").slice(0, 10));
+      }
+    } catch {}
+  }, [fullPhone, phone]);
+
   const handleRegister = async () => {
     if (!name.trim() || !tableSector.trim()) return;
     localStorage.setItem("bicha_customer", JSON.stringify({ name, phone, table: tableSector }));
     await fetchCustomer();
     await fetchMyPacks();
+    await fetchOrderHistory();
     setView("menu");
   };
 
@@ -142,8 +184,10 @@ export default function BichaPage() {
       const data = await res.json();
       setTicket(data);
       setCart([]);
+      setError("");
       setView("waiting");
-    } catch {
+    } catch (err) {
+      setError("No se pudo enviar el pedido. Intentá de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -154,6 +198,7 @@ export default function BichaPage() {
     if (selectedPack.includes_game && !selectedGame) return;
     setLoading(true);
     try {
+      // 1. Create the pack purchase record
       const res = await fetch("/api/bicha/packs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -166,24 +211,61 @@ export default function BichaPage() {
         }),
       });
       const data = await res.json();
+
+      // 2. If MercadoPago, redirect to checkout
+      if (paymentMethod === "mercadopago") {
+        const mpRes = await fetch("/api/bicha/mercadopago", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pack_purchase_id: data.id,
+            pack_name: selectedPack.name,
+            price: selectedPack.price,
+            guest_name: name,
+            phone: fullPhone,
+          }),
+        });
+        const mpData = await mpRes.json();
+        if (mpData.checkout_url) {
+          // Save state before redirect
+          sessionStorage.setItem("bicha_mp_redirect", JSON.stringify({ name, phone, tableSector, countryCode }));
+          window.location.href = mpData.checkout_url;
+          return;
+        }
+        // Fallback to manual if MP not configured
+      }
+
+      // 3. For efectivo/transferencia (or MP fallback), show payment screen
       setTicket(data);
       setView("payment");
-    } catch {
+    } catch (err) {
+      setError("No se pudo procesar la compra. Intentá de nuevo.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Poll ticket status
+  // Supabase Realtime for ticket status updates
   useEffect(() => {
-    if (view !== "waiting" || !ticket?.id) return;
-    const interval = setInterval(async () => {
-      const res = await fetch(`/api/bicha/tickets?id=${ticket.id}`);
-      const data = await res.json();
-      if (data) setTicket(data);
-    }, 5000);
-    return () => clearInterval(interval);
+    if (view !== "waiting" || !ticket?.id || !supabase) return;
+    const channel = supabase
+      .channel(`ticket-${ticket.id}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "bicha_tickets", filter: `id=eq.${ticket.id}` },
+        (payload) => { if (payload.new) setTicket(payload.new); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [view, ticket?.id]);
+
+  // Cart persistence
+  useEffect(() => {
+    const saved = sessionStorage.getItem("bicha_cart");
+    if (saved) { try { setCart(JSON.parse(saved)); } catch {} }
+  }, []);
+  useEffect(() => {
+    if (cart.length > 0) sessionStorage.setItem("bicha_cart", JSON.stringify(cart));
+    else sessionStorage.removeItem("bicha_cart");
+  }, [cart]);
 
   // ─── Styles ───
   const page = { minHeight: "100dvh", background: "#0D0D0D", fontFamily: f.sans, color: "#F5F5F5" };
@@ -316,8 +398,8 @@ export default function BichaPage() {
           </div>
 
           {/* Tabs */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-            {[{ key: "pedir", label: "Pedir" }, { key: "packs", label: "Packs" }, { key: "mis-packs", label: "Mis Packs" }].map((t) => (
+          <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
+            {[{ key: "pedir", label: "Pedir" }, { key: "packs", label: "Packs" }, { key: "mis-packs", label: "Mis Packs" }, ...(orderHistory.length > 0 ? [{ key: "historial", label: "Historial" }] : [])].map((t) => (
               <button key={t.key} onClick={() => setTab(t.key)} style={{
                 ...pillStyle, flex: 1,
                 background: tab === t.key ? "linear-gradient(135deg, #F5A623, #E8792B)" : "#1A1A1A",
@@ -399,7 +481,8 @@ export default function BichaPage() {
               ))}
               {cartCount > 0 && (
                 <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "12px 16px", background: "#0D0D0Dee", borderTop: "1px solid #262626" }} className="safe-bottom">
-                  <button onClick={submitOrder} disabled={loading} style={{ ...btnPrimary, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  {error && <div style={{ color: "#B83B3B", fontSize: 13, textAlign: "center", marginBottom: 8 }}>{error}</div>}
+                  <button onClick={() => { setError(""); submitOrder(); }} disabled={loading} style={{ ...btnPrimary, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span>{loading ? "Enviando..." : `Pedir (${cartCount})`}</span>
                     <span>${cartTotal.toLocaleString("es-AR")}</span>
                   </button>
@@ -479,6 +562,47 @@ export default function BichaPage() {
             </>
           )}
 
+          {/* TAB: Historial */}
+          {tab === "historial" && (
+            <>
+              <div style={{ fontSize: 13, color: "#777", marginBottom: 16 }}>
+                Tus ultimos pedidos
+              </div>
+              {orderHistory.map((order) => {
+                const items = order.items_json || [];
+                const date = new Date(order.created_at).toLocaleDateString("es-AR", { day: "numeric", month: "short" });
+                const time = new Date(order.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+                return (
+                  <div key={order.id} style={card}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 14 }}>#{String(order.ticket_number).padStart(3, "0")} · {date} {time}</div>
+                        <div style={{ fontSize: 12, color: "#777" }}>{order.table_sector}</div>
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: "#F5A623" }}>${order.total?.toLocaleString("es-AR")}</div>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#999", marginBottom: 8 }}>
+                      {items.map((it, i) => `${it.quantity}x ${it.name}`).join(", ")}
+                    </div>
+                    <button
+                      onClick={() => {
+                        const newCart = items.filter((it) => menuItems.some((m) => m.name === it.name && m.available))
+                          .map((it) => {
+                            const menuItem = menuItems.find((m) => m.name === it.name);
+                            return menuItem ? { ...menuItem, quantity: it.quantity } : null;
+                          }).filter(Boolean);
+                        if (newCart.length > 0) { setCart(newCart); setTab("pedir"); }
+                      }}
+                      style={{ ...pillStyle, background: "#F5A62320", color: "#F5A623", border: "none", fontSize: 12, width: "100%" , textAlign: "center", padding: "8px" }}
+                    >
+                      Repetir pedido
+                    </button>
+                  </div>
+                );
+              })}
+            </>
+          )}
+
           <div style={{ height: cartCount > 0 ? 100 : 40 }} />
         </div>
       </div>
@@ -545,8 +669,9 @@ export default function BichaPage() {
             </div>
           ))}
 
+          {error && <div style={{ color: "#B83B3B", fontSize: 13, textAlign: "center", marginTop: 12 }}>{error}</div>}
           <button
-            onClick={purchasePack}
+            onClick={() => { setError(""); purchasePack(); }}
             disabled={!paymentMethod || loading || (selectedPack.includes_game && !selectedGame)}
             style={{ ...btnPrimary, marginTop: 20, opacity: paymentMethod && (!selectedPack.includes_game || selectedGame) ? 1 : 0.4 }}
           >
@@ -659,6 +784,46 @@ export default function BichaPage() {
 
             <button onClick={() => { setView("menu"); setTab("pedir"); setTicket(null); }} style={{ ...btnSecondary, marginTop: 24 }}>
               Hacer otro pedido
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── MP RESULT ───
+  if (view === "mp-result" && mpResult) {
+    const isApproved = mpResult.status === "approved";
+    const isPending = mpResult.status === "pending";
+    return (
+      <div style={page}>
+        <div style={container} className="safe-top safe-bottom">
+          <div style={{ textAlign: "center", paddingTop: 60 }}>
+            <div style={{ fontSize: 64 }}>{isApproved ? "✅" : isPending ? "⏳" : "❌"}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, fontFamily: f.display, marginTop: 16 }}>
+              {isApproved ? "¡Pago confirmado!" : isPending ? "Pago pendiente" : "Pago rechazado"}
+            </div>
+            <div style={{ color: "#999", fontSize: 14, marginTop: 8 }}>
+              {isApproved
+                ? "Tu pack ya está listo para usar. Buscalo en 'Mis Packs'."
+                : isPending
+                ? "El pago está en proceso. Te avisamos por WhatsApp cuando se confirme."
+                : "Hubo un problema con el pago. Probá de nuevo o elegí otro método."}
+            </div>
+            <button
+              onClick={() => {
+                setMpResult(null);
+                if (name && tableSector) {
+                  setView("menu");
+                  setTab(isApproved ? "mis-packs" : "packs");
+                  fetchMyPacks();
+                } else {
+                  setView("register");
+                }
+              }}
+              style={{ ...btnPrimary, marginTop: 32, maxWidth: 300 }}
+            >
+              {isApproved ? "Ver mis packs" : "Volver"}
             </button>
           </div>
         </div>

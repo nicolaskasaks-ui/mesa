@@ -109,3 +109,8 @@ export async function GET(req) {
 
   return NextResponse.json({ ok: true });
 }
+
+// Also handle POST webhooks (MercadoPago v2 notifications)
+export async function PUT() {
+  return NextResponse.json({ ok: true });
+}
