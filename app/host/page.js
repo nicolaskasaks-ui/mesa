@@ -600,6 +600,15 @@ export default function HostDashboard() {
                 background: S.pidio_cuenta.bg, color: S.pidio_cuenta.color, border: `1px solid ${S.pidio_cuenta.border}`,
                 cursor: "pointer", fontFamily: f.sans,
               }}>Vaciar fila</button>
+              <button onClick={async () => {
+                if (!confirm("RESET TOTAL: Liberar TODAS las mesas y vaciar la fila? Esto es para fin de turno.")) return;
+                await window.fetch("/api/reset", { method: "POST" });
+                fetchAll();
+              }} style={{
+                padding: "6px 12px", borderRadius: "8px", fontSize: "11px", fontWeight: "600",
+                background: T.danger, color: "#fff", border: "none",
+                cursor: "pointer", fontFamily: f.sans,
+              }}>Reset turno</button>
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
