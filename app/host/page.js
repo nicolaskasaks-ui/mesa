@@ -223,11 +223,23 @@ export default function HostDashboard() {
   const waiting = queue.filter(q => q.status === "waiting").length;
   const predictions = predictTable(tables, queue);
 
+  // Sorted tables for the right column: libre > postre > cuenta > sentado, then by seated_at asc
+  const sortedTables = [...tables].sort((a, b) => {
+    const priority = { libre: 0, postre: 1, pidio_cuenta: 2, sentado: 3 };
+    const pa = priority[a.status] ?? 9;
+    const pb = priority[b.status] ?? 9;
+    if (pa !== pb) return pa - pb;
+    if (a.seated_at && b.seated_at) return new Date(a.seated_at) - new Date(b.seated_at);
+    return 0;
+  });
+
+  const seatedCount = tables.filter(t => t.status === "sentado").length;
+
   // PIN screen
   if (!authed) return (
     <div style={{ minHeight: "100dvh", background: T.bgPage, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: f.sans }}>
       <div style={{ textAlign: "center", width: "280px" }}>
-        <img src="/logo-dark.png" alt="Chuí" style={{ height: "32px", objectFit: "contain", marginBottom: "20px" }} />
+        <img src="/logo-dark.png" alt="Chui" style={{ height: "32px", objectFit: "contain", marginBottom: "20px" }} />
         <div style={{ fontSize: "14px", color: T.textMed, marginBottom: "20px" }}>Ingresa el PIN del hostess</div>
         <input
           type="tel" inputMode="numeric" maxLength={4}
@@ -286,7 +298,7 @@ export default function HostDashboard() {
             <div style={{ fontSize: "13px", color: T.textMed, marginTop: "6px" }}>
               {undoTable.waitlist?.guest_name ? `${undoTable.waitlist.guest_name} · ` : ""}{S[undoTable.status]?.label || undoTable.status} · {undoTable.capacity}p
             </div>
-            <div style={{ fontSize: "14px", color: T.textMed, marginTop: "16px" }}>¿Liberar esta mesa?</div>
+            <div style={{ fontSize: "14px", color: T.textMed, marginTop: "16px" }}>Liberar esta mesa?</div>
             <div style={{ display: "flex", gap: "10px", marginTop: "20px" }}>
               <button onClick={() => setUndoTable(null)} style={{
                 flex: 1, padding: "14px", borderRadius: "12px", background: T.bgPage,
@@ -356,7 +368,7 @@ export default function HostDashboard() {
 
               {c?.birthday && (
                 <div style={{ padding: "12px 16px", borderRadius: "12px", background: T.bgPage, marginBottom: "10px" }}>
-                  <div style={{ fontSize: "10px", fontWeight: "700", color: T.textLight, letterSpacing: "0.06em", textTransform: "uppercase" }}>Cumpleaños</div>
+                  <div style={{ fontSize: "10px", fontWeight: "700", color: T.textLight, letterSpacing: "0.06em", textTransform: "uppercase" }}>Cumpleanos</div>
                   <div style={{ fontSize: "14px", fontWeight: "600", marginTop: "2px" }}>{new Date(c.birthday + "T12:00:00").toLocaleDateString("es-AR", { day: "numeric", month: "long" })}</div>
                 </div>
               )}
@@ -451,11 +463,11 @@ export default function HostDashboard() {
         </div>
       )}
 
-      {/* ── HEADER ── */}
-      <div style={{ padding: "16px 20px", background: T.card, borderBottom: `1px solid ${T.cardBorder}` }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      {/* ── STICKY HEADER ── */}
+      <div style={{ position: "sticky", top: 0, zIndex: 100, padding: "16px 20px", background: T.card, borderBottom: `1px solid ${T.cardBorder}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: "1400px", margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <img src="/logo-dark.png" alt="Chuí" style={{ height: "28px", objectFit: "contain" }} />
+            <img src="/logo-dark.png" alt="Chui" style={{ height: "28px", objectFit: "contain" }} />
             <span style={{ fontSize: "11px", color: T.textLight, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: "600" }}>Hostess</span>
           </div>
           <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
@@ -477,63 +489,258 @@ export default function HostDashboard() {
         </div>
       </div>
 
-      {/* ── TABLE GRID ── */}
-      {(() => {
-        const active = tables.filter(t => t.status !== "sentado");
-        const seated = tables.filter(t => t.status === "sentado");
-        return (
-          <div style={{ padding: "20px 16px 8px" }}>
-            {/* Active tables: libre, postre, cuenta — large tiles */}
-            {active.length > 0 && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginBottom: "12px" }}>
-                {active.map(table => {
-                  const cfg = S[table.status] || S.libre;
-                  const time = table.seated_at ? ago(table.seated_at) : "";
-                  const guestName = table.waitlist?.guest_name;
-                  return (
-                    <button key={table.id}
-                      onClick={() => cycleTable(table)}
-                      onTouchStart={() => handleLongPressStart(table)}
-                      onTouchEnd={handleLongPressEnd}
-                      onTouchCancel={handleLongPressEnd}
-                      onMouseDown={() => handleLongPressStart(table)}
-                      onMouseUp={handleLongPressEnd}
-                      onMouseLeave={handleLongPressEnd}
-                      onContextMenu={(e) => e.preventDefault()}
-                      aria-label={`Mesa ${table.id} - ${cfg.label} - ${table.capacity} personas${guestName ? ` - ${guestName}` : ""}`}
-                      style={{
-                        padding: "14px 8px 12px", borderRadius: T.radius, border: "none",
-                        background: cfg.bg, cursor: "pointer", textAlign: "center",
-                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start",
-                        minHeight: "110px", WebkitTouchCallout: "none", userSelect: "none",
-                      }}>
-                      <div style={{ fontFamily: f.display, fontSize: "22px", fontWeight: "800", color: cfg.color, lineHeight: 1 }}>{table.id}</div>
-                      <div style={{ fontSize: "11px", color: cfg.color, marginTop: "4px", fontWeight: "600", opacity: 0.8 }}>{cfg.label}</div>
-                      <div style={{ fontSize: "10px", color: cfg.color, marginTop: "3px", opacity: 0.6 }}>{table.capacity}p</div>
-                      {guestName && (
-                        <div style={{ fontSize: "10px", color: cfg.color, marginTop: "4px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "600", opacity: 0.85, padding: "2px 6px", borderRadius: "4px", background: "rgba(255,255,255,0.15)" }}>
-                          {guestName}
-                        </div>
-                      )}
-                      {time && (
-                        <div style={{ fontSize: "10px", color: cfg.color, marginTop: "3px", fontWeight: "500", opacity: 0.6 }}>{time}</div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+      {/* ── TWO-COLUMN LAYOUT ── */}
+      <div style={{ maxWidth: "1400px", margin: "0 auto", padding: "16px" }}>
+        <style>{`
+          .host-columns { display: flex; flex-direction: column; gap: 16px; }
+          @media (min-width: 768px) {
+            .host-columns { flex-direction: row; align-items: flex-start; }
+            .host-col-queue { width: 40%; flex-shrink: 0; }
+            .host-col-tables { width: 60%; flex-shrink: 0; }
+          }
+        `}</style>
+        <div className="host-columns">
 
-            {/* Seated tables — compact strip */}
-            {seated.length > 0 && (
-              <>
-                <div style={{ fontSize: "10px", fontWeight: "700", color: T.textLight, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "6px", paddingLeft: "2px" }}>
-                  Sentados ({seated.length})
+          {/* ══════════ LEFT COLUMN: QUEUE / FILA ══════════ */}
+          <div className="host-col-queue">
+            <div style={{ background: T.card, borderRadius: T.radius, border: `1px solid ${T.cardBorder}`, boxShadow: T.shadow, overflow: "hidden" }}>
+              {/* Queue header */}
+              <div style={{ padding: "16px", borderBottom: `1px solid ${T.cardBorder}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+                  <div style={{ fontSize: "14px", fontWeight: "700", color: T.text, fontFamily: f.display }}>
+                    Fila ({queue.length})
+                  </div>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                    <button onClick={() => clearQueue("old")} style={{
+                      padding: "5px 10px", borderRadius: "8px", fontSize: "11px", fontWeight: "600",
+                      background: T.bgPage, color: T.textLight, border: `1px solid ${T.border}`,
+                      cursor: "pointer", fontFamily: f.sans,
+                    }}>Limpiar viejos</button>
+                    <button onClick={() => clearQueue("all")} style={{
+                      padding: "5px 10px", borderRadius: "8px", fontSize: "11px", fontWeight: "600",
+                      background: S.pidio_cuenta.bg, color: S.pidio_cuenta.color, border: `1px solid ${S.pidio_cuenta.border}`,
+                      cursor: "pointer", fontFamily: f.sans,
+                    }}>Vaciar fila</button>
+                    <button onClick={async () => {
+                      if (!confirm("RESET TOTAL: Liberar TODAS las mesas y vaciar la fila? Esto es para fin de turno.")) return;
+                      await window.fetch("/api/reset", { method: "POST" });
+                      fetchAll();
+                    }} style={{
+                      padding: "5px 10px", borderRadius: "8px", fontSize: "11px", fontWeight: "600",
+                      background: T.danger, color: "#fff", border: "none",
+                      cursor: "pointer", fontFamily: f.sans,
+                    }}>Reset turno</button>
+                  </div>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: "6px", marginBottom: "12px" }}>
-                  {seated.map(table => {
+              </div>
+
+              {/* Queue entries */}
+              {queue.length === 0 ? (
+                <div style={{ padding: "40px 16px", textAlign: "center", color: T.textLight, fontSize: "13px" }}>
+                  No hay nadie en fila
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0px" }}>
+                  {queue.map((entry, i) => {
+                    const c = entry.customers;
+                    const isNotified = entry.status === "notified";
+                    const isExtended = entry.status === "extended";
+                    const act = ACT[entry.activity] || ACT.esperando;
+                    const pred = predictions[entry.id];
+
+                    return (
+                      <div key={entry.id} style={{
+                        padding: "14px 16px",
+                        borderBottom: i < queue.length - 1 ? `1px solid ${T.cardBorder}` : "none",
+                        borderLeft: isNotified ? `3px solid ${S.pidio_cuenta.bg}` : isExtended ? `3px solid ${S.sentado.bg}` : `3px solid transparent`,
+                      }}>
+                        {/* Row 1: name + location + time */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+                            <span style={{ fontFamily: f.display, fontSize: "14px", color: T.textLight, fontWeight: "600" }}>#{i+1}</span>
+                            <span onClick={() => setProfileEntry(entry)} style={{ fontFamily: f.display, fontSize: "17px", fontWeight: "700", cursor: "pointer", textDecoration: "underline", textDecorationColor: T.border, textUnderlineOffset: "3px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.guest_name}</span>
+                            {c?.trust_level >= 1 && <span style={{ fontSize: "10px", fontWeight: "700", color: c.trust_level >= 3 ? T.gold : c.trust_level >= 2 ? S.libre.bg : S.libre.bg }}>{c.trust_level >= 3 ? "★" : "✓"}</span>}
+                            <span style={{ fontSize: "13px", color: T.textMed }}>{entry.party_size}p</span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                            {/* Location pill */}
+                            {(() => {
+                              const dist = entry.distance_m;
+                              const inBar = entry.activity === "en_barra";
+                              const atChui = dist != null && dist <= 50;
+                              const label = inBar ? "BARRA" : atChui ? "CHUI" : dist != null && dist > 0 ? `${dist}m` : null;
+                              const bg = inBar ? T.gold : atChui ? S.libre.bg : dist != null && dist < 300 ? "#2D7A4F" : dist != null && dist < 800 ? "#D4942A" : dist != null ? "#C93B3B" : null;
+                              return label ? (
+                                <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "10px", fontWeight: "700", padding: "3px 8px", borderRadius: "4px", background: bg, color: "#fff", letterSpacing: "0.04em" }}>{label}</span>
+                              ) : null;
+                            })()}
+                            {/* Wait time pill */}
+                            {(() => {
+                              const waitMin = Math.floor((now - new Date(entry.joined_at).getTime()) / 60000);
+                              const wBg = waitMin >= 45 ? "#C93B3B" : waitMin >= 31 ? "#D4942A" : waitMin >= 15 ? "#E8A735" : "#2D7A4F";
+                              return (
+                                <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "10px", fontWeight: "700", padding: "3px 8px", borderRadius: "4px", background: wBg, color: "#fff" }}>
+                                  {ago(entry.joined_at)}
+                                </span>
+                              );
+                            })()}
+                            {/* Source pill */}
+                            {entry.source && entry.source !== "qr" && (
+                              <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "9px", fontWeight: "700", padding: "3px 6px", borderRadius: "4px", background: T.border, color: T.textMed, letterSpacing: "0.04em" }}>
+                                {entry.source === "whatsapp_bot" ? "WA" : entry.source === "walkin" ? "WALK-IN" : entry.source.toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Row 2: tags + notified timer */}
+                        <div style={{ display: "flex", gap: "6px", marginTop: "8px", flexWrap: "wrap", alignItems: "center" }}>
+                          {isNotified && entry.notified_at ? (() => {
+                            const elapsed = Math.floor((now - new Date(entry.notified_at).getTime()) / 1000);
+                            const remaining = Math.max(0, 600 - elapsed); // 10 min
+                            const grace = Math.max(0, 900 - elapsed); // 10 + 5 min
+                            const mins = Math.floor(remaining / 60);
+                            const secs = remaining % 60;
+                            const expired = remaining === 0;
+                            const graceExpired = grace === 0;
+                            return (
+                              <>
+                                <span style={{
+                                  fontSize: "12px", fontWeight: "700", padding: "4px 10px", borderRadius: "6px",
+                                  fontFamily: "'Futura', 'Outfit', sans-serif",
+                                  background: graceExpired ? S.pidio_cuenta.bg : expired ? S.pidio_cuenta.bg : S.libre.bg,
+                                  color: "#fff",
+                                }}>
+                                  {graceExpired ? "VENCIDO" : expired ? `+${Math.floor((elapsed - 600) / 60)}:${String((elapsed - 600) % 60).padStart(2, "0")} gracia` : `${mins}:${secs.toString().padStart(2, "0")}`}
+                                </span>
+                              </>
+                            );
+                          })() : (
+                            entry.activity !== "en_barra" ? (
+                              <span style={{
+                                fontSize: "10px", fontWeight: "600", padding: "3px 8px", borderRadius: "6px",
+                                background: isExtended ? S.sentado.bg : `${act.color}10`,
+                                color: isExtended ? S.sentado.color : act.color,
+                              }}>
+                                {isExtended ? "Paso turno" : act.label}
+                              </span>
+                            ) : null
+                          )}
+                          {c?.allergies?.map(a => (
+                            <span key={a} style={{ fontSize: "10px", padding: "3px 8px", borderRadius: "6px", background: S.pidio_cuenta.bg, color: S.pidio_cuenta.color }}>{a}</span>
+                          ))}
+                          {entry.activity === "en_barra" && (
+                            <span style={{ fontFamily: "monospace", fontSize: "10px", fontWeight: "600", padding: "3px 8px", borderRadius: "6px", background: T.goldLight, color: T.gold }}>{entry.id?.slice(0, 8).toUpperCase()}</span>
+                          )}
+                          {c?.trust_level >= 2 && (
+                            <span style={{ fontSize: "10px", fontWeight: "600", padding: "3px 8px", borderRadius: "6px", background: "#E8F5EE", color: "#2D7A4F" }}>
+                              {c.trust_level >= 3 ? "Habitual" : "Confiable"}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Table prediction */}
+                        {pred && !isNotified && (
+                          confirmAssign?.entryId === entry.id ? (
+                            <div style={{ marginTop: "10px", display: "flex", gap: "6px" }}>
+                              <button onClick={() => { doNotify(entry); fetchAll(); setConfirmAssign(null); }} style={{
+                                flex: 1, padding: "12px", borderRadius: "8px", background: S.libre.bg, color: "#fff",
+                                border: "none", fontSize: "13px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans,
+                              }}>Mesa {pred.tableId}</button>
+                              <button onClick={() => setConfirmAssign(null)} style={{
+                                padding: "12px 16px", borderRadius: "8px", background: T.bgPage, color: T.textLight,
+                                border: `1px solid ${T.border}`, fontSize: "13px", cursor: "pointer", fontFamily: f.sans,
+                              }}>No</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => {
+                              if (pred.status === "libre") setConfirmAssign({ entryId: entry.id, tableId: pred.tableId });
+                            }} style={{
+                              marginTop: "10px", padding: "10px 14px", borderRadius: "8px", width: "100%",
+                              background: pred.status === "libre" ? S.libre.bg : T.bgPage,
+                              border: pred.status === "libre" ? "none" : `1px solid ${T.cardBorder}`,
+                              display: "flex", justifyContent: "space-between", alignItems: "center",
+                              cursor: pred.status === "libre" ? "pointer" : "default",
+                            }}>
+                              <span style={{ fontSize: "11px", fontWeight: "600", color: pred.status === "libre" ? "#fff" : T.textLight }}>
+                                {pred.status === "libre" ? "Asignar mesa" : pred.status === "postre" ? "Proxima mesa" : "Siguiente en liberar"}
+                              </span>
+                              <span style={{ fontFamily: f.display, fontSize: "14px", fontWeight: "700", color: pred.status === "libre" ? "#fff" : T.text }}>
+                                {pred.tableId} <span style={{ fontSize: "11px", fontWeight: "500", color: pred.status === "libre" ? "rgba(255,255,255,0.7)" : T.textLight }}>({pred.capacity}p)</span>
+                              </span>
+                            </button>
+                          )
+                        )}
+
+                        {/* Actions */}
+                        <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+                          {!isNotified && !isExtended && (
+                            <button onClick={() => doNotify(entry)} style={{
+                              flex: 1, padding: "11px", borderRadius: "10px", background: T.bgPage,
+                              color: T.text, border: `1px solid ${T.border}`,
+                              fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
+                            }}>Avisar</button>
+                          )}
+                          {(isNotified || isExtended) && (
+                            <button onClick={() => setStatus(entry.id, "waiting")} style={{
+                              padding: "11px 14px", borderRadius: "10px", background: T.bgPage,
+                              color: T.textLight, border: `1px solid ${T.border}`,
+                              fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
+                            }}>Deshacer</button>
+                          )}
+                          <button onClick={() => setStatus(entry.id, "seated")} style={{
+                            flex: 1, padding: "11px", borderRadius: "10px", background: T.accent,
+                            color: "#fff", border: "none",
+                            fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
+                          }}>Sentar</button>
+                          <button onClick={() => setStatus(entry.id, "cancelled")} style={{
+                            padding: "11px 14px", borderRadius: "10px", background: S.pidio_cuenta.bg,
+                            color: S.pidio_cuenta.color, border: `1px solid ${S.pidio_cuenta.border}`,
+                            fontSize: "13px", cursor: "pointer", fontFamily: f.sans,
+                          }}>x</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ══════════ RIGHT COLUMN: TABLES / MESAS ══════════ */}
+          <div className="host-col-tables">
+            <div style={{ background: T.card, borderRadius: T.radius, border: `1px solid ${T.cardBorder}`, boxShadow: T.shadow, overflow: "hidden" }}>
+              {/* Tables header */}
+              <div style={{ padding: "16px", borderBottom: `1px solid ${T.cardBorder}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ fontSize: "14px", fontWeight: "700", color: T.text, fontFamily: f.display }}>
+                  Mesas
+                </div>
+                <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                  <span style={{ fontSize: "12px", fontWeight: "600", color: S.libre.bg }}>{libre} libres</span>
+                  <span style={{ fontSize: "12px", fontWeight: "600", color: T.textLight }}>{seatedCount} sentados</span>
+                </div>
+              </div>
+
+              {/* Legend */}
+              <div style={{ display: "flex", gap: "16px", justifyContent: "center", padding: "10px 16px", borderBottom: `1px solid ${T.cardBorder}` }}>
+                {Object.entries(S).map(([k, v]) => (
+                  <div key={k} style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "11px", color: T.textLight }}>
+                    <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: v.bg }} /> {v.label}
+                  </div>
+                ))}
+              </div>
+
+              {/* Table grid */}
+              <div style={{ padding: "16px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: "10px" }}>
+                  {sortedTables.map(table => {
+                    const cfg = S[table.status] || S.libre;
                     const time = table.seated_at ? ago(table.seated_at) : "";
                     const guestName = table.waitlist?.guest_name;
+                    const isSeated = table.status === "sentado";
+                    const seatedMin = table.seated_at ? Math.floor((Date.now() - new Date(table.seated_at).getTime()) / 60000) : 0;
+                    const alertColor = isSeated && seatedMin >= 180 ? S.pidio_cuenta.bg : isSeated && seatedMin >= 120 ? S.postre.bg : null;
+
                     return (
                       <button key={table.id}
                         onClick={() => cycleTable(table)}
@@ -544,238 +751,39 @@ export default function HostDashboard() {
                         onMouseUp={handleLongPressEnd}
                         onMouseLeave={handleLongPressEnd}
                         onContextMenu={(e) => e.preventDefault()}
-                        aria-label={`Mesa ${table.id} - Sentado - ${table.capacity} personas${guestName ? ` - ${guestName}` : ""}${time ? ` - ${time}` : ""}`}
+                        aria-label={`Mesa ${table.id} - ${cfg.label} - ${table.capacity} personas${guestName ? ` - ${guestName}` : ""}${time ? ` - ${time}` : ""}`}
                         style={{
-                          padding: "6px 6px", borderRadius: "10px", border: "none",
-                          background: S.sentado.bg, cursor: "pointer",
+                          padding: isSeated ? "10px 8px" : "14px 8px 12px",
+                          borderRadius: T.radius, border: "none",
+                          background: cfg.bg, cursor: "pointer", textAlign: "center",
                           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                          minHeight: "48px", WebkitTouchCallout: "none", userSelect: "none",
+                          minHeight: isSeated ? "72px" : "100px",
+                          WebkitTouchCallout: "none", userSelect: "none",
+                          opacity: isSeated ? 0.85 : 1,
                         }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                          <span style={{ fontFamily: f.display, fontSize: "13px", fontWeight: "800", color: S.sentado.color }}>{table.id}</span>
-                          <span style={{ fontSize: "9px", color: S.sentado.color, opacity: 0.5 }}>{table.capacity}p</span>
-                        </div>
-                        {guestName && <span style={{ fontSize: "9px", color: S.sentado.color, opacity: 0.6, marginTop: "1px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "600" }}>{guestName}</span>}
-                        {time && (() => {
-                          const seatedMin = table.seated_at ? Math.floor((Date.now() - new Date(table.seated_at).getTime()) / 60000) : 0;
-                          const alertColor = seatedMin >= 180 ? S.pidio_cuenta.bg : seatedMin >= 120 ? S.postre.bg : null;
-                          return (
-                            <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "9px", color: alertColor || S.sentado.color, opacity: alertColor ? 1 : 0.4, marginTop: "1px", fontWeight: alertColor ? "700" : "400" }}>{time}{seatedMin >= 120 ? " ⚠" : ""}</span>
-                          );
-                        })()}
+                        <div style={{ fontFamily: f.display, fontSize: isSeated ? "16px" : "22px", fontWeight: "800", color: cfg.color, lineHeight: 1 }}>{table.id}</div>
+                        <div style={{ fontSize: isSeated ? "10px" : "11px", color: cfg.color, marginTop: "3px", fontWeight: "600", opacity: 0.8 }}>{cfg.label}</div>
+                        <div style={{ fontSize: "10px", color: cfg.color, marginTop: "2px", opacity: 0.6 }}>{table.capacity}p</div>
+                        {guestName && (
+                          <div style={{ fontSize: "10px", color: cfg.color, marginTop: "3px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "600", opacity: 0.85, padding: "2px 6px", borderRadius: "4px", background: "rgba(255,255,255,0.15)" }}>
+                            {guestName}
+                          </div>
+                        )}
+                        {time && (
+                          <div style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "10px", color: alertColor || cfg.color, marginTop: "2px", fontWeight: alertColor ? "700" : "500", opacity: alertColor ? 1 : 0.6 }}>
+                            {time}{isSeated && seatedMin >= 120 ? " !" : ""}
+                          </div>
+                        )}
                       </button>
                     );
                   })}
                 </div>
-              </>
-            )}
-
-            {/* Legend */}
-            <div style={{ display: "flex", gap: "16px", justifyContent: "center", padding: "8px 0 6px" }}>
-              {Object.entries(S).map(([k, v]) => (
-                <div key={k} style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "11px", color: T.textLight }}>
-                  <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: v.bg }} /> {v.label}
-                </div>
-              ))}
+              </div>
             </div>
           </div>
-        );
-      })()}
 
-      {/* ── QUEUE ── */}
-      {queue.length > 0 && (
-        <div style={{ padding: "8px 16px 40px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-            <div style={{ fontSize: "12px", fontWeight: "700", color: T.textLight, letterSpacing: "0.1em", textTransform: "uppercase", paddingLeft: "2px" }}>
-              Fila ({queue.length})
-            </div>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button onClick={() => clearQueue("old")} style={{
-                padding: "6px 12px", borderRadius: "8px", fontSize: "11px", fontWeight: "600",
-                background: T.bgPage, color: T.textLight, border: `1px solid ${T.border}`,
-                cursor: "pointer", fontFamily: f.sans,
-              }}>Limpiar viejos</button>
-              <button onClick={() => clearQueue("all")} style={{
-                padding: "6px 12px", borderRadius: "8px", fontSize: "11px", fontWeight: "600",
-                background: S.pidio_cuenta.bg, color: S.pidio_cuenta.color, border: `1px solid ${S.pidio_cuenta.border}`,
-                cursor: "pointer", fontFamily: f.sans,
-              }}>Vaciar fila</button>
-              <button onClick={async () => {
-                if (!confirm("RESET TOTAL: Liberar TODAS las mesas y vaciar la fila? Esto es para fin de turno.")) return;
-                await window.fetch("/api/reset", { method: "POST" });
-                fetchAll();
-              }} style={{
-                padding: "6px 12px", borderRadius: "8px", fontSize: "11px", fontWeight: "600",
-                background: T.danger, color: "#fff", border: "none",
-                cursor: "pointer", fontFamily: f.sans,
-              }}>Reset turno</button>
-            </div>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {queue.map((entry, i) => {
-              const c = entry.customers;
-              const isNotified = entry.status === "notified";
-              const isExtended = entry.status === "extended";
-              const act = ACT[entry.activity] || ACT.esperando;
-              const pred = predictions[entry.id];
-
-              return (
-                <div key={entry.id} style={{
-                  background: T.card, borderRadius: "14px", padding: "16px",
-                  border: `1px solid ${T.cardBorder}`, boxShadow: T.shadow,
-                  borderLeft: isNotified ? `3px solid ${S.pidio_cuenta.color}` : isExtended ? `3px solid ${S.sentado.color}` : `3px solid transparent`,
-                }}>
-                  {/* Row 1: name + location + time */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span style={{ fontFamily: f.display, fontSize: "14px", color: T.textLight, fontWeight: "600" }}>#{i+1}</span>
-                      <span onClick={() => setProfileEntry(entry)} style={{ fontFamily: f.display, fontSize: "17px", fontWeight: "700", cursor: "pointer", textDecoration: "underline", textDecorationColor: T.border, textUnderlineOffset: "3px" }}>{entry.guest_name}</span>
-                      {c?.trust_level >= 1 && <span style={{ fontSize: "10px", fontWeight: "700", color: c.trust_level >= 3 ? T.gold : c.trust_level >= 2 ? S.libre.bg : S.libre.bg }}>{c.trust_level >= 3 ? "★" : "✓"}</span>}
-                      <span style={{ fontSize: "13px", color: T.textMed }}>{entry.party_size}p</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      {/* Location pill */}
-                      {(() => {
-                        const dist = entry.distance_m;
-                        const inBar = entry.activity === "en_barra";
-                        const atChui = dist != null && dist <= 50;
-                        const label = inBar ? "BARRA" : atChui ? "CHUÍ" : dist != null && dist > 0 ? `${dist}m` : null;
-                        const bg = inBar ? T.gold : atChui ? S.libre.bg : dist != null && dist < 300 ? "#2D7A4F" : dist != null && dist < 800 ? "#D4942A" : dist != null ? "#C93B3B" : null;
-                        return label ? (
-                          <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "10px", fontWeight: "700", padding: "3px 8px", borderRadius: "4px", background: bg, color: "#fff", letterSpacing: "0.04em" }}>{label}</span>
-                        ) : null;
-                      })()}
-                      {/* Wait time pill */}
-                      {(() => {
-                        const waitMin = Math.floor((now - new Date(entry.joined_at).getTime()) / 60000);
-                        const wBg = waitMin >= 45 ? "#C93B3B" : waitMin >= 31 ? "#D4942A" : waitMin >= 15 ? "#E8A735" : "#2D7A4F";
-                        return (
-                          <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "10px", fontWeight: "700", padding: "3px 8px", borderRadius: "4px", background: wBg, color: "#fff" }}>
-                            {ago(entry.joined_at)}
-                          </span>
-                        );
-                      })()}
-                      {/* Source pill */}
-                      {entry.source && entry.source !== "qr" && (
-                        <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "9px", fontWeight: "700", padding: "3px 6px", borderRadius: "4px", background: T.border, color: T.textMed, letterSpacing: "0.04em" }}>
-                          {entry.source === "whatsapp_bot" ? "WA" : entry.source === "walkin" ? "WALK-IN" : entry.source.toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Row 2: tags + notified timer */}
-                  <div style={{ display: "flex", gap: "6px", marginTop: "8px", flexWrap: "wrap", alignItems: "center" }}>
-                    {isNotified && entry.notified_at ? (() => {
-                      const elapsed = Math.floor((now - new Date(entry.notified_at).getTime()) / 1000);
-                      const remaining = Math.max(0, 600 - elapsed); // 10 min
-                      const grace = Math.max(0, 900 - elapsed); // 10 + 5 min
-                      const mins = Math.floor(remaining / 60);
-                      const secs = remaining % 60;
-                      const expired = remaining === 0;
-                      const graceExpired = grace === 0;
-                      return (
-                        <>
-                          <span style={{
-                            fontSize: "12px", fontWeight: "700", padding: "4px 10px", borderRadius: "6px",
-                            fontFamily: "'Futura', 'Outfit', sans-serif",
-                            background: graceExpired ? S.pidio_cuenta.bg : expired ? S.pidio_cuenta.bg : S.libre.bg,
-                            color: "#fff",
-                          }}>
-                            {graceExpired ? "VENCIDO" : expired ? `+${Math.floor((elapsed - 600) / 60)}:${String((elapsed - 600) % 60).padStart(2, "0")} gracia` : `${mins}:${secs.toString().padStart(2, "0")}`}
-                          </span>
-                        </>
-                      );
-                    })() : (
-                      entry.activity !== "en_barra" ? (
-                        <span style={{
-                          fontSize: "10px", fontWeight: "600", padding: "3px 8px", borderRadius: "6px",
-                          background: isExtended ? S.sentado.bg : `${act.color}10`,
-                          color: isExtended ? S.sentado.color : act.color,
-                        }}>
-                          {isExtended ? "Paso turno" : act.label}
-                        </span>
-                      ) : null
-                    )}
-                    {c?.allergies?.map(a => (
-                      <span key={a} style={{ fontSize: "10px", padding: "3px 8px", borderRadius: "6px", background: S.pidio_cuenta.bg, color: S.pidio_cuenta.color }}>{a}</span>
-                    ))}
-                    {entry.activity === "en_barra" && (
-                      <span style={{ fontFamily: "monospace", fontSize: "10px", fontWeight: "600", padding: "3px 8px", borderRadius: "6px", background: T.goldLight, color: T.gold }}>{entry.id?.slice(0, 8).toUpperCase()}</span>
-                    )}
-                    {c?.trust_level >= 2 && (
-                      <span style={{ fontSize: "10px", fontWeight: "600", padding: "3px 8px", borderRadius: "6px", background: "#E8F5EE", color: "#2D7A4F" }}>
-                        {c.trust_level >= 3 ? "Habitual" : "Confiable"}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Table prediction — tapeable to assign */}
-                  {pred && !isNotified && (
-                    confirmAssign?.entryId === entry.id ? (
-                      <div style={{ marginTop: "10px", display: "flex", gap: "6px" }}>
-                        <button onClick={() => { doNotify(entry); fetchAll(); setConfirmAssign(null); }} style={{
-                          flex: 1, padding: "12px", borderRadius: "8px", background: S.libre.bg, color: "#fff",
-                          border: "none", fontSize: "13px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans,
-                        }}>Mesa {pred.tableId}</button>
-                        <button onClick={() => setConfirmAssign(null)} style={{
-                          padding: "12px 16px", borderRadius: "8px", background: T.bgPage, color: T.textLight,
-                          border: `1px solid ${T.border}`, fontSize: "13px", cursor: "pointer", fontFamily: f.sans,
-                        }}>No</button>
-                      </div>
-                    ) : (
-                      <button onClick={() => {
-                        if (pred.status === "libre") setConfirmAssign({ entryId: entry.id, tableId: pred.tableId });
-                      }} style={{
-                        marginTop: "10px", padding: "10px 14px", borderRadius: "8px", width: "100%",
-                        background: pred.status === "libre" ? S.libre.bg : T.bgPage,
-                        border: pred.status === "libre" ? "none" : `1px solid ${T.cardBorder}`,
-                        display: "flex", justifyContent: "space-between", alignItems: "center",
-                        cursor: pred.status === "libre" ? "pointer" : "default",
-                      }}>
-                        <span style={{ fontSize: "11px", fontWeight: "600", color: pred.status === "libre" ? "#fff" : T.textLight }}>
-                          {pred.status === "libre" ? "Asignar mesa" : pred.status === "postre" ? "Proxima mesa" : "Siguiente en liberar"}
-                        </span>
-                        <span style={{ fontFamily: f.display, fontSize: "14px", fontWeight: "700", color: pred.status === "libre" ? "#fff" : T.text }}>
-                          {pred.tableId} <span style={{ fontSize: "11px", fontWeight: "500", color: pred.status === "libre" ? "rgba(255,255,255,0.7)" : T.textLight }}>({pred.capacity}p)</span>
-                        </span>
-                      </button>
-                    )
-                  )}
-
-                  {/* Actions */}
-                  <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
-                    {!isNotified && !isExtended && (
-                      <button onClick={() => doNotify(entry)} style={{
-                        flex: 1, padding: "11px", borderRadius: "10px", background: T.bgPage,
-                        color: T.text, border: `1px solid ${T.border}`,
-                        fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
-                      }}>Avisar</button>
-                    )}
-                    {(isNotified || isExtended) && (
-                      <button onClick={() => setStatus(entry.id, "waiting")} style={{
-                        padding: "11px 14px", borderRadius: "10px", background: T.bgPage,
-                        color: T.textLight, border: `1px solid ${T.border}`,
-                        fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
-                      }}>Deshacer</button>
-                    )}
-                    <button onClick={() => setStatus(entry.id, "seated")} style={{
-                      flex: 1, padding: "11px", borderRadius: "10px", background: T.accent,
-                      color: "#fff", border: "none",
-                      fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
-                    }}>Sentar</button>
-                    <button onClick={() => setStatus(entry.id, "cancelled")} style={{
-                      padding: "11px 14px", borderRadius: "10px", background: S.pidio_cuenta.bg,
-                      color: S.pidio_cuenta.color, border: `1px solid ${S.pidio_cuenta.border}`,
-                      fontSize: "13px", cursor: "pointer", fontFamily: f.sans,
-                    }}>x</button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
