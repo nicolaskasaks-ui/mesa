@@ -22,6 +22,8 @@ export default function CocinaPage() {
   const [showNewTicket, setShowNewTicket] = useState(false);
   const [packPurchases, setPackPurchases] = useState([]);
   const [showPacks, setShowPacks] = useState(false);
+  const [walletTopups, setWalletTopups] = useState([]);
+  const [showWallet, setShowWallet] = useState(false);
   const [scanMode, setScanMode] = useState(false);
   const [manualCode, setManualCode] = useState("");
   const [scannedPack, setScannedPack] = useState(null);
@@ -50,13 +52,20 @@ export default function CocinaPage() {
     if (Array.isArray(data)) setPackPurchases(data);
   }, []);
 
+  const fetchWalletTopups = useCallback(async () => {
+    const res = await fetch("/api/bicha/wallet?pending=true");
+    const data = await res.json();
+    if (Array.isArray(data)) setWalletTopups(data);
+  }, []);
+
   useEffect(() => {
     if (!authed) return;
     fetchTickets();
     fetchPacks();
-    const interval = setInterval(() => { fetchTickets(); fetchPacks(); }, 10000);
+    fetchWalletTopups();
+    const interval = setInterval(() => { fetchTickets(); fetchPacks(); fetchWalletTopups(); }, 10000);
     return () => clearInterval(interval);
-  }, [authed, fetchTickets, fetchPacks]);
+  }, [authed, fetchTickets, fetchPacks, fetchWalletTopups]);
 
   const handleLogin = () => {
     if (pin === PIN) { setAuthed(true); sessionStorage.setItem("bicha_cocina_auth", "1"); }
@@ -124,6 +133,24 @@ export default function CocinaPage() {
       body: JSON.stringify({ id: purchaseId, action: "redeem_game" }),
     });
     fetchPacks();
+  };
+
+  const confirmTopup = async (txId) => {
+    await fetch("/api/bicha/wallet", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: txId, action: "confirm" }),
+    });
+    fetchWalletTopups();
+  };
+
+  const rejectTopup = async (txId) => {
+    await fetch("/api/bicha/wallet", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: txId, action: "reject" }),
+    });
+    fetchWalletTopups();
   };
 
   const createManualTicket = async () => {
@@ -297,6 +324,12 @@ export default function CocinaPage() {
                 <span style={{ position: "absolute", top: -4, right: -4, width: 18, height: 18, borderRadius: "50%", background: "#B83B3B", color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{pendingPacks.length}</span>
               )}
             </button>
+            <button onClick={() => setShowWallet(!showWallet)} style={{ ...pillS, background: showWallet ? "#F5A623" : "#1A1A1A", color: showWallet ? "#000" : "#999", border: "1px solid #333", position: "relative" }}>
+              Wallet
+              {walletTopups.length > 0 && (
+                <span style={{ position: "absolute", top: -4, right: -4, width: 18, height: 18, borderRadius: "50%", background: "#B83B3B", color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>{walletTopups.length}</span>
+              )}
+            </button>
             <button onClick={() => setShowNewTicket(true)} style={{ ...pillS, background: "#F5A623", color: "#000", border: "none" }}>
               + Ticket
             </button>
@@ -376,6 +409,38 @@ export default function CocinaPage() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Wallet top-ups section */}
+        {showWallet && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#F5A623", marginBottom: 10 }}>Cargas de wallet pendientes</div>
+            {walletTopups.length === 0 ? (
+              <div style={{ ...card, color: "#666", textAlign: "center" }}>Sin cargas pendientes</div>
+            ) : (
+              walletTopups.map((tx) => (
+                <div key={tx.id} style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{tx.bicha_wallets?.name || tx.phone}</div>
+                    <div style={{ fontSize: 12, color: "#999" }}>
+                      ${Number(tx.amount).toLocaleString("es-AR")} · {tx.payment_method}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#666" }}>
+                      {new Date(tx.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => confirmTopup(tx.id)} style={{ ...pillS, background: "#2D7A4F", color: "#fff", border: "none" }}>
+                      ✓
+                    </button>
+                    <button onClick={() => rejectTopup(tx.id)} style={{ ...pillS, background: "#B83B3B", color: "#fff", border: "none" }}>
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
 

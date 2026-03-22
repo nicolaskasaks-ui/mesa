@@ -70,6 +70,35 @@ CREATE TABLE IF NOT EXISTS bicha_pack_purchases (
   purchased_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Wallet (credits by phone)
+CREATE TABLE IF NOT EXISTS bicha_wallets (
+  phone TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  balance NUMERIC(10,2) DEFAULT 0,
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Wallet transactions (top-ups and payments)
+CREATE TABLE IF NOT EXISTS bicha_wallet_transactions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  phone TEXT NOT NULL REFERENCES bicha_wallets(phone),
+  type TEXT NOT NULL CHECK (type IN ('topup', 'purchase', 'refund')),
+  amount NUMERIC(10,2) NOT NULL,
+  description TEXT,
+  payment_method TEXT, -- 'efectivo', 'transferencia', 'mercadopago' (for topups)
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'rejected')),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Bot conversation state (ephemeral, per phone)
+CREATE TABLE IF NOT EXISTS bicha_bot_state (
+  phone TEXT PRIMARY KEY,
+  state TEXT DEFAULT 'idle',
+  data JSONB DEFAULT '{}',
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- Enable realtime for tickets
 ALTER PUBLICATION supabase_realtime ADD TABLE bicha_tickets;
 
