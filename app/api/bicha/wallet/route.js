@@ -50,6 +50,8 @@ export async function GET(req) {
   return NextResponse.json(data);
 }
 
+const TOPUP_BONUS = 0.10; // 10% bonus on all top-ups
+
 // PATCH — confirm or reject a top-up transaction
 export async function PATCH(req) {
   if (!supabaseServer) return NextResponse.json({ error: "DB not configured" }, { status: 500 });
@@ -83,7 +85,12 @@ export async function PATCH(req) {
       .eq("phone", tx.phone)
       .single();
 
-    const newBalance = Number(wallet.balance) + Number(tx.amount);
+    // Apply 10% bonus on top-ups
+    const baseAmount = Number(tx.amount);
+    const bonus = Math.round(baseAmount * TOPUP_BONUS);
+    const credited = baseAmount + bonus;
+
+    const newBalance = Number(wallet.balance) + credited;
     await supabaseServer
       .from("bicha_wallets")
       .update({ balance: newBalance, updated_at: new Date().toISOString() })
@@ -91,7 +98,8 @@ export async function PATCH(req) {
 
     // Notify customer via WhatsApp
     const { data: w } = await supabaseServer.from("bicha_wallets").select("name").eq("phone", tx.phone).single();
-    const msg = `${w?.name || "Hola"}! Se acreditaron $${Number(tx.amount).toLocaleString("es-AR")} a tu wallet.\n\n💰 Saldo actual: $${newBalance.toLocaleString("es-AR")}\n\nEscribi *hola* para ver el menu.`;
+    const bonusMsg = bonus > 0 ? `\n🎁 Bonus 10%: +$${bonus.toLocaleString("es-AR")}` : "";
+    const msg = `${w?.name || "Hola"}! Se acreditaron $${credited.toLocaleString("es-AR")} a tu wallet.${bonusMsg}\n\n💰 Saldo actual: $${newBalance.toLocaleString("es-AR")}\n\nEscribi *hola* para ver el menu.`;
     await sendWhatsApp({ to: tx.phone, guestName: w?.name, message: msg });
 
     return NextResponse.json({ ok: true, new_balance: newBalance });

@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS bicha_pack_purchases (
   redeem_code TEXT UNIQUE NOT NULL, -- 6-char code for QR redemption
   guest_name TEXT NOT NULL,
   phone TEXT NOT NULL,
-  payment_method TEXT NOT NULL, -- 'mercadopago', 'transferencia', 'efectivo'
+  payment_method TEXT NOT NULL, -- 'mercadopago', 'transferencia', 'efectivo', 'wallet'
   payment_status TEXT DEFAULT 'pending' CHECK (payment_status IN ('pending', 'confirmed', 'rejected')),
   remaining INT NOT NULL DEFAULT 0,
   game_available BOOLEAN DEFAULT false,
