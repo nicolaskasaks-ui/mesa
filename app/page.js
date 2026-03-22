@@ -546,40 +546,6 @@ export default function MeantimeCustomer() {
         </Card>
       )}
 
-      {/* Pre-order — pedi algo mientras esperas */}
-      <Card style={{ marginTop: "14px" }}>
-        <div style={{ fontFamily: f.display, fontSize: "15px", fontWeight: "700", color: T.text }}>Pedí algo para cuando te sientes</div>
-        <div style={{ fontSize: "12px", color: T.textMed, marginTop: "4px" }}>Te lo preparamos y esta listo cuando llegues a la mesa</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "14px" }}>
-          {[
-            { name: "Focaccia masa madre", price: 3300 },
-            { name: "Paté de hongos", price: 8900 },
-            { name: "Guacamole + totopos", price: 14500 },
-            { name: "Papas 3 cocciones", price: 12500 },
-            { name: "Agua Pellegrino", price: 7300 },
-            { name: "Negroni de Barrica", price: 13000 },
-          ].map(item => (
-            <button key={item.name} onClick={async () => {
-              if (!entry) return;
-              try {
-                await fetch("/api/preorder", {
-                  method: "POST", headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ waitlist_id: entry.id, customer_id: entry.customer_id, guest_name: entry.guest_name, items: [{ name: item.name, price: item.price, quantity: 1 }] }),
-                });
-                showToast(`${item.name} pedido ✓`);
-              } catch { showToast("Error al pedir"); }
-            }} style={{
-              padding: "12px 8px", borderRadius: "12px", background: T.bgPage,
-              border: `1px solid ${T.cardBorder}`, cursor: "pointer", fontFamily: f.sans,
-              textAlign: "center",
-            }}>
-              <div style={{ fontSize: "13px", fontWeight: "600", color: T.text }}>{item.name}</div>
-              <div style={{ fontSize: "11px", color: T.textMed, marginTop: "2px" }}>${item.price.toLocaleString("es-AR")}</div>
-            </button>
-          ))}
-        </div>
-      </Card>
-
       <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
         <Btn variant="outline" onClick={() => setShowMenu(true)}>Ver menu</Btn>
         <Btn variant="outline" onClick={startTracking}>Pasear por el barrio</Btn>
