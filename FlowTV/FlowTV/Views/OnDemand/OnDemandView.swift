@@ -70,7 +70,7 @@ struct OnDemandView: View {
                                 NavigationLink(value: content) {
                                     PosterCard(content: content)
                                 }
-                                .buttonStyle(TVCardButtonStyle())
+                                .buttonStyle(.card)
                             }
                         }
                         .padding(48)

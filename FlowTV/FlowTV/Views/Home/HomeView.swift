@@ -9,11 +9,11 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: 50) {
+                LazyVStack(alignment: .leading, spacing: 65) {
                     // Hero featured content (large banner like Apple TV+)
                     if !flowAPI.featuredContent.isEmpty {
                         FeaturedHeroView(items: flowAPI.featuredContent)
-                            .frame(height: 600)
+                            .frame(height: 700)
                     }
 
                     // Continue watching
@@ -41,7 +41,7 @@ struct HomeView: View {
                                 NavigationLink(value: item) {
                                     PosterCard(content: item)
                                 }
-                                .buttonStyle(TVCardButtonStyle())
+                                .buttonStyle(.card)
                             }
                         }
                     }
@@ -73,32 +73,20 @@ struct ShelfRow<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 18) {
             Text(title)
-                .font(.title3.weight(.bold))
+                .font(.title3.weight(.semibold))
                 .foregroundColor(.white)
-                .padding(.horizontal, 60)
+                .padding(.horizontal, 90)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 24) {
+                LazyHStack(spacing: 40) {
                     content()
                 }
-                .padding(.horizontal, 60)
-                .padding(.vertical, 20) // room for focus scale effect
+                .padding(.horizontal, 90)
+                .padding(.vertical, 24) // room for .card focus lift
             }
         }
-    }
-}
-
-// MARK: - tvOS Card Button Style (focus lift + shadow like Apple TV)
-
-struct TVCardButtonStyle: ButtonStyle {
-    @Environment(\.isFocused) var isFocused
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .animation(.easeInOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 
@@ -203,16 +191,16 @@ struct HeroBannerCard: View {
 
 // MARK: - Poster Card (standard tvOS poster like Apple TV+)
 
+/// Standard tvOS poster card (2:3 aspect ratio, 250x375)
+/// Uses native .card ButtonStyle for focus lift/shadow/motion
 struct PosterCard: View {
     let content: VODContent
-    @Environment(\.isFocused) var isFocused
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 0) {
             ZStack {
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: 8)
                     .fill(posterGradient)
-                    .frame(width: 220, height: 330)
 
                 if let posterURL = content.posterURL,
                    let url = FlowAPIService.imageURL(path: posterURL) {
@@ -220,9 +208,6 @@ struct PosterCard: View {
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(width: 220, height: 330)
-                            .clipped()
-                            .cornerRadius(10)
                     } placeholder: {
                         posterPlaceholder
                     }
@@ -230,31 +215,27 @@ struct PosterCard: View {
                     posterPlaceholder
                 }
             }
-            .frame(width: 220, height: 330)
-            .shadow(
-                color: .black.opacity(isFocused ? 0.5 : 0.2),
-                radius: isFocused ? 20 : 5,
-                y: isFocused ? 15 : 3
-            )
-            .scaleEffect(isFocused ? 1.08 : 1.0)
-            .animation(.easeInOut(duration: 0.2), value: isFocused)
+            .frame(width: 250, height: 375)
+            .clipped()
 
+            // Title below card (shown by .card style context)
             Text(content.title)
-                .font(.caption)
-                .foregroundColor(isFocused ? .white : Color.white.opacity(0.6))
+                .font(.callout)
                 .lineLimit(1)
-                .frame(width: 220, alignment: .leading)
+                .padding(.horizontal, 4)
+                .padding(.top, 10)
         }
+        .frame(width: 250)
     }
 
     private var posterPlaceholder: some View {
         VStack(spacing: 8) {
             Image(systemName: content.contentType == .series ? "tv" : "film")
                 .font(.system(size: 36))
-                .foregroundColor(.white.opacity(0.4))
+                .foregroundColor(.white.opacity(0.3))
             Text(content.title)
                 .font(.caption.weight(.medium))
-                .foregroundColor(.white.opacity(0.5))
+                .foregroundColor(.white.opacity(0.4))
                 .multilineTextAlignment(.center)
                 .lineLimit(3)
                 .padding(.horizontal, 12)
@@ -276,56 +257,48 @@ struct PosterCard: View {
 
 // MARK: - Continue Watching Card
 
+/// Landscape card (16:9) for continue watching — uses native .card focus
 struct ContinueWatchingCard: View {
     let item: ContinueWatching
-    @Environment(\.isFocused) var isFocused
 
     var body: some View {
         Button(action: {}) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 0) {
                 ZStack(alignment: .bottom) {
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: 8)
                         .fill(Color.white.opacity(0.08))
-                        .frame(width: 340, height: 190)
+                        .frame(width: 500, height: 281)
                         .overlay(
                             Image(systemName: "play.fill")
-                                .font(.system(size: 40))
-                                .foregroundColor(.white.opacity(0.6))
+                                .font(.system(size: 44))
+                                .foregroundColor(.white.opacity(0.5))
                         )
 
-                    // Progress bar at bottom
-                    VStack(spacing: 0) {
-                        Spacer()
-                        GeometryReader { geo in
+                    // Progress bar
+                    GeometryReader { geo in
+                        VStack {
+                            Spacer()
                             ZStack(alignment: .leading) {
-                                Rectangle()
-                                    .fill(Color.white.opacity(0.15))
-                                Rectangle()
-                                    .fill(Color.white)
+                                Rectangle().fill(Color.white.opacity(0.15))
+                                Rectangle().fill(Color.white)
                                     .frame(width: geo.size.width * item.progress)
                             }
+                            .frame(height: 3)
                         }
-                        .frame(height: 3)
                     }
-                    .frame(width: 340, height: 190)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .frame(width: 500, height: 281)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
-                .shadow(
-                    color: .black.opacity(isFocused ? 0.4 : 0.15),
-                    radius: isFocused ? 16 : 4,
-                    y: isFocused ? 10 : 2
-                )
-                .scaleEffect(isFocused ? 1.06 : 1.0)
-                .animation(.easeInOut(duration: 0.2), value: isFocused)
 
                 Text(item.title)
-                    .font(.caption.weight(.medium))
-                    .foregroundColor(isFocused ? .white : Color.white.opacity(0.6))
+                    .font(.callout)
                     .lineLimit(1)
+                    .padding(.horizontal, 4)
+                    .padding(.top, 10)
             }
-            .frame(width: 340)
+            .frame(width: 500)
         }
-        .buttonStyle(TVCardButtonStyle())
+        .buttonStyle(.card)
     }
 }
 
@@ -333,7 +306,6 @@ struct ContinueWatchingCard: View {
 
 struct LiveChannelPill: View {
     let channel: Channel
-    @Environment(\.isFocused) var isFocused
 
     var body: some View {
         Button(action: {}) {
@@ -344,30 +316,24 @@ struct LiveChannelPill: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(channel.name)
-                        .font(.caption.weight(.semibold))
-                        .foregroundColor(.white)
+                        .font(.callout.weight(.semibold))
                         .lineLimit(1)
 
                     if let prog = channel.currentProgram {
                         Text(prog.title)
-                            .font(.caption2)
-                            .foregroundColor(Color.white.opacity(0.4))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                             .lineLimit(1)
                     }
                 }
 
-                // Live dot
                 Circle()
                     .fill(Color.red)
                     .frame(width: 6, height: 6)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 14)
-            .background(Color.white.opacity(isFocused ? 0.15 : 0.06))
-            .cornerRadius(14)
-            .scaleEffect(isFocused ? 1.05 : 1.0)
-            .animation(.easeInOut(duration: 0.15), value: isFocused)
         }
-        .buttonStyle(TVCardButtonStyle())
+        .buttonStyle(.card)
     }
 }

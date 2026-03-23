@@ -57,7 +57,7 @@ struct SearchView: View {
                                         NavigationLink(value: content) {
                                             PosterCard(content: content)
                                         }
-                                        .buttonStyle(TVCardButtonStyle())
+                                        .buttonStyle(.card)
                                     }
                                 }
                             }
