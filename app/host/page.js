@@ -100,34 +100,46 @@ export default function HostDashboard() {
   }, []);
 
   const fetchAll = async () => {
-    if (!supabase) return;
-    const [t, q] = await Promise.all([
-      supabase.from("tables").select("*, waitlist(guest_name, party_size)").order("id"),
-      supabase.from("waitlist")
-        .select("*, customers(id, name, phone, allergies, visit_count, trust_level, no_show_count, last_visit)")
-        .in("status", ["waiting", "notified", "extended"])
-        .order("joined_at", { ascending: true }),
-    ]);
-    if (t.data) setTables(t.data);
-    if (q.data) setQueue(q.data);
-    // Count seated today
-    const today = new Date().toISOString().slice(0, 10);
-    const { count } = await supabase.from("waitlist")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "seated")
-      .gte("seated_at", `${today}T00:00:00`);
-    setSeatedToday(count || 0);
+    try {
+      const [tablesRes, queueRes] = await Promise.all([
+        fetch("/api/tables").then(r => r.json()),
+        fetch("/api/waitlist").then(r => r.json()),
+      ]);
+      if (Array.isArray(tablesRes)) setTables(tablesRes);
+      if (Array.isArray(queueRes)) setQueue(queueRes);
+      // Count seated today
+      if (supabase) {
+        const today = new Date().toISOString().slice(0, 10);
+        const { count } = await supabase.from("waitlist")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "seated")
+          .gte("seated_at", `${today}T00:00:00`);
+        setSeatedToday(count || 0);
+      }
+    } catch (e) {
+      console.error("fetchAll error:", e);
+    }
     setLoading(false);
   };
 
   useEffect(() => {
     fetchAll();
-    if (!supabase) return;
-    const ch1 = supabase.channel("host-tables").on("postgres_changes", { event: "*", schema: "public", table: "tables" }, fetchAll).subscribe();
-    const ch2 = supabase.channel("host-queue").on("postgres_changes", { event: "*", schema: "public", table: "waitlist" }, fetchAll).subscribe();
+    // Realtime via Supabase channels
+    let ch1, ch2;
+    if (supabase) {
+      ch1 = supabase.channel("host-tables").on("postgres_changes", { event: "*", schema: "public", table: "tables" }, fetchAll).subscribe();
+      ch2 = supabase.channel("host-queue").on("postgres_changes", { event: "*", schema: "public", table: "waitlist" }, fetchAll).subscribe();
+    }
+    // Polling fallback every 5s (in case realtime fails)
+    const poll = setInterval(fetchAll, 5000);
     // Tick every 5s to update times + countdowns
     const tick = setInterval(() => setNow(Date.now()), 5000);
-    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); clearInterval(tick); };
+    return () => {
+      if (ch1) supabase.removeChannel(ch1);
+      if (ch2) supabase.removeChannel(ch2);
+      clearInterval(poll);
+      clearInterval(tick);
+    };
   }, []);
 
   const cycleTable = async (table) => {
