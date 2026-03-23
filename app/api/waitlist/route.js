@@ -50,7 +50,7 @@ export async function GET() {
   // Send "still waiting?" to entries between 3h and 3.5h (only if not yet checked)
   // We use extensions_used = 0 → not yet asked, set to -1 after asking
   const { data: longWaiters } = await supabase.from("waitlist")
-    .select("id, guest_name, customers(phone)")
+    .select("id, guest_name, customers!waitlist_customer_id_fkey(phone)")
     .eq("status", "waiting")
     .or("extensions_used.is.null,extensions_used.eq.0")
     .lt("joined_at", longWaitCutoff)
@@ -75,7 +75,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("waitlist")
-    .select("*, customers(name, phone, allergies, visit_count, trust_level, no_show_count)")
+    .select("*, customers!waitlist_customer_id_fkey(name, phone, allergies, visit_count, trust_level, no_show_count)")
     .in("status", ["waiting", "notified", "extended"])
     .order("joined_at", { ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -180,7 +180,7 @@ export async function PATCH(request) {
   if (distance_m !== undefined) updates.distance_m = distance_m;
 
   const { data, error } = await supabase
-    .from("waitlist").update(updates).eq("id", id).select("*, customers(id, name, phone, visit_count, trust_level, no_show_count)").single();
+    .from("waitlist").update(updates).eq("id", id).select("*, customers!waitlist_customer_id_fkey(id, name, phone, visit_count, trust_level, no_show_count)").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // ── SEATED: trust upgrade + post-visit WhatsApp (24h later via scheduled) ──
@@ -230,7 +230,7 @@ export async function PATCH(request) {
   if (status === "seated" || status === "cancelled") {
     try {
       const { data: remaining } = await supabase.from("waitlist")
-        .select("id, guest_name, customers(phone)")
+        .select("id, guest_name, customers!waitlist_customer_id_fkey(phone)")
         .in("status", ["waiting", "extended"])
         .order("joined_at", { ascending: true });
       if (remaining) {

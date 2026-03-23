@@ -41,7 +41,7 @@ export async function PATCH(request) {
 
     const { data: nextInLine } = await supabase
       .from("waitlist")
-      .select("id, guest_name, customers(phone)")
+      .select("id, guest_name, customers!waitlist_customer_id_fkey(phone)")
       .eq("status", "waiting")
       .order("joined_at", { ascending: true })
       .limit(1)
