@@ -3,8 +3,12 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var flowAPI: FlowAPIService
     @State private var showPlayer = false
-    @State private var playerChannel: Channel?
-    @State private var playerVOD: VODContent?
+    @State private var playerTitle = ""
+    @State private var playerSubtitle: String?
+    @State private var playerIsLive = false
+    @State private var playerStreamURL: String?
+    @State private var playerContentId: String?
+    @State private var playerContentType: StreamContentType?
 
     var body: some View {
         NavigationStack {
@@ -12,15 +16,19 @@ struct HomeView: View {
                 LazyVStack(alignment: .leading, spacing: 65) {
                     // Hero featured content (large banner like Apple TV+)
                     if !flowAPI.featuredContent.isEmpty {
-                        FeaturedHeroView(items: flowAPI.featuredContent)
-                            .frame(height: 700)
+                        FeaturedHeroView(items: flowAPI.featuredContent) { item in
+                            playFeatured(item)
+                        }
+                        .frame(height: 700)
                     }
 
                     // Continue watching
                     if !flowAPI.continueWatching.isEmpty {
                         ShelfRow(title: "Seguir Viendo") {
                             ForEach(flowAPI.continueWatching) { item in
-                                ContinueWatchingCard(item: item)
+                                ContinueWatchingCard(item: item) {
+                                    playContinueWatching(item)
+                                }
                             }
                         }
                     }
@@ -29,7 +37,9 @@ struct HomeView: View {
                     if !flowAPI.channels.isEmpty {
                         ShelfRow(title: "TV en Vivo") {
                             ForEach(flowAPI.channels.prefix(15)) { channel in
-                                LiveChannelPill(channel: channel)
+                                LiveChannelPill(channel: channel) {
+                                    playChannel(channel)
+                                }
                             }
                         }
                     }
@@ -51,10 +61,65 @@ struct HomeView: View {
             .navigationDestination(for: VODContent.self) { content in
                 ContentDetailView(content: content)
             }
+            .fullScreenCover(isPresented: $showPlayer) {
+                PlayerView(
+                    title: playerTitle,
+                    subtitle: playerSubtitle,
+                    isLive: playerIsLive,
+                    streamURL: playerStreamURL,
+                    contentId: playerContentId,
+                    contentType: playerContentType
+                )
+            }
         }
         .task {
             await loadAll()
         }
+    }
+
+    // MARK: - Playback helpers
+
+    private func playFeatured(_ item: FeaturedContent) {
+        switch item.content {
+        case .channel(let channel):
+            playChannel(channel)
+        case .vod(let vod):
+            playerTitle = vod.title
+            playerSubtitle = nil
+            playerIsLive = false
+            playerStreamURL = vod.streamURL
+            playerContentId = vod.id
+            playerContentType = .vod
+            showPlayer = true
+        case .liveEvent(let program):
+            playerTitle = program.title
+            playerSubtitle = nil
+            playerIsLive = true
+            playerStreamURL = nil
+            playerContentId = program.id
+            playerContentType = .tvSchedule
+            showPlayer = true
+        }
+    }
+
+    private func playChannel(_ channel: Channel) {
+        playerTitle = channel.name
+        playerSubtitle = channel.currentProgram?.title
+        playerIsLive = true
+        playerStreamURL = channel.streamURL
+        playerContentId = channel.id
+        playerContentType = .tvChannel
+        showPlayer = true
+    }
+
+    private func playContinueWatching(_ item: ContinueWatching) {
+        playerTitle = item.title
+        playerSubtitle = nil
+        playerIsLive = false
+        playerStreamURL = item.streamURL
+        playerContentId = item.contentId
+        playerContentType = .vod
+        showPlayer = true
     }
 
     private func loadAll() async {
@@ -84,7 +149,7 @@ struct ShelfRow<Content: View>: View {
                     content()
                 }
                 .padding(.horizontal, 90)
-                .padding(.vertical, 24) // room for .card focus lift
+                .padding(.vertical, 24)
             }
         }
     }
@@ -94,12 +159,13 @@ struct ShelfRow<Content: View>: View {
 
 struct FeaturedHeroView: View {
     let items: [FeaturedContent]
+    let onPlay: (FeaturedContent) -> Void
     @State private var currentIndex = 0
 
     var body: some View {
         TabView(selection: $currentIndex) {
             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                HeroBannerCard(item: item)
+                HeroBannerCard(item: item, onPlay: { onPlay(item) })
                     .tag(index)
             }
         }
@@ -109,6 +175,16 @@ struct FeaturedHeroView: View {
 
 struct HeroBannerCard: View {
     let item: FeaturedContent
+    let onPlay: () -> Void
+    @EnvironmentObject var favoritesManager: FavoritesManager
+
+    private var contentId: String {
+        switch item.content {
+        case .channel(let c): return c.id
+        case .vod(let v): return v.id
+        case .liveEvent(let p): return p.id
+        }
+    }
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -160,7 +236,7 @@ struct HeroBannerCard: View {
                 }
 
                 HStack(spacing: 16) {
-                    Button(action: {}) {
+                    Button(action: onPlay) {
                         Label("Reproducir", systemImage: "play.fill")
                             .font(.callout.weight(.semibold))
                             .padding(.horizontal, 32)
@@ -170,8 +246,8 @@ struct HeroBannerCard: View {
                             .cornerRadius(10)
                     }
 
-                    Button(action: {}) {
-                        Label("Mi Lista", systemImage: "plus")
+                    Button(action: { favoritesManager.toggle(contentId) }) {
+                        Label("Mi Lista", systemImage: favoritesManager.isFavorite(contentId) ? "checkmark" : "plus")
                             .font(.callout.weight(.semibold))
                             .padding(.horizontal, 28)
                             .padding(.vertical, 14)
@@ -191,8 +267,6 @@ struct HeroBannerCard: View {
 
 // MARK: - Poster Card (standard tvOS poster like Apple TV+)
 
-/// Standard tvOS poster card (2:3 aspect ratio, 250x375)
-/// Uses native .card ButtonStyle for focus lift/shadow/motion
 struct PosterCard: View {
     let content: VODContent
 
@@ -218,7 +292,6 @@ struct PosterCard: View {
             .frame(width: 250, height: 375)
             .clipped()
 
-            // Title below card (shown by .card style context)
             Text(content.title)
                 .font(.callout)
                 .lineLimit(1)
@@ -257,12 +330,12 @@ struct PosterCard: View {
 
 // MARK: - Continue Watching Card
 
-/// Landscape card (16:9) for continue watching — uses native .card focus
 struct ContinueWatchingCard: View {
     let item: ContinueWatching
+    let onPlay: () -> Void
 
     var body: some View {
-        Button(action: {}) {
+        Button(action: onPlay) {
             VStack(alignment: .leading, spacing: 0) {
                 ZStack(alignment: .bottom) {
                     RoundedRectangle(cornerRadius: 8)
@@ -274,7 +347,6 @@ struct ContinueWatchingCard: View {
                                 .foregroundColor(.white.opacity(0.5))
                         )
 
-                    // Progress bar
                     GeometryReader { geo in
                         VStack {
                             Spacer()
@@ -306,9 +378,10 @@ struct ContinueWatchingCard: View {
 
 struct LiveChannelPill: View {
     let channel: Channel
+    let onPlay: () -> Void
 
     var body: some View {
-        Button(action: {}) {
+        Button(action: onPlay) {
             HStack(spacing: 12) {
                 Text(channel.displayNumber)
                     .font(.system(size: 18, weight: .bold, design: .monospaced))

@@ -13,8 +13,9 @@ class AuthManager: ObservableObject {
     private let casIdKey = "com.flowtv.casid"
     private var authToken: AuthToken?
 
-    // Shared API service reference
+    // Shared service references
     var apiService: FlowAPIService?
+    var streamingService: StreamingService?
 
     // MARK: - Login (Real Flow authentication)
 
@@ -33,6 +34,16 @@ class AuthManager: ObservableObject {
             // Persist session
             saveToken(token)
             saveUser(user)
+
+            // Pass VUID to streaming service for DRM
+            if let vuid = api.vuid {
+                streamingService?.setVUID(vuid)
+            }
+
+            // Register PRM token in background (needed for playback)
+            Task {
+                try? await streamingService?.registerPRM()
+            }
 
             // Verify device registration
             let deviceOk = await api.verifyDevice()
@@ -68,6 +79,7 @@ class AuthManager: ObservableObject {
         currentUser = nil
         authToken = nil
         apiService?.setJWTToken("")
+        streamingService?.clear()
         clearStoredData()
     }
 

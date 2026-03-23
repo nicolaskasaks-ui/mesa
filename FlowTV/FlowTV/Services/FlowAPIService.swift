@@ -17,9 +17,11 @@ class FlowAPIService: ObservableObject {
     private let dynamicPath = "/api/v1/dynamic"
 
     // Device identification for API
+    // Using STB (set-top box) profile to request HLS+FairPlay streams
+    // instead of WEB profile which returns DASH+Widevine
     private let apiVersion = "3.78.1"
     private let apiType = "CVA"
-    private let deviceType = "WEB"
+    private let deviceType = "STB"
     private let deviceModel = "AppleTV"
     private let deviceName = "FlowTV-AppleTV"
     private let platform = "TVOS"
@@ -36,6 +38,10 @@ class FlowAPIService: ObservableObject {
     private var jwtToken: String?
     private var deviceId: String = "0"
     private var casId: String?
+    private(set) var vuid: String?
+
+    /// Exposes JWT for services that need it (e.g. StreamingService, FairPlay).
+    var currentJWT: String? { jwtToken }
 
     // MARK: - Request ID Generation (matches Flow's x-request-id format)
 
@@ -134,9 +140,15 @@ class FlowAPIService: ObservableObject {
                 body: body
             )
 
-            // Extract JWT from response
-            if let token = response.token {
+            // Extract JWT and VUID from response
+            if let token = response.effectiveToken {
                 self.jwtToken = token
+            }
+            if let responseVuid = response.multiRightVuid {
+                self.vuid = responseVuid
+            }
+            if let responseDeviceId = response.deviceId {
+                self.deviceId = responseDeviceId
             }
 
             // Build user from Flow's account data
@@ -220,11 +232,23 @@ class FlowAPIService: ObservableObject {
         error = nil
 
         do {
-            let result: [FlowChannelResponse] = try await makeRequest(
-                endpoint: "\(contentPath)/channels"
-            )
-            self.channels = result.map { $0.toChannel() }
+            struct ChannelsWrapper: Decodable {
+                let channels: [FlowChannelResponse]?
+            }
+            // Try array first, then wrapped response
+            do {
+                let result: [FlowChannelResponse] = try await makeRequest(
+                    endpoint: "\(contentPath)/channels"
+                )
+                self.channels = result.map { $0.toChannel() }
+            } catch {
+                let wrapped: ChannelsWrapper = try await makeRequest(
+                    endpoint: "\(contentPath)/channels"
+                )
+                self.channels = wrapped.channels?.map { $0.toChannel() } ?? MockData.channels
+            }
         } catch {
+            // Fallback to mock data in development
             self.channels = MockData.channels
         }
 
@@ -346,10 +370,9 @@ class FlowAPIService: ObservableObject {
         }
     }
 
-    // MARK: - Stream URL
+    // MARK: - Stream URL (legacy helpers, prefer StreamingService.resolveStream)
 
     func getStreamURL(for channelId: String) async -> String? {
-        // Stream URLs are typically embedded in the channel data or fetched via dynamic endpoint
         return channels.first { $0.id == channelId }?.streamURL
     }
 
@@ -418,6 +441,13 @@ struct FlowLoginData: Encodable {
 struct FlowLoginResponse: Decodable {
     let accounts: [FlowAccountResponse]?
     let token: String?
+    let jwt: String?
+    let multiRightVuid: String?
+    let deviceId: String?
+    let externalID: String?
+
+    /// Flow may return the JWT as either `token` or `jwt`
+    var effectiveToken: String? { token ?? jwt }
 }
 
 struct FlowAccountResponse: Decodable {

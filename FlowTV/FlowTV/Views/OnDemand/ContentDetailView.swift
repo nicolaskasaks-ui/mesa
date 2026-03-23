@@ -2,8 +2,14 @@ import SwiftUI
 
 struct ContentDetailView: View {
     let content: VODContent
+    @EnvironmentObject var favoritesManager: FavoritesManager
     @State private var selectedSeason: Season?
     @State private var showPlayer = false
+    @State private var playEpisode: Episode?
+
+    private var isFavorite: Bool {
+        favoritesManager.isFavorite(content.id)
+    }
 
     var body: some View {
         ScrollView {
@@ -86,7 +92,10 @@ struct ContentDetailView: View {
 
                         // Action buttons
                         HStack(spacing: 16) {
-                            Button(action: { showPlayer = true }) {
+                            Button(action: {
+                                playEpisode = nil
+                                showPlayer = true
+                            }) {
                                 Label("Reproducir", systemImage: "play.fill")
                                     .font(.callout.weight(.semibold))
                                     .padding(.horizontal, 36)
@@ -96,8 +105,8 @@ struct ContentDetailView: View {
                                     .cornerRadius(10)
                             }
 
-                            Button(action: {}) {
-                                Label("Mi Lista", systemImage: content.isFavorite ? "checkmark" : "plus")
+                            Button(action: { favoritesManager.toggle(content.id) }) {
+                                Label("Mi Lista", systemImage: isFavorite ? "checkmark" : "plus")
                                     .font(.callout.weight(.semibold))
                                     .padding(.horizontal, 28)
                                     .padding(.vertical, 14)
@@ -151,7 +160,10 @@ struct ContentDetailView: View {
                             VStack(spacing: 8) {
                                 ForEach(episodes) { episode in
                                     EpisodeCard(episode: episode)
-                                        .onTapGesture { showPlayer = true }
+                                        .onTapGesture {
+                                            playEpisode = episode
+                                            showPlayer = true
+                                        }
                                 }
                             }
                             .padding(.horizontal, 60)
@@ -163,12 +175,25 @@ struct ContentDetailView: View {
             }
         }
         .fullScreenCover(isPresented: $showPlayer) {
-            PlayerView(
-                title: content.title,
-                subtitle: content.contentType == .series ? "T1 E1" : nil,
-                streamURL: content.streamURL,
-                isLive: false
-            )
+            if let episode = playEpisode {
+                PlayerView(
+                    title: content.title,
+                    subtitle: "T\(selectedSeason?.number ?? 1) E\(episode.number)",
+                    isLive: false,
+                    streamURL: episode.streamURL,
+                    contentId: episode.id,
+                    contentType: .vod
+                )
+            } else {
+                PlayerView(
+                    title: content.title,
+                    subtitle: nil,
+                    isLive: false,
+                    streamURL: content.streamURL,
+                    contentId: content.id,
+                    contentType: .vod
+                )
+            }
         }
     }
 

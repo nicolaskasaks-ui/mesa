@@ -4,10 +4,16 @@ import AVKit
 struct PlayerView: View {
     let title: String
     let subtitle: String?
-    let streamURL: String?
     let isLive: Bool
 
+    // Stream source — either a pre-resolved URL or an ID to resolve via StreamingService
+    let streamURL: String?
+    var contentId: String?
+    var contentType: StreamContentType?
+
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var streamingService: StreamingService
+
     @State private var player: AVPlayer?
     @State private var isPlaying = true
     @State private var showControls = true
@@ -16,6 +22,7 @@ struct PlayerView: View {
     @State private var duration: Double = 0
     @State private var isBuffering = true
     @State private var errorMessage: String?
+    @State private var playbackSession: PlaybackSession?
 
     var body: some View {
         ZStack {
@@ -28,7 +35,7 @@ struct PlayerView: View {
                     .onAppear { player.play() }
             }
 
-            // Loading / info state
+            // Loading / error state
             if player == nil {
                 if let errorMessage {
                     errorState(errorMessage)
@@ -37,7 +44,7 @@ struct PlayerView: View {
                 }
             }
 
-            // Controls overlay (Apple TV style — minimal, clean)
+            // Controls overlay
             if showControls {
                 controlsOverlay
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
@@ -79,9 +86,7 @@ struct PlayerView: View {
                     .foregroundColor(Color.white.opacity(0.4))
             }
 
-            if isLive {
-                liveBadge
-            }
+            if isLive { liveBadge }
 
             if isBuffering {
                 ProgressView()
@@ -110,43 +115,47 @@ struct PlayerView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 500)
 
-            Button("Volver") { dismiss() }
-                .padding(.horizontal, 32)
-                .padding(.vertical, 12)
-                .background(Color.white.opacity(0.15))
-                .foregroundColor(.white)
-                .cornerRadius(10)
+            HStack(spacing: 20) {
+                Button("Reintentar") { setupPlayer() }
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 12)
+                    .background(Color.white.opacity(0.2))
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+
+                Button("Volver") { dismiss() }
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 12)
+                    .background(Color.white.opacity(0.15))
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+            }
         }
     }
 
-    // MARK: - Controls Overlay (Apple TV style)
+    // MARK: - Controls Overlay
 
     private var controlsOverlay: some View {
         ZStack {
-            // Top gradient
             VStack {
                 LinearGradient(
                     colors: [.black.opacity(0.6), .clear],
-                    startPoint: .top,
-                    endPoint: .bottom
+                    startPoint: .top, endPoint: .bottom
                 )
                 .frame(height: 140)
                 Spacer()
             }
 
-            // Bottom gradient + info
             VStack {
                 Spacer()
                 LinearGradient(
                     colors: [.clear, .black.opacity(0.6)],
-                    startPoint: .top,
-                    endPoint: .bottom
+                    startPoint: .top, endPoint: .bottom
                 )
                 .frame(height: 180)
             }
 
             VStack {
-                // Top bar — back + live indicator
                 HStack {
                     Button(action: { dismiss() }) {
                         Image(systemName: "chevron.left")
@@ -154,9 +163,7 @@ struct PlayerView: View {
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
-
                     Spacer()
-
                     if isLive { liveBadge }
                 }
                 .padding(.horizontal, 48)
@@ -164,7 +171,6 @@ struct PlayerView: View {
 
                 Spacer()
 
-                // Bottom bar — title + progress
                 VStack(alignment: .leading, spacing: 10) {
                     Text(title)
                         .font(.title2.weight(.bold))
@@ -179,11 +185,8 @@ struct PlayerView: View {
                     if !isLive && duration > 0 {
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
-                                Capsule()
-                                    .fill(Color.white.opacity(0.2))
-                                    .frame(height: 4)
-                                Capsule()
-                                    .fill(Color.white)
+                                Capsule().fill(Color.white.opacity(0.2)).frame(height: 4)
+                                Capsule().fill(Color.white)
                                     .frame(
                                         width: geo.size.width * (duration > 0 ? currentTime / duration : 0),
                                         height: 4
@@ -219,10 +222,36 @@ struct PlayerView: View {
     // MARK: - Player Setup
 
     private func setupPlayer() {
-        guard let urlString = streamURL,
-              let url = URL(string: urlString) else {
+        errorMessage = nil
+        isBuffering = true
+
+        // Path 1: Resolve stream via StreamingService (real playback)
+        if let contentId, let contentType {
+            Task {
+                do {
+                    let session = try await streamingService.preparePlayback(
+                        id: contentId,
+                        type: contentType
+                    )
+                    self.playbackSession = session
+                    let avPlayer = AVPlayer(playerItem: session.playerItem)
+                    self.player = avPlayer
+                    self.isBuffering = false
+                    avPlayer.play()
+                    observePlayback(avPlayer)
+                } catch {
+                    self.isBuffering = false
+                    self.errorMessage = error.localizedDescription
+                }
+            }
+            return
+        }
+
+        // Path 2: Direct URL (for pre-resolved or mock streams)
+        guard let urlString = streamURL, let url = URL(string: urlString) else {
             isBuffering = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            Task {
+                try? await Task.sleep(nanoseconds: 2_500_000_000)
                 isBuffering = false
                 errorMessage = "Stream no disponible en modo demo.\nConectá tu cuenta Flow para ver contenido en vivo."
             }
@@ -230,8 +259,22 @@ struct PlayerView: View {
         }
 
         let item = AVPlayerItem(url: url)
-        player = AVPlayer(playerItem: item)
+        let avPlayer = AVPlayer(playerItem: item)
+        player = avPlayer
         isBuffering = false
+        avPlayer.play()
+        observePlayback(avPlayer)
+    }
+
+    private func observePlayback(_ avPlayer: AVPlayer) {
+        // Periodic time observer for progress bar
+        let interval = CMTime(seconds: 1, preferredTimescale: 1)
+        avPlayer.addPeriodicTimeObserver(forInterval: interval, queue: .main) { time in
+            self.currentTime = time.seconds
+            if let dur = avPlayer.currentItem?.duration.seconds, dur.isFinite {
+                self.duration = dur
+            }
+        }
     }
 
     private func togglePlayPause() {
