@@ -75,7 +75,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("waitlist")
-    .select("*, customers(name, phone, allergies, visit_count, trust_level, birthday, tags, no_show_count)")
+    .select("*, customers(name, phone, allergies, visit_count, trust_level, no_show_count)")
     .in("status", ["waiting", "notified", "extended"])
     .order("joined_at", { ascending: true });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -84,7 +84,7 @@ export async function GET() {
 
 export async function POST(request) {
   const body = await request.json();
-  const { guest_name, party_size, allergies, phone, notes, source, birthday, referral_code } = body;
+  const { guest_name, party_size, allergies, phone, notes, source, referral_code } = body;
   let customer_id = null;
   let isNew = false;
   let oldTrust = 0;
@@ -104,7 +104,6 @@ export async function POST(request) {
         trust_level: newTrust,
         ...(allergies?.length ? { allergies } : {}),
         ...(phone ? { phone } : {}),
-        ...(birthday ? { birthday } : {}),
       }).eq("id", existing.id);
     } else {
       isNew = true;
@@ -113,7 +112,6 @@ export async function POST(request) {
         allergies: allergies || [], visit_count: 1,
         trust_level: 0, no_show_count: 0,
         last_visit: new Date().toISOString(),
-        ...(birthday ? { birthday } : {}),
       }).select("id").single();
       if (newC) customer_id = newC.id;
     }

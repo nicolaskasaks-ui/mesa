@@ -62,7 +62,6 @@ export default function MeantimeCustomer() {
   const [phone, setPhone] = useState("");
   const [countryCode, setCountryCode] = useState("+54");
   const [allergies, setAllergies] = useState([]);
-  const [birthday, setBirthday] = useState("");
   const [referralCode, setReferralCode] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [returning, setReturning] = useState(false);
@@ -91,7 +90,6 @@ export default function MeantimeCustomer() {
         if (c.countryCode) setCountryCode(c.countryCode);
         if (c.allergies) setAllergies(c.allergies);
         if (c.party) setParty(c.party);
-        if (c.birthday) setBirthday(c.birthday);
         setReturning(true);
       }
     } catch {}
@@ -122,13 +120,12 @@ export default function MeantimeCustomer() {
           guest_name: name.trim(), party_size: party, allergies,
           phone: phone.trim() ? `${countryCode}${phone.trim().replace(/^0+/,"")}` : null,
           source: referralCode ? "referral" : "qr",
-          ...(birthday ? { birthday } : {}),
           ...(referralCode ? { referral_code: referralCode } : {}),
         }),
       });
       const data = await res.json();
       if (data.error) { showToast(data.error); setSubmitting(false); return; }
-      try { localStorage.setItem("meantime_customer", JSON.stringify({ name: name.trim(), phone: phone.trim(), countryCode, allergies, party, birthday })); } catch {}
+      try { localStorage.setItem("meantime_customer", JSON.stringify({ name: name.trim(), phone: phone.trim(), countryCode, allergies, party })); } catch {}
       setEntry(data);
       setView("waiting");
     } catch { showToast("Error de conexion"); }
@@ -353,14 +350,6 @@ export default function MeantimeCustomer() {
             );
           })}
         </div>
-        <div style={{ height: "20px" }} />
-
-        <label style={{ fontSize: "12px", fontWeight: "700", color: T.textLight, display: "block", marginBottom: "8px", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-          Cumpleaños <span style={{ fontWeight: "400", textTransform: "none", letterSpacing: "0" }}>(opcional — te regalamos postre)</span>
-        </label>
-        <input value={birthday} onChange={e => setBirthday(e.target.value)} type="date"
-          style={{ ...inputStyle, colorScheme: "light" }}
-          onFocus={e => e.target.style.borderColor = T.accent} onBlur={e => e.target.style.borderColor = T.border} />
       </Card>
       <div style={{ marginTop: "28px", display: "flex", flexDirection: "column", gap: "10px" }}>
         <Btn onClick={handleJoin} disabled={!name.trim() || submitting}>{submitting ? "Anotando..." : "Confirmar"}</Btn>

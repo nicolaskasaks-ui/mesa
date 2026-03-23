@@ -104,7 +104,7 @@ export default function HostDashboard() {
     const [t, q] = await Promise.all([
       supabase.from("tables").select("*, waitlist(guest_name, party_size)").order("id"),
       supabase.from("waitlist")
-        .select("*, customers(id, name, phone, allergies, visit_count, trust_level, no_show_count, birthday, tags, last_visit)")
+        .select("*, customers(id, name, phone, allergies, visit_count, trust_level, no_show_count, last_visit)")
         .in("status", ["waiting", "notified", "extended"])
         .order("joined_at", { ascending: true }),
     ]);
@@ -223,8 +223,14 @@ export default function HostDashboard() {
   const waiting = queue.filter(q => q.status === "waiting").length;
   const predictions = predictTable(tables, queue);
 
-  // Sorted tables for the right column: libre > postre > cuenta > sentado, then by seated_at asc
-  const sortedTables = [...tables].sort((a, b) => {
+  // Recently seated (< 2h) shown at top with prominent timer
+  const recentlySeated = tables
+    .filter(t => t.status !== "libre" && t.seated_at && (Date.now() - new Date(t.seated_at).getTime()) < 2 * 60 * 60 * 1000)
+    .sort((a, b) => new Date(b.seated_at) - new Date(a.seated_at));
+  const recentIds = new Set(recentlySeated.map(t => t.id));
+
+  // Rest: libre > postre > cuenta > sentado (excluding recently seated)
+  const sortedTables = [...tables].filter(t => !recentIds.has(t.id)).sort((a, b) => {
     const priority = { libre: 0, postre: 1, pidio_cuenta: 2, sentado: 3 };
     const pa = priority[a.status] ?? 9;
     const pb = priority[b.status] ?? 9;
@@ -233,7 +239,7 @@ export default function HostDashboard() {
     return 0;
   });
 
-  const seatedCount = tables.filter(t => t.status === "sentado").length;
+  const seatedCount = tables.filter(t => t.status !== "libre").length;
 
   // PIN screen
   if (!authed) return (
@@ -366,12 +372,6 @@ export default function HostDashboard() {
                 </div>
               )}
 
-              {c?.birthday && (
-                <div style={{ padding: "12px 16px", borderRadius: "12px", background: T.bgPage, marginBottom: "10px" }}>
-                  <div style={{ fontSize: "10px", fontWeight: "700", color: T.textLight, letterSpacing: "0.06em", textTransform: "uppercase" }}>Cumpleanos</div>
-                  <div style={{ fontSize: "14px", fontWeight: "600", marginTop: "2px" }}>{new Date(c.birthday + "T12:00:00").toLocaleDateString("es-AR", { day: "numeric", month: "long" })}</div>
-                </div>
-              )}
 
               {c?.allergies?.length > 0 && (
                 <div style={{ padding: "12px 16px", borderRadius: "12px", background: T.bgPage, marginBottom: "10px" }}>
@@ -729,6 +729,41 @@ export default function HostDashboard() {
                   </div>
                 ))}
               </div>
+
+              {/* Recently seated — prominent at top */}
+              {recentlySeated.length > 0 && (
+                <div style={{ padding: "12px 16px", borderBottom: `1px solid ${T.cardBorder}` }}>
+                  <div style={{ fontSize: "11px", fontWeight: "700", color: T.textLight, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "10px" }}>
+                    Recién sentados ({recentlySeated.length})
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {recentlySeated.map(table => {
+                      const cfg = S[table.status] || S.sentado;
+                      const guestName = table.waitlist?.guest_name;
+                      const mins = Math.floor((Date.now() - new Date(table.seated_at).getTime()) / 60000);
+                      const timeStr = mins < 1 ? "ahora" : mins < 60 ? `${mins}m` : `${Math.floor(mins/60)}h${mins%60}m`;
+                      return (
+                        <button key={table.id} onClick={() => cycleTable(table)}
+                          onTouchStart={() => handleLongPressStart(table)} onTouchEnd={handleLongPressEnd} onTouchCancel={handleLongPressEnd}
+                          onMouseDown={() => handleLongPressStart(table)} onMouseUp={handleLongPressEnd} onMouseLeave={handleLongPressEnd}
+                          onContextMenu={(e) => e.preventDefault()}
+                          style={{
+                            display: "flex", alignItems: "center", justifyContent: "space-between",
+                            padding: "10px 14px", borderRadius: "12px", background: cfg.bg, border: "none",
+                            cursor: "pointer", WebkitTouchCallout: "none", userSelect: "none",
+                          }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <div style={{ fontFamily: f.display, fontSize: "16px", fontWeight: "800", color: cfg.color }}>{table.id}</div>
+                            <div style={{ fontSize: "12px", color: cfg.color, opacity: 0.8 }}>{table.capacity}p · {cfg.label}</div>
+                            {guestName && <div style={{ fontSize: "12px", color: cfg.color, opacity: 0.9, fontWeight: "600" }}>{guestName}</div>}
+                          </div>
+                          <div style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "13px", fontWeight: "700", color: cfg.color, opacity: 0.9 }}>{timeStr}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Table grid */}
               <div style={{ padding: "16px" }}>
