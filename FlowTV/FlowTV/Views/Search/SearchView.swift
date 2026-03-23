@@ -9,111 +9,93 @@ struct SearchView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 30) {
-                // Search bar
-                HStack(spacing: 16) {
+            VStack(spacing: 0) {
+                // Search field — Apple TV style
+                HStack(spacing: 14) {
                     Image(systemName: "magnifyingglass")
-                        .font(.title2)
-                        .foregroundColor(.gray)
+                        .font(.title3)
+                        .foregroundColor(Color.white.opacity(0.3))
 
                     TextField("Buscar canales, películas, series...", text: $searchText)
                         .font(.title3)
-                        .textFieldStyle(.plain)
                         .autocorrectionDisabled()
 
                     if !searchText.isEmpty {
-                        Button(action: {
-                            searchText = ""
-                            results = nil
-                        }) {
+                        Button(action: { searchText = ""; results = nil }) {
                             Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.gray)
+                                .foregroundColor(Color.white.opacity(0.3))
                         }
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(20)
-                .background(Color.white.opacity(0.1))
-                .cornerRadius(16)
-                .padding(.horizontal, 50)
+                .padding(22)
+                .background(Color.white.opacity(0.06))
+                .cornerRadius(18)
+                .padding(.horizontal, 60)
+                .padding(.top, 20)
 
-                // Results
+                // Results area
                 ScrollView {
                     if isSearching {
                         ProgressView()
-                            .scaleEffect(1.5)
-                            .tint(.cyan)
-                            .padding(.top, 60)
+                            .tint(.white)
+                            .scaleEffect(1.2)
+                            .padding(.top, 80)
                     } else if let results {
                         VStack(alignment: .leading, spacing: 40) {
-                            // Channel results
                             if !results.channels.isEmpty {
-                                ContentRowView(title: "Canales", icon: "tv.fill") {
-                                    ScrollView(.horizontal, showsIndicators: false) {
-                                        LazyHStack(spacing: 20) {
-                                            ForEach(results.channels) { channel in
-                                                ChannelQuickCard(channel: channel)
-                                            }
-                                        }
-                                        .padding(.horizontal, 50)
+                                ShelfRow(title: "Canales") {
+                                    ForEach(results.channels) { channel in
+                                        LiveChannelPill(channel: channel)
                                     }
                                 }
                             }
 
-                            // VOD results
                             if !results.vod.isEmpty {
-                                ContentRowView(title: "Películas y Series", icon: "play.rectangle.fill") {
-                                    ScrollView(.horizontal, showsIndicators: false) {
-                                        LazyHStack(spacing: 25) {
-                                            ForEach(results.vod) { content in
-                                                NavigationLink(value: content) {
-                                                    VODCard(content: content)
-                                                }
-                                                .buttonStyle(.card)
-                                            }
+                                ShelfRow(title: "Películas y Series") {
+                                    ForEach(results.vod) { content in
+                                        NavigationLink(value: content) {
+                                            PosterCard(content: content)
                                         }
-                                        .padding(.horizontal, 50)
+                                        .buttonStyle(TVCardButtonStyle())
                                     }
                                 }
                             }
 
                             if results.channels.isEmpty && results.vod.isEmpty {
-                                VStack(spacing: 16) {
+                                VStack(spacing: 14) {
                                     Image(systemName: "magnifyingglass")
-                                        .font(.system(size: 50))
-                                        .foregroundColor(.gray)
-                                    Text("No se encontraron resultados para \"\(searchText)\"")
-                                        .font(.title3)
-                                        .foregroundColor(.gray)
+                                        .font(.system(size: 40))
+                                        .foregroundColor(Color.white.opacity(0.15))
+                                    Text("Sin resultados para \"\(searchText)\"")
+                                        .font(.callout)
+                                        .foregroundColor(Color.white.opacity(0.3))
                                 }
                                 .frame(maxWidth: .infinity)
-                                .padding(.top, 60)
+                                .padding(.top, 80)
                             }
                         }
+                        .padding(.top, 20)
                     } else if searchText.isEmpty {
-                        // Suggestions
-                        VStack(spacing: 30) {
-                            Text("Búsquedas populares")
-                                .font(.title3.weight(.semibold))
-                                .foregroundColor(.white)
+                        // Popular suggestions
+                        VStack(spacing: 24) {
+                            Text("Sugerencias")
+                                .font(.callout.weight(.semibold))
+                                .foregroundColor(Color.white.opacity(0.4))
                                 .padding(.top, 40)
 
                             LazyVGrid(
-                                columns: [GridItem(.adaptive(minimum: 200, maximum: 250), spacing: 15)],
-                                spacing: 15
+                                columns: [GridItem(.adaptive(minimum: 180, maximum: 220), spacing: 12)],
+                                spacing: 12
                             ) {
                                 ForEach(popularSearches, id: \.self) { term in
-                                    Button(action: {
-                                        searchText = term
-                                        performSearch()
-                                    }) {
+                                    Button(action: { searchText = term; performSearch() }) {
                                         Text(term)
-                                            .font(.callout)
-                                            .padding(.horizontal, 20)
-                                            .padding(.vertical, 12)
+                                            .font(.caption.weight(.medium))
+                                            .foregroundColor(Color.white.opacity(0.6))
                                             .frame(maxWidth: .infinity)
-                                            .background(Color.white.opacity(0.1))
-                                            .foregroundColor(.white)
+                                            .padding(.vertical, 14)
+                                            .background(Color.white.opacity(0.06))
                                             .cornerRadius(10)
                                     }
                                     .buttonStyle(.plain)
@@ -130,10 +112,7 @@ struct SearchView: View {
             }
             .onChange(of: searchText) { _, newValue in
                 searchTask?.cancel()
-                guard !newValue.isEmpty else {
-                    results = nil
-                    return
-                }
+                guard !newValue.isEmpty else { results = nil; return }
                 searchTask = Task {
                     try? await Task.sleep(nanoseconds: 500_000_000)
                     guard !Task.isCancelled else { return }
@@ -153,7 +132,7 @@ struct SearchView: View {
     }
 
     private let popularSearches = [
-        "Fútbol", "Noticias", "Películas argentinas",
+        "Fútbol", "Noticias", "Cine argentino",
         "Series", "Disney", "ESPN", "HBO",
         "Documentales", "Comedia", "Drama"
     ]

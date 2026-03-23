@@ -5,68 +5,67 @@ struct LiveTVView: View {
     @State private var selectedCategory: ChannelCategory = .todos
     @State private var selectedChannel: Channel?
     @State private var showPlayer = false
+    @FocusState private var focusedChannelId: String?
 
     var filteredChannels: [Channel] {
         if selectedCategory == .todos {
-            return flowAPI.channels
+            return flowAPI.channels.sorted { $0.number < $1.number }
         }
-        return flowAPI.channels.filter { $0.category == selectedCategory }
+        return flowAPI.channels
+            .filter { $0.category == selectedCategory }
+            .sorted { $0.number < $1.number }
     }
 
     var body: some View {
         NavigationStack {
             HStack(spacing: 0) {
-                // Category sidebar
-                ScrollView {
-                    VStack(spacing: 5) {
-                        ForEach(ChannelCategory.allCases, id: \.self) { category in
-                            Button(action: {
-                                selectedCategory = category
-                            }) {
-                                HStack {
-                                    Image(systemName: categoryIcon(category))
-                                        .frame(width: 30)
-                                    Text(category.rawValue)
-                                        .font(.callout)
-                                    Spacer()
-                                    Text("\(channelCount(category))")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                }
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 12)
-                                .background(
-                                    selectedCategory == category
-                                        ? Color.cyan.opacity(0.2)
-                                        : Color.clear
-                                )
-                                .cornerRadius(8)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding()
-                }
-                .frame(width: 280)
-                .background(Color.black.opacity(0.3))
+                // Category sidebar — Apple TV style
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Categorías")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(Color.white.opacity(0.3))
+                        .padding(.horizontal, 24)
+                        .padding(.top, 20)
+                        .padding(.bottom, 8)
 
-                // Channel grid
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(spacing: 2) {
+                            ForEach(ChannelCategory.allCases, id: \.self) { category in
+                                CategoryButton(
+                                    title: category.rawValue,
+                                    icon: categoryIcon(category),
+                                    count: channelCount(category),
+                                    isSelected: selectedCategory == category
+                                ) {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        selectedCategory = category
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                    }
+                }
+                .frame(width: 260)
+                .background(Color.white.opacity(0.04))
+
+                // Channel list
                 ScrollView {
                     LazyVGrid(
-                        columns: [
-                            GridItem(.adaptive(minimum: 300, maximum: 400), spacing: 25)
-                        ],
-                        spacing: 25
+                        columns: [GridItem(.adaptive(minimum: 360, maximum: 440), spacing: 20)],
+                        spacing: 16
                     ) {
                         ForEach(filteredChannels) { channel in
-                            ChannelCard(channel: channel)
+                            ChannelListCard(channel: channel)
+                                .focusable()
+                                .focused($focusedChannelId, equals: channel.id)
                                 .onTapGesture {
                                     selectedChannel = channel
                                     showPlayer = true
                                 }
                         }
                     }
-                    .padding(40)
+                    .padding(36)
                 }
             }
             .navigationTitle("TV en Vivo")
@@ -109,80 +108,134 @@ struct LiveTVView: View {
     }
 }
 
-// MARK: - Channel Card
+// MARK: - Category Button
 
-struct ChannelCard: View {
-    let channel: Channel
+struct CategoryButton: View {
+    let title: String
+    let icon: String
+    let count: Int
+    let isSelected: Bool
+    let action: () -> Void
+    @Environment(\.isFocused) var isFocused
 
     var body: some View {
-        Button(action: {}) {
-            HStack(spacing: 16) {
-                // Channel number + logo
-                VStack {
-                    Text(channel.displayNumber)
-                        .font(.system(size: 28, weight: .bold, design: .monospaced))
-                        .foregroundColor(.cyan)
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.caption)
+                    .frame(width: 22)
+                    .foregroundColor(isSelected ? .white : Color.white.opacity(0.5))
 
-                    if channel.isHD {
-                        Text("HD")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.cyan)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.cyan.opacity(0.2))
-                            .cornerRadius(4)
-                    }
-                }
-                .frame(width: 70)
-
-                // Channel info
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(channel.name)
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .lineLimit(1)
-
-                    if let program = channel.currentProgram {
-                        Text(program.title)
-                            .font(.subheadline)
-                            .foregroundColor(.gray)
-                            .lineLimit(1)
-
-                        // Progress bar
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(Color.white.opacity(0.2))
-                                    .frame(height: 3)
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(Color.cyan)
-                                    .frame(width: geo.size.width * program.progress, height: 3)
-                            }
-                        }
-                        .frame(height: 3)
-
-                        Text(program.timeRangeText)
-                            .font(.caption2)
-                            .foregroundColor(.gray.opacity(0.7))
-                    }
-                }
+                Text(title)
+                    .font(.callout.weight(isSelected ? .semibold : .regular))
+                    .foregroundColor(isSelected ? .white : Color.white.opacity(0.7))
 
                 Spacer()
 
-                // Live indicator
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(Color.red)
-                        .frame(width: 8, height: 8)
-                    Text("EN VIVO")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(.red)
+                Text("\(count)")
+                    .font(.caption2)
+                    .foregroundColor(Color.white.opacity(0.3))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(isSelected ? Color.white.opacity(0.12) : Color.clear)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Channel List Card (tvOS style)
+
+struct ChannelListCard: View {
+    let channel: Channel
+    @Environment(\.isFocused) var isFocused
+
+    var body: some View {
+        HStack(spacing: 16) {
+            // Channel logo / number
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.white.opacity(0.08))
+                    .frame(width: 64, height: 64)
+
+                if let logoURL = channel.logoURL,
+                   let url = FlowAPIService.imageURL(path: logoURL) {
+                    AsyncImage(url: url) { image in
+                        image.resizable().aspectRatio(contentMode: .fit)
+                    } placeholder: {
+                        Text(channel.displayNumber)
+                            .font(.system(size: 20, weight: .bold, design: .monospaced))
+                            .foregroundColor(.cyan)
+                    }
+                    .frame(width: 48, height: 48)
+                } else {
+                    Text(channel.displayNumber)
+                        .font(.system(size: 20, weight: .bold, design: .monospaced))
+                        .foregroundColor(.cyan)
                 }
             }
-            .padding(16)
-            .background(Color.white.opacity(0.05))
-            .cornerRadius(12)
+
+            // Channel info
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text(channel.name)
+                        .font(.callout.weight(.semibold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+
+                    if channel.isHD {
+                        Text("HD")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.white.opacity(0.6))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Color.white.opacity(0.12))
+                            .cornerRadius(3)
+                    }
+                }
+
+                if let program = channel.currentProgram {
+                    Text(program.title)
+                        .font(.caption)
+                        .foregroundColor(Color.white.opacity(0.45))
+                        .lineLimit(1)
+
+                    // Progress
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.white.opacity(0.1))
+                            Capsule().fill(Color.white.opacity(0.5))
+                                .frame(width: geo.size.width * program.progress)
+                        }
+                    }
+                    .frame(height: 2)
+                }
+            }
+
+            Spacer()
+
+            // Live badge
+            HStack(spacing: 4) {
+                Circle().fill(Color.red).frame(width: 6, height: 6)
+                Text("VIVO")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(Color.red.opacity(0.9))
+            }
         }
-        .buttonStyle(.card)
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color.white.opacity(isFocused ? 0.12 : 0.04))
+        )
+        .scaleEffect(isFocused ? 1.03 : 1.0)
+        .shadow(
+            color: .black.opacity(isFocused ? 0.4 : 0),
+            radius: isFocused ? 12 : 0,
+            y: isFocused ? 8 : 0
+        )
+        .animation(.easeInOut(duration: 0.2), value: isFocused)
     }
 }
