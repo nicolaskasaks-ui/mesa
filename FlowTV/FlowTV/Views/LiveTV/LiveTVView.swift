@@ -74,8 +74,10 @@ struct LiveTVView: View {
                     PlayerView(
                         title: channel.name,
                         subtitle: channel.currentProgram?.title,
+                        isLive: true,
                         streamURL: channel.streamURL,
-                        isLive: true
+                        contentId: channel.id,
+                        contentType: .tvChannel
                     )
                 }
             }

@@ -6,6 +6,8 @@ struct SearchView: View {
     @State private var results: SearchResults?
     @State private var isSearching = false
     @State private var searchTask: Task<Void, Never>?
+    @State private var showPlayer = false
+    @State private var selectedChannel: Channel?
 
     var body: some View {
         NavigationStack {
@@ -46,7 +48,10 @@ struct SearchView: View {
                             if !results.channels.isEmpty {
                                 ShelfRow(title: "Canales") {
                                     ForEach(results.channels) { channel in
-                                        LiveChannelPill(channel: channel)
+                                        LiveChannelPill(channel: channel) {
+                                            selectedChannel = channel
+                                            showPlayer = true
+                                        }
                                     }
                                 }
                             }
@@ -109,6 +114,18 @@ struct SearchView: View {
             .navigationTitle("Buscar")
             .navigationDestination(for: VODContent.self) { content in
                 ContentDetailView(content: content)
+            }
+            .fullScreenCover(isPresented: $showPlayer) {
+                if let channel = selectedChannel {
+                    PlayerView(
+                        title: channel.name,
+                        subtitle: channel.currentProgram?.title,
+                        isLive: true,
+                        streamURL: channel.streamURL,
+                        contentId: channel.id,
+                        contentType: .tvChannel
+                    )
+                }
             }
             .onChange(of: searchText) { _, newValue in
                 searchTask?.cancel()
