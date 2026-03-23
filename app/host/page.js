@@ -182,8 +182,16 @@ export default function HostDashboard() {
 
   const notifyFromPicker = async (entry) => { await doNotify(entry); setPicker(null); fetchAll(); };
   const seatDirect = async (entry) => {
-    await doNotify(entry);
-    try { await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "seated" }) }); } catch {}
+    // Mark waitlist entry as seated
+    try {
+      await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "seated" }) });
+    } catch {}
+    // Link waitlist entry to the table
+    if (picker?.table) {
+      try {
+        await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: picker.table.id, status: "sentado", waitlist_id: entry.id }) });
+      } catch {}
+    }
     setPicker(null); fetchAll();
   };
   const undoSeat = async (table) => {
@@ -700,7 +708,15 @@ export default function HostDashboard() {
                               fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
                             }}>Deshacer</button>
                           )}
-                          <button onClick={() => setStatus(entry.id, "seated")} style={{
+                          <button onClick={() => {
+                            const freeTables = tables.filter(t => t.status === "libre" && t.capacity >= entry.party_size).sort((a,b) => a.capacity - b.capacity);
+                            if (freeTables.length > 0) {
+                              setPicker({ table: freeTables[0], candidates: [entry] });
+                            } else {
+                              // No free tables that fit — seat without table
+                              setStatus(entry.id, "seated");
+                            }
+                          }} style={{
                             flex: 1, padding: "11px", borderRadius: "10px", background: T.accent,
                             color: "#fff", border: "none",
                             fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
@@ -752,6 +768,7 @@ export default function HostDashboard() {
                     {recentlySeated.map(table => {
                       const cfg = S[table.status] || S.sentado;
                       const guestName = table.waitlist?.guest_name;
+                      const isMeantime = !!table.waitlist_id;
                       const mins = Math.floor((Date.now() - new Date(table.seated_at).getTime()) / 60000);
                       const timeStr = mins < 1 ? "ahora" : mins < 60 ? `${mins}m` : `${Math.floor(mins/60)}h${mins%60}m`;
                       return (
@@ -762,12 +779,13 @@ export default function HostDashboard() {
                           style={{
                             display: "flex", alignItems: "center", justifyContent: "space-between",
                             padding: "10px 14px", borderRadius: "12px", background: cfg.bg, border: "none",
-                            cursor: "pointer", WebkitTouchCallout: "none", userSelect: "none",
+                            cursor: "pointer", WebkitTouchCallout: "none", userSelect: "none", width: "100%",
                           }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                             <div style={{ fontFamily: f.display, fontSize: "16px", fontWeight: "800", color: cfg.color }}>{table.id}</div>
-                            <div style={{ fontSize: "12px", color: cfg.color, opacity: 0.8 }}>{table.capacity}p · {cfg.label}</div>
+                            <div style={{ fontSize: "12px", color: cfg.color, opacity: 0.8 }}>{table.capacity}p</div>
                             {guestName && <div style={{ fontSize: "12px", color: cfg.color, opacity: 0.9, fontWeight: "600" }}>{guestName}</div>}
+                            {isMeantime && <span style={{ fontSize: "9px", fontWeight: "800", padding: "2px 5px", borderRadius: "4px", background: "rgba(255,255,255,0.25)", color: cfg.color, letterSpacing: "0.05em" }}>M</span>}
                           </div>
                           <div style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "13px", fontWeight: "700", color: cfg.color, opacity: 0.9 }}>{timeStr}</div>
                         </button>
@@ -784,6 +802,7 @@ export default function HostDashboard() {
                     const cfg = S[table.status] || S.libre;
                     const time = table.seated_at ? ago(table.seated_at) : "";
                     const guestName = table.waitlist?.guest_name;
+                    const isMeantime = !!table.waitlist_id;
                     const isSeated = table.status === "sentado";
                     const seatedMin = table.seated_at ? Math.floor((Date.now() - new Date(table.seated_at).getTime()) / 60000) : 0;
                     const alertColor = isSeated && seatedMin >= 180 ? S.pidio_cuenta.bg : isSeated && seatedMin >= 120 ? S.postre.bg : null;
@@ -807,7 +826,11 @@ export default function HostDashboard() {
                           minHeight: isSeated ? "72px" : "100px",
                           WebkitTouchCallout: "none", userSelect: "none",
                           opacity: isSeated ? 0.85 : 1,
+                          position: "relative",
                         }}>
+                        {isMeantime && (
+                          <div style={{ position: "absolute", top: "6px", right: "6px", fontSize: "8px", fontWeight: "800", padding: "2px 4px", borderRadius: "3px", background: "rgba(255,255,255,0.25)", color: cfg.color, letterSpacing: "0.05em" }}>M</div>
+                        )}
                         <div style={{ fontFamily: f.display, fontSize: isSeated ? "16px" : "22px", fontWeight: "800", color: cfg.color, lineHeight: 1 }}>{table.id}</div>
                         <div style={{ fontSize: isSeated ? "10px" : "11px", color: cfg.color, marginTop: "3px", fontWeight: "600", opacity: 0.8 }}>{cfg.label}</div>
                         <div style={{ fontSize: "10px", color: cfg.color, marginTop: "2px", opacity: 0.6 }}>{table.capacity}p</div>
