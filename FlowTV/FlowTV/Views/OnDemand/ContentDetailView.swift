@@ -239,6 +239,6 @@ struct EpisodeCard: View {
             .scaleEffect(isFocused ? 1.02 : 1.0)
             .animation(.easeInOut(duration: 0.15), value: isFocused)
         }
-        .buttonStyle(TVCardButtonStyle())
+        .buttonStyle(.card)
     }
 }
