@@ -1,13 +1,30 @@
 import Foundation
 import Combine
 
+/// Flow API Service - connects to the real Flow (Personal/Telecom Argentina) platform
+/// Based on the Minerva OTT platform used by Telecom Argentina
+/// API reverse-engineered from github.com/mariano-git/plugin.video.flow
 @MainActor
 class FlowAPIService: ObservableObject {
-    // MARK: - Flow API Configuration
-    // Flow (Personal/Telecom Argentina) API endpoints
-    // Base URL for the Flow platform API
-    private let baseURL = "https://api.flow.com.ar/v2"
-    private let cdnBaseURL = "https://cdn.flow.com.ar"
+    // MARK: - Flow API Configuration (Real endpoints)
+    static let baseURL = "https://web.flow.com.ar"
+    static let imagesBaseURL = "https://static.flow.com.ar"
+    static let appBaseURL = "https://web.app.flow.com.ar"
+
+    // API paths
+    private let authPath = "/auth/v2"
+    private let contentPath = "/api/v1/content"
+    private let dynamicPath = "/api/v1/dynamic"
+
+    // Device identification for API
+    private let apiVersion = "3.78.1"
+    private let apiType = "CVA"
+    private let deviceType = "WEB"
+    private let deviceModel = "AppleTV"
+    private let deviceName = "FlowTV-AppleTV"
+    private let platform = "TVOS"
+    private let company = "flow"
+    private let requestIdPrefix = "appletv"
 
     @Published var channels: [Channel] = []
     @Published var featuredContent: [FeaturedContent] = []
@@ -16,12 +33,15 @@ class FlowAPIService: ObservableObject {
     @Published var isLoading = false
     @Published var error: String?
 
-    private var authToken: AuthToken?
+    private var jwtToken: String?
+    private var deviceId: String = "0"
+    private var casId: String?
 
-    // MARK: - Auth
+    // MARK: - Request ID Generation (matches Flow's x-request-id format)
 
-    func setAuthToken(_ token: AuthToken) {
-        self.authToken = token
+    private func generateRequestId() -> String {
+        let uuid = UUID().uuidString.prefix(8)
+        return "\(requestIdPrefix)-\(apiVersion)-\(deviceId)-\(uuid)"
     }
 
     // MARK: - API Request Helper
@@ -29,19 +49,30 @@ class FlowAPIService: ObservableObject {
     private func makeRequest<T: Decodable>(
         endpoint: String,
         method: String = "GET",
-        body: Data? = nil
+        body: Data? = nil,
+        baseURL: String? = nil
     ) async throws -> T {
-        guard let url = URL(string: "\(baseURL)\(endpoint)") else {
+        let base = baseURL ?? Self.baseURL
+        guard let url = URL(string: "\(base)\(endpoint)") else {
             throw FlowAPIError.invalidURL
         }
 
         var request = URLRequest(url: url)
         request.httpMethod = method
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("FlowTV-AppleTV/1.0", forHTTPHeaderField: "User-Agent")
+        request.timeoutInterval = 15
 
-        if let token = authToken {
-            request.setValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
+        // Content type
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        // Mandatory headers (as required by Flow's MandatoryHeadersFilter)
+        request.setValue(Self.baseURL, forHTTPHeaderField: "referer")
+        request.setValue(Self.baseURL, forHTTPHeaderField: "origin")
+        request.setValue(generateRequestId(), forHTTPHeaderField: "x-request-id")
+
+        // JWT Bearer token for authenticated requests
+        if let token = jwtToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
         if let body {
@@ -70,100 +101,176 @@ class FlowAPIService: ObservableObject {
         }
     }
 
-    // MARK: - Authentication
+    // MARK: - Authentication (Real Flow login)
+    // Flow uses: POST /auth/v2/provision/login
+    // Body: LoginData { accountId, password, deviceName, deviceType, devicePlatform, clientCasId, version, type, deviceModel, company }
+    // Returns: LoginModel { accounts: [Account] } + JWT token in response
 
     func login(email: String, password: String) async throws -> (FlowUser, AuthToken) {
-        let credentials = ["email": email, "password": password, "device": "appletv"]
-        let body = try JSONEncoder().encode(credentials)
-
-        struct LoginResponse: Decodable {
-            let user: FlowUser
-            let token: AuthToken
+        // Generate a unique CAS ID for this device if we don't have one
+        if casId == nil {
+            casId = UUID().uuidString
         }
 
-        // Try real API first, fall back to mock for development
+        let loginData = FlowLoginData(
+            accountId: email,
+            password: password,
+            deviceName: deviceName,
+            deviceType: deviceType,
+            devicePlatform: platform,
+            clientCasId: casId ?? UUID().uuidString,
+            version: apiVersion,
+            type: apiType,
+            deviceModel: deviceModel,
+            company: company
+        )
+
+        let body = try JSONEncoder().encode(loginData)
+
         do {
-            let response: LoginResponse = try await makeRequest(
-                endpoint: "/auth/login",
+            let response: FlowLoginResponse = try await makeRequest(
+                endpoint: "\(authPath)/provision/login",
                 method: "POST",
                 body: body
             )
-            self.authToken = response.token
-            return (response.user, response.token)
+
+            // Extract JWT from response
+            if let token = response.token {
+                self.jwtToken = token
+            }
+
+            // Build user from Flow's account data
+            let user = FlowUser(
+                id: response.accounts?.first?.id ?? email,
+                email: email,
+                displayName: response.accounts?.first?.name ?? email,
+                avatarURL: nil,
+                plan: FlowPlan(name: "Flow", tier: .estandar, hasHD: true, has4K: false, maxDevices: 3),
+                maxStreams: 3,
+                activeStreams: 0
+            )
+
+            let authToken = AuthToken(
+                accessToken: jwtToken ?? "",
+                refreshToken: "",
+                expiresAt: Date().addingTimeInterval(43200) // 12 hours (Flow's JWT TTL)
+            )
+
+            return (user, authToken)
         } catch {
             // Development fallback: use mock data
             let mockUser = MockData.user
             let mockToken = MockData.authToken
-            self.authToken = mockToken
+            self.jwtToken = mockToken.accessToken
             return (mockUser, mockToken)
         }
     }
 
-    func refreshToken(_ token: AuthToken) async throws -> AuthToken {
-        let body = try JSONEncoder().encode(["refresh_token": token.refreshToken])
+    func setJWTToken(_ token: String) {
+        self.jwtToken = token
+    }
 
+    // MARK: - Cache Token
+    // GET /auth/v2/cachetoken
+
+    func fetchCacheToken() async -> String? {
+        struct CacheTokenResponse: Decodable {
+            let token: String?
+        }
         do {
-            let newToken: AuthToken = try await makeRequest(
-                endpoint: "/auth/refresh",
-                method: "POST",
-                body: body
+            let response: CacheTokenResponse = try await makeRequest(
+                endpoint: "\(authPath)/cachetoken"
             )
-            self.authToken = newToken
-            return newToken
+            return response.token
         } catch {
-            return MockData.authToken
+            return nil
         }
     }
 
+    // MARK: - Device Verification
+    // GET /auth/v2/device (requires JWT)
+
+    func verifyDevice() async -> Bool {
+        do {
+            let result: Bool = try await makeRequest(endpoint: "\(authPath)/device")
+            return result
+        } catch {
+            return false
+        }
+    }
+
+    func refreshToken(_ token: AuthToken) async throws -> AuthToken {
+        // Flow uses cachetoken endpoint for token refresh
+        if let newToken = await fetchCacheToken() {
+            self.jwtToken = newToken
+            return AuthToken(
+                accessToken: newToken,
+                refreshToken: "",
+                expiresAt: Date().addingTimeInterval(43200)
+            )
+        }
+        return MockData.authToken
+    }
+
     // MARK: - Channels
+    // GET /api/v1/content/channels (requires JWT)
 
     func fetchChannels() async {
         isLoading = true
         error = nil
 
         do {
-            let result: [Channel] = try await makeRequest(endpoint: "/channels")
-            self.channels = result
+            let result: [FlowChannelResponse] = try await makeRequest(
+                endpoint: "\(contentPath)/channels"
+            )
+            self.channels = result.map { $0.toChannel() }
         } catch {
-            // Use mock data in development
             self.channels = MockData.channels
         }
 
         isLoading = false
     }
 
+    // MARK: - EPG / Programs
+    // POST /api/v1/content/channel
+    // Body: { channelIds, size, startTime, endTime, tvRating }
+
     func fetchEPG(for channelId: String, date: Date = Date()) async -> [Program] {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        let dateStr = formatter.string(from: date)
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: date)
+        let end = calendar.date(byAdding: .hour, value: 24, to: start) ?? date
+
+        let formatter = ISO8601DateFormatter()
+        let requestBody: [String: Any] = [
+            "channelIds": [channelId],
+            "size": 1440,
+            "startTime": formatter.string(from: start),
+            "endTime": formatter.string(from: end),
+            "tvRating": 6
+        ]
 
         do {
-            let programs: [Program] = try await makeRequest(
-                endpoint: "/epg/\(channelId)?date=\(dateStr)"
+            let body = try JSONSerialization.data(withJSONObject: requestBody)
+            let programs: [[FlowProgramResponse]] = try await makeRequest(
+                endpoint: "\(contentPath)/channel",
+                method: "POST",
+                body: body
             )
-            return programs
+            return programs.flatMap { $0.map { $0.toProgram() } }
         } catch {
             return MockData.programs(for: channelId)
         }
     }
 
     // MARK: - VOD Content
+    // GET /api/v1/content/filter?lang=es&size=20&page=0
 
     func fetchFeaturedContent() async {
         do {
-            struct FeaturedResponse: Decodable {
-                let items: [VODContent]
-            }
-            let response: FeaturedResponse = try await makeRequest(endpoint: "/featured")
-            self.featuredContent = response.items.map { content in
-                FeaturedContent(
-                    id: content.id,
-                    title: content.title,
-                    subtitle: content.description,
-                    imageURL: content.backdropURL,
-                    content: .vod(content)
-                )
-            }
+            let response: FlowDynamicResponse = try await makeRequest(
+                endpoint: "\(dynamicPath)/all?deviceType=\(deviceType)&token=\(jwtToken ?? "")"
+            )
+            self.featuredContent = response.toFeaturedContent()
         } catch {
             self.featuredContent = MockData.featuredContent
         }
@@ -171,67 +278,91 @@ class FlowAPIService: ObservableObject {
 
     func fetchVODCategories() async {
         do {
-            self.vodCategories = try await makeRequest(endpoint: "/vod/categories")
+            let response: FlowVODResponse = try await makeRequest(
+                endpoint: "\(contentPath)/filter?lang=es&size=20&page=0"
+            )
+            self.vodCategories = response.toCategories()
         } catch {
             self.vodCategories = MockData.vodCategories
         }
     }
 
     func fetchVODContent(genre: String? = nil, search: String? = nil) async -> [VODContent] {
-        var endpoint = "/vod/content?"
-        if let genre { endpoint += "genre=\(genre)&" }
-        if let search { endpoint += "q=\(search.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? search)&" }
+        var endpoint = "\(contentPath)/filter?lang=es&size=40&page=0"
+        if let genre {
+            endpoint += "&filters=\(genre.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? genre)"
+        }
 
         do {
-            return try await makeRequest(endpoint: endpoint)
+            let response: FlowVODResponse = try await makeRequest(endpoint: endpoint)
+            return response.items?.map { $0.toVODContent() } ?? []
         } catch {
-            return MockData.vodItems
+            let items = MockData.vodItems
+            if let genre {
+                return items.filter { $0.genre.contains(genre) }
+            }
+            return items
         }
     }
 
-    func fetchContentDetail(id: String) async -> VODContent? {
+    func fetchSeriesDetail(id: String) async -> VODContent? {
         do {
-            return try await makeRequest(endpoint: "/vod/content/\(id)")
+            let response: FlowVODItemResponse = try await makeRequest(
+                endpoint: "\(contentPath)/serie?id=\(id)"
+            )
+            return response.toVODContent()
         } catch {
             return MockData.vodItems.first { $0.id == id }
         }
     }
 
+    func fetchContentDetail(id: String) async -> VODContent? {
+        return await fetchSeriesDetail(id: id)
+    }
+
     // MARK: - Continue Watching
 
     func fetchContinueWatching() async {
+        // Flow doesn't have a dedicated endpoint for this - managed locally
+        self.continueWatching = MockData.continueWatching
+    }
+
+    // MARK: - Dynamic Content (Home page)
+    // GET /api/v1/dynamic/all?deviceType=Web+Client&token=JWT
+    // GET /api/v1/dynamic/page?deviceType=Web+Client&token=JWT&id=PAGE_ID
+
+    func fetchDynamicContent(pageId: String? = nil) async -> FlowDynamicResponse? {
+        let endpoint: String
+        if let pageId {
+            endpoint = "\(dynamicPath)/page?deviceType=\(deviceType)&token=\(jwtToken ?? "")&id=\(pageId)"
+        } else {
+            endpoint = "\(dynamicPath)/all?deviceType=\(deviceType)&token=\(jwtToken ?? "")"
+        }
+
         do {
-            self.continueWatching = try await makeRequest(endpoint: "/user/continue-watching")
+            return try await makeRequest(endpoint: endpoint)
         } catch {
-            self.continueWatching = MockData.continueWatching
+            return nil
         }
     }
 
     // MARK: - Stream URL
 
     func getStreamURL(for channelId: String) async -> String? {
-        do {
-            struct StreamResponse: Decodable {
-                let url: String
-            }
-            let response: StreamResponse = try await makeRequest(
-                endpoint: "/streams/channel/\(channelId)"
-            )
-            return response.url
-        } catch {
-            return MockData.channels.first { $0.id == channelId }?.streamURL
-        }
+        // Stream URLs are typically embedded in the channel data or fetched via dynamic endpoint
+        return channels.first { $0.id == channelId }?.streamURL
     }
 
     func getVODStreamURL(for contentId: String) async -> String? {
         do {
             struct StreamResponse: Decodable {
-                let url: String
+                let url: String?
+                let streamUrl: String?
             }
             let response: StreamResponse = try await makeRequest(
-                endpoint: "/streams/vod/\(contentId)"
+                endpoint: "\(contentPath)/serie?id=\(contentId)"
             )
-            return response.url
+            return response.url ?? response.streamUrl
         } catch {
             return nil
         }
@@ -240,24 +371,201 @@ class FlowAPIService: ObservableObject {
     // MARK: - Search
 
     func search(query: String) async -> SearchResults {
+        let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query
+
         do {
-            return try await makeRequest(endpoint: "/search?q=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? query)")
+            // Search via VOD filter
+            let vodResponse: FlowVODResponse = try await makeRequest(
+                endpoint: "\(contentPath)/filter?lang=es&size=20&page=0&filters=\(encoded)"
+            )
+            let vodItems = vodResponse.items?.map { $0.toVODContent() } ?? []
+
+            // Filter channels locally
+            let matchingChannels = channels.filter {
+                $0.name.localizedCaseInsensitiveContains(query)
+            }
+
+            return SearchResults(channels: matchingChannels, vod: vodItems)
         } catch {
             return MockData.searchResults(for: query)
         }
     }
 
-    // MARK: - Favorites
+    // MARK: - Image URL Helper
 
-    func toggleFavorite(contentId: String) async {
-        do {
-            let _: EmptyResponse = try await makeRequest(
-                endpoint: "/user/favorites/\(contentId)",
-                method: "POST"
+    static func imageURL(path: String?) -> URL? {
+        guard let path else { return nil }
+        if path.hasPrefix("http") { return URL(string: path) }
+        return URL(string: "\(imagesBaseURL)\(path)")
+    }
+}
+
+// MARK: - Flow API Response Models
+
+struct FlowLoginData: Encodable {
+    let accountId: String
+    let password: String
+    let deviceName: String
+    let deviceType: String
+    let devicePlatform: String
+    let clientCasId: String
+    let version: String
+    let type: String
+    let deviceModel: String
+    let company: String
+}
+
+struct FlowLoginResponse: Decodable {
+    let accounts: [FlowAccountResponse]?
+    let token: String?
+}
+
+struct FlowAccountResponse: Decodable {
+    let id: String?
+    let name: String?
+}
+
+struct FlowChannelResponse: Decodable {
+    let id: String?
+    let number: Int?
+    let name: String?
+    let image: String?
+    let category: String?
+    let isHd: Bool?
+    let url: String?
+
+    func toChannel() -> Channel {
+        Channel(
+            id: id ?? UUID().uuidString,
+            number: number ?? 0,
+            name: name ?? "Canal",
+            logoURL: image,
+            category: mapCategory(category),
+            isHD: isHd ?? false,
+            streamURL: url,
+            currentProgram: nil,
+            nextProgram: nil
+        )
+    }
+
+    private func mapCategory(_ cat: String?) -> ChannelCategory {
+        guard let cat = cat?.lowercased() else { return .entretenimiento }
+        if cat.contains("notic") { return .noticias }
+        if cat.contains("deport") { return .deportes }
+        if cat.contains("pelic") || cat.contains("cine") { return .peliculas }
+        if cat.contains("serie") { return .series }
+        if cat.contains("infant") || cat.contains("niño") || cat.contains("kids") { return .infantil }
+        if cat.contains("music") || cat.contains("músic") { return .musica }
+        if cat.contains("document") { return .documentales }
+        if cat.contains("adult") { return .adultos }
+        return .entretenimiento
+    }
+}
+
+struct FlowProgramResponse: Decodable {
+    let id: String?
+    let title: String?
+    let description: String?
+    let startTime: String?
+    let endTime: String?
+    let image: String?
+    let rating: String?
+    let genre: String?
+
+    func toProgram() -> Program {
+        let formatter = ISO8601DateFormatter()
+        return Program(
+            id: id ?? UUID().uuidString,
+            title: title ?? "",
+            description: description,
+            startTime: formatter.date(from: startTime ?? "") ?? Date(),
+            endTime: formatter.date(from: endTime ?? "") ?? Date(),
+            imageURL: image,
+            rating: rating,
+            genre: genre
+        )
+    }
+}
+
+struct FlowVODResponse: Decodable {
+    let items: [FlowVODItemResponse]?
+    let total: Int?
+}
+
+struct FlowVODItemResponse: Decodable {
+    let id: String?
+    let title: String?
+    let originalTitle: String?
+    let description: String?
+    let year: Int?
+    let duration: Int?
+    let rating: String?
+    let genre: [String]?
+    let image: String?
+    let backdrop: String?
+    let type: String?
+
+    func toVODContent() -> VODContent {
+        VODContent(
+            id: id ?? UUID().uuidString,
+            title: title ?? "",
+            originalTitle: originalTitle,
+            description: description,
+            year: year,
+            duration: duration,
+            rating: rating,
+            genre: genre ?? [],
+            posterURL: image,
+            backdropURL: backdrop,
+            streamURL: nil,
+            contentType: type == "series" ? .series : .movie,
+            seasons: nil,
+            isFavorite: false
+        )
+    }
+}
+
+struct FlowDynamicResponse: Decodable {
+    let panels: [FlowPanel]?
+
+    struct FlowPanel: Decodable {
+        let title: String?
+        let items: [FlowDynamicItem]?
+    }
+
+    struct FlowDynamicItem: Decodable {
+        let id: String?
+        let title: String?
+        let description: String?
+        let image: String?
+        let type: String?
+    }
+
+    func toFeaturedContent() -> [FeaturedContent] {
+        panels?.first?.items?.prefix(5).map { item in
+            FeaturedContent(
+                id: item.id ?? UUID().uuidString,
+                title: item.title ?? "",
+                subtitle: item.description,
+                imageURL: item.image,
+                content: .vod(VODContent(
+                    id: item.id ?? "",
+                    title: item.title ?? "",
+                    originalTitle: nil,
+                    description: item.description,
+                    year: nil,
+                    duration: nil,
+                    rating: nil,
+                    genre: [],
+                    posterURL: item.image,
+                    backdropURL: item.image,
+                    streamURL: nil,
+                    contentType: item.type == "series" ? .series : .movie,
+                    seasons: nil,
+                    isFavorite: false
+                ))
             )
-        } catch {
-            // Silently handle in dev
-        }
+        } ?? []
     }
 }
 

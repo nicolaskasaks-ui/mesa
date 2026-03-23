@@ -3,163 +3,97 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var authManager: AuthManager
     @State private var showLogoutConfirm = false
-    @State private var parentalControlEnabled = false
+    @State private var parentalControl = false
     @State private var autoPlay = true
     @State private var videoQuality: VideoQuality = .auto
-    @State private var subtitlesEnabled = false
+    @State private var subtitles = false
 
     var body: some View {
         NavigationStack {
             List {
-                // Profile section
+                // Profile
                 Section {
                     if let user = authManager.currentUser {
                         HStack(spacing: 20) {
-                            // Avatar
-                            Circle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [.cyan, .purple],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
+                            ZStack {
+                                Circle()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [.cyan.opacity(0.6), .purple.opacity(0.6)],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
                                     )
-                                )
-                                .frame(width: 80, height: 80)
-                                .overlay(
-                                    Text(String(user.displayName.prefix(1)).uppercased())
-                                        .font(.title.weight(.bold))
-                                        .foregroundColor(.white)
-                                )
+                                    .frame(width: 72, height: 72)
 
-                            VStack(alignment: .leading, spacing: 6) {
+                                Text(String(user.displayName.prefix(1)).uppercased())
+                                    .font(.title2.weight(.bold))
+                                    .foregroundColor(.white)
+                            }
+
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text(user.displayName)
-                                    .font(.title3.weight(.semibold))
-
+                                    .font(.callout.weight(.semibold))
                                 Text(user.email)
-                                    .font(.callout)
-                                    .foregroundColor(.gray)
-
-                                HStack(spacing: 6) {
-                                    Image(systemName: "crown.fill")
-                                        .foregroundColor(.yellow)
-                                        .font(.caption)
-                                    Text(user.plan.name)
-                                        .font(.caption.weight(.medium))
-                                        .foregroundColor(.cyan)
-                                }
+                                    .font(.caption)
+                                    .foregroundColor(Color.white.opacity(0.4))
+                                Text(user.plan.name)
+                                    .font(.caption2.weight(.medium))
+                                    .foregroundColor(.cyan)
                             }
                         }
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 8)
                     }
                 } header: {
-                    Text("Mi Cuenta")
+                    Text("Cuenta")
                 }
 
-                // Plan details
+                // Plan
                 Section {
                     if let plan = authManager.currentUser?.plan {
-                        HStack {
-                            Text("Plan")
-                            Spacer()
-                            Text(plan.name)
-                                .foregroundColor(.cyan)
-                        }
-
-                        HStack {
-                            Text("Calidad HD")
-                            Spacer()
-                            Image(systemName: plan.hasHD ? "checkmark.circle.fill" : "xmark.circle")
-                                .foregroundColor(plan.hasHD ? .green : .red)
-                        }
-
-                        HStack {
-                            Text("Calidad 4K")
-                            Spacer()
-                            Image(systemName: plan.has4K ? "checkmark.circle.fill" : "xmark.circle")
-                                .foregroundColor(plan.has4K ? .green : .red)
-                        }
-
-                        HStack {
-                            Text("Dispositivos simultáneos")
-                            Spacer()
-                            Text("\(plan.maxDevices)")
-                                .foregroundColor(.gray)
-                        }
+                        planRow("Plan", value: plan.name)
+                        planRow("HD", check: plan.hasHD)
+                        planRow("4K", check: plan.has4K)
+                        planRow("Dispositivos", value: "\(plan.maxDevices)")
                     }
                 } header: {
-                    Text("Mi Plan Flow")
+                    Text("Mi Plan")
                 }
 
-                // Playback settings
+                // Playback
                 Section {
-                    Picker("Calidad de video", selection: $videoQuality) {
-                        ForEach(VideoQuality.allCases, id: \.self) { quality in
-                            Text(quality.displayName).tag(quality)
+                    Picker("Calidad", selection: $videoQuality) {
+                        ForEach(VideoQuality.allCases, id: \.self) {
+                            Text($0.displayName).tag($0)
                         }
                     }
-
                     Toggle("Reproducción automática", isOn: $autoPlay)
-
-                    Toggle("Subtítulos", isOn: $subtitlesEnabled)
+                    Toggle("Subtítulos", isOn: $subtitles)
                 } header: {
                     Text("Reproducción")
                 }
 
-                // Parental control
+                // Parental
                 Section {
-                    Toggle("Control parental", isOn: $parentalControlEnabled)
-
-                    if parentalControlEnabled {
-                        NavigationLink("Configurar PIN") {
-                            Text("Configuración de PIN parental")
-                        }
-                    }
+                    Toggle("Control parental", isOn: $parentalControl)
                 } header: {
-                    Text("Control Parental")
+                    Text("Restricciones")
                 }
 
-                // App info
+                // Info
                 Section {
-                    HStack {
-                        Text("Versión")
-                        Spacer()
-                        Text("1.0.0")
-                            .foregroundColor(.gray)
-                    }
-
-                    HStack {
-                        Text("Dispositivo")
-                        Spacer()
-                        Text("Apple TV")
-                            .foregroundColor(.gray)
-                    }
-
-                    NavigationLink("Términos y condiciones") {
-                        ScrollView {
-                            Text("Los términos y condiciones del servicio Flow están disponibles en personal.com.ar/flow/terminos")
-                                .padding()
-                        }
-                        .navigationTitle("Términos y Condiciones")
-                    }
-
-                    NavigationLink("Política de privacidad") {
-                        ScrollView {
-                            Text("La política de privacidad del servicio Flow está disponible en personal.com.ar/flow/privacidad")
-                                .padding()
-                        }
-                        .navigationTitle("Política de Privacidad")
-                    }
+                    planRow("Versión", value: "1.0.0")
+                    planRow("Dispositivo", value: "Apple TV")
                 } header: {
-                    Text("Información")
+                    Text("Info")
                 }
 
                 // Logout
                 Section {
-                    Button(action: { showLogoutConfirm = true }) {
+                    Button(role: .destructive, action: { showLogoutConfirm = true }) {
                         HStack {
                             Spacer()
                             Text("Cerrar Sesión")
-                                .foregroundColor(.red)
                             Spacer()
                         }
                     }
@@ -172,24 +106,38 @@ struct SettingsView: View {
                     authManager.logout()
                 }
             } message: {
-                Text("Vas a tener que iniciar sesión de nuevo para seguir usando Flow.")
+                Text("Vas a tener que iniciar sesión de nuevo.")
             }
+        }
+    }
+
+    private func planRow(_ label: String, value: String) -> some View {
+        HStack {
+            Text(label)
+            Spacer()
+            Text(value).foregroundColor(Color.white.opacity(0.4))
+        }
+    }
+
+    private func planRow(_ label: String, check: Bool) -> some View {
+        HStack {
+            Text(label)
+            Spacer()
+            Image(systemName: check ? "checkmark.circle.fill" : "xmark.circle")
+                .foregroundColor(check ? .green : Color.white.opacity(0.2))
         }
     }
 }
 
 enum VideoQuality: String, CaseIterable {
-    case auto = "auto"
-    case hd1080 = "1080p"
-    case hd720 = "720p"
-    case sd480 = "480p"
+    case auto, hd1080, hd720, sd480
 
     var displayName: String {
         switch self {
         case .auto: return "Automática"
-        case .hd1080: return "1080p (Full HD)"
-        case .hd720: return "720p (HD)"
-        case .sd480: return "480p (SD)"
+        case .hd1080: return "1080p"
+        case .hd720: return "720p"
+        case .sd480: return "480p"
         }
     }
 }

@@ -20,65 +20,60 @@ struct OnDemandView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Filter bar
+                // Filter chips — Apple TV style horizontal scroll
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 15) {
-                        // Content type filters
-                        FilterPill(title: "Todo", isSelected: contentTypeFilter == nil) {
+                    HStack(spacing: 10) {
+                        // Type filters
+                        ChipButton("Todo", isActive: contentTypeFilter == nil) {
                             contentTypeFilter = nil
                         }
-                        FilterPill(title: "Películas", isSelected: contentTypeFilter == .movie) {
+                        ChipButton("Películas", isActive: contentTypeFilter == .movie) {
                             contentTypeFilter = .movie
                         }
-                        FilterPill(title: "Series", isSelected: contentTypeFilter == .series) {
+                        ChipButton("Series", isActive: contentTypeFilter == .series) {
                             contentTypeFilter = .series
                         }
 
-                        Divider()
-                            .frame(height: 30)
-                            .background(Color.gray.opacity(0.3))
+                        Rectangle()
+                            .fill(Color.white.opacity(0.15))
+                            .frame(width: 1, height: 24)
+                            .padding(.horizontal, 4)
 
-                        // Genre filters
                         ForEach(VODGenre.allCases, id: \.self) { genre in
-                            FilterPill(
-                                title: genre.rawValue,
-                                isSelected: selectedGenre == genre
-                            ) {
+                            ChipButton(genre.rawValue, isActive: selectedGenre == genre) {
                                 selectedGenre = genre
                             }
                         }
                     }
-                    .padding(.horizontal, 50)
-                    .padding(.vertical, 20)
+                    .padding(.horizontal, 60)
+                    .padding(.vertical, 16)
                 }
 
                 // Content grid
                 ScrollView {
                     if filteredContent.isEmpty {
-                        VStack(spacing: 20) {
+                        VStack(spacing: 16) {
                             Image(systemName: "film.stack")
-                                .font(.system(size: 60))
-                                .foregroundColor(.gray)
+                                .font(.system(size: 48))
+                                .foregroundColor(Color.white.opacity(0.2))
                             Text("No hay contenido disponible")
-                                .font(.title3)
-                                .foregroundColor(.gray)
+                                .font(.callout)
+                                .foregroundColor(Color.white.opacity(0.3))
                         }
                         .frame(maxWidth: .infinity, minHeight: 400)
                     } else {
                         LazyVGrid(
-                            columns: [
-                                GridItem(.adaptive(minimum: 250, maximum: 300), spacing: 30)
-                            ],
-                            spacing: 30
+                            columns: [GridItem(.adaptive(minimum: 220, maximum: 260), spacing: 28)],
+                            spacing: 36
                         ) {
                             ForEach(filteredContent) { content in
                                 NavigationLink(value: content) {
-                                    VODCard(content: content)
+                                    PosterCard(content: content)
                                 }
-                                .buttonStyle(.card)
+                                .buttonStyle(TVCardButtonStyle())
                             }
                         }
-                        .padding(40)
+                        .padding(48)
                     }
                 }
             }
@@ -93,27 +88,34 @@ struct OnDemandView: View {
     }
 }
 
-// MARK: - Filter Pill
+// MARK: - Chip Button (tvOS filter pill)
 
-struct FilterPill: View {
+struct ChipButton: View {
     let title: String
-    let isSelected: Bool
+    let isActive: Bool
     let action: () -> Void
+    @Environment(\.isFocused) var isFocused
+
+    init(_ title: String, isActive: Bool, action: @escaping () -> Void) {
+        self.title = title
+        self.isActive = isActive
+        self.action = action
+    }
 
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                .padding(.horizontal, 20)
+                .font(.caption.weight(isActive ? .semibold : .regular))
+                .foregroundColor(isActive ? .white : Color.white.opacity(0.6))
+                .padding(.horizontal, 18)
                 .padding(.vertical, 10)
                 .background(
-                    isSelected
-                        ? Color.cyan.opacity(0.3)
-                        : Color.white.opacity(0.1)
+                    Capsule()
+                        .fill(isActive ? Color.white.opacity(0.18) : Color.white.opacity(0.06))
                 )
-                .foregroundColor(isSelected ? .cyan : .white)
-                .cornerRadius(20)
         }
         .buttonStyle(.plain)
+        .scaleEffect(isFocused ? 1.08 : 1.0)
+        .animation(.easeInOut(duration: 0.15), value: isFocused)
     }
 }

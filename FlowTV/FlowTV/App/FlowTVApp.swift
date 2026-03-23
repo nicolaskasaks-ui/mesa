@@ -10,6 +10,11 @@ struct FlowTVApp: App {
             ContentView()
                 .environmentObject(authManager)
                 .environmentObject(flowAPI)
+                .onAppear {
+                    // Link auth manager to API service
+                    authManager.apiService = flowAPI
+                }
+                .preferredColorScheme(.dark)
         }
     }
 }
