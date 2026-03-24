@@ -7,9 +7,9 @@ import Combine
 @MainActor
 class FlowAPIService: ObservableObject {
     // MARK: - Flow API Configuration (Real endpoints)
-    static let baseURL = "https://web.flow.com.ar"
-    static let imagesBaseURL = "https://static.flow.com.ar"
-    static let appBaseURL = "https://web.app.flow.com.ar"
+    nonisolated static let baseURL = "https://web.flow.com.ar"
+    nonisolated static let imagesBaseURL = "https://static.flow.com.ar"
+    nonisolated static let appBaseURL = "https://web.app.flow.com.ar"
 
     // API paths
     private let authPath = "/auth/v2"
