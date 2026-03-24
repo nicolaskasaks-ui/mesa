@@ -72,6 +72,14 @@ class AuthManager: ObservableObject {
         }
     }
 
+    // MARK: - Demo Mode (skip login, use mock data)
+
+    func loginAsDemo() {
+        self.currentUser = MockData.user
+        self.authToken = MockData.authToken
+        self.isAuthenticated = true
+    }
+
     // MARK: - Logout
 
     func logout() {
