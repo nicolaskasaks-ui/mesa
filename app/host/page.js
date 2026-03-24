@@ -87,6 +87,7 @@ export default function HostDashboard() {
   const [now, setNow] = useState(Date.now());
   const [confirmAssign, setConfirmAssign] = useState(null);
   const [seatedToday, setSeatedToday] = useState(0);
+  const [seatedBySource, setSeatedBySource] = useState({ meantime: 0, walkin: 0, opentable: 0 });
   const [undoTable, setUndoTable] = useState(null);
   const [profileEntry, setProfileEntry] = useState(null);
   const [draggingEntry, setDraggingEntry] = useState(null);
@@ -135,14 +136,20 @@ export default function HostDashboard() {
         prevQueueRef.current = queueRes;
         setQueue(queueRes);
       }
-      // Count seated today
+      // Count seated today by source
       if (supabase) {
         const today = new Date().toISOString().slice(0, 10);
-        const { count } = await supabase.from("waitlist")
-          .select("id", { count: "exact", head: true })
+        const { data: seatedData } = await supabase.from("waitlist")
+          .select("id, source")
           .eq("status", "seated")
           .gte("seated_at", `${today}T00:00:00`);
-        setSeatedToday(count || 0);
+        if (seatedData) {
+          setSeatedToday(seatedData.length);
+          const mt = seatedData.filter(s => s.source === "qr" || s.source === "whatsapp").length;
+          const ot = seatedData.filter(s => s.source === "opentable").length;
+          const wi = seatedData.length - mt - ot;
+          setSeatedBySource({ meantime: mt, walkin: wi, opentable: ot });
+        }
       }
     } catch (e) {
       console.error("fetchAll error:", e);
@@ -576,7 +583,7 @@ export default function HostDashboard() {
             <img src="/logo-dark.png" alt="Chui" style={{ height: "28px", objectFit: "contain" }} />
             <span style={{ fontSize: "11px", color: T.textLight, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: "600" }}>Hostess</span>
           </div>
-          <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
             <div style={{ textAlign: "center" }}>
               <div style={{ fontFamily: f.display, fontSize: "24px", fontWeight: "700", color: S.libre.bg }}>{libre}</div>
               <div style={{ fontSize: "10px", color: T.textLight, fontWeight: "600", letterSpacing: "0.04em" }}>libres</div>
@@ -588,8 +595,16 @@ export default function HostDashboard() {
             </div>
             <div style={{ width: "1px", height: "28px", background: T.border }} />
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontFamily: f.display, fontSize: "24px", fontWeight: "700", color: T.text }}>{seatedToday}</div>
-              <div style={{ fontSize: "10px", color: T.textLight, fontWeight: "600", letterSpacing: "0.04em" }}>hoy</div>
+              <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "700", color: T.gold }}>{seatedBySource.meantime}</div>
+              <div style={{ fontSize: "9px", color: T.gold, fontWeight: "700", letterSpacing: "0.04em" }}>Meantime</div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "700", color: T.textMed }}>{seatedBySource.walkin}</div>
+              <div style={{ fontSize: "9px", color: T.textLight, fontWeight: "600", letterSpacing: "0.04em" }}>Walk-in</div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "700", color: S.pidio_cuenta.bg }}>{seatedBySource.opentable}</div>
+              <div style={{ fontSize: "9px", color: T.textLight, fontWeight: "600", letterSpacing: "0.04em" }}>OpenTable</div>
             </div>
           </div>
         </div>
