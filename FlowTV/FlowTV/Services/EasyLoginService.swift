@@ -14,7 +14,9 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
         case failed(String)
     }
 
-    @Published var state: LoginState = .idle
+    @Published var state: LoginState = .idle {
+        didSet { print("[EasyLogin] State changed to: \(state)") }
+    }
     @Published var accountId: String?
 
     var onAuthenticated: ((String, String?) -> Void)?
@@ -207,6 +209,7 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
             }
             sendJSON(["method": "start", "data": startData])
             DispatchQueue.main.async {
+                self.objectWillChange.send()
                 self.state = .showingCode(code)
             }
 
