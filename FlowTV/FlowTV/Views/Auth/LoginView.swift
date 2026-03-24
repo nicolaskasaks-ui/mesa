@@ -135,6 +135,19 @@ struct LoginView: View {
                 .disabled(authManager.isLoading || email.isEmpty || password.isEmpty)
                 .focused($focusedField, equals: .loginButton)
 
+                // Demo mode — skip login entirely
+                Button(action: {
+                    authManager.loginAsDemo()
+                }) {
+                    Text("Entrar sin cuenta (Demo)")
+                        .font(.callout.weight(.medium))
+                        .frame(width: 540, height: 56)
+                        .background(Color.white.opacity(0.08))
+                        .foregroundColor(Color.white.opacity(0.7))
+                        .cornerRadius(16)
+                }
+                .buttonStyle(.plain)
+
                 if let error = authManager.errorMessage {
                     Text(error)
                         .font(.callout)
