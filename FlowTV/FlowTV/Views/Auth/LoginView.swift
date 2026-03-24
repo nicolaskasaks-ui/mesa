@@ -2,25 +2,14 @@ import SwiftUI
 
 struct LoginView: View {
     @EnvironmentObject var authManager: AuthManager
-    @State private var email = ""
-    @State private var otpCode = ""
-    @FocusState private var focusedField: LoginField?
-
-    enum LoginField: Hashable {
-        case email, otpCode, sendButton, verifyButton, backButton
-    }
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         ZStack {
-            // Full-screen dark background like Apple TV+
             Color.black.ignoresSafeArea()
 
-            // Subtle animated gradient accent
             RadialGradient(
-                colors: [
-                    Color.purple.opacity(0.15),
-                    Color.clear
-                ],
+                colors: [Color.purple.opacity(0.15), Color.clear],
                 center: .topTrailing,
                 startRadius: 100,
                 endRadius: 800
@@ -28,20 +17,17 @@ struct LoginView: View {
             .ignoresSafeArea()
 
             RadialGradient(
-                colors: [
-                    Color.cyan.opacity(0.1),
-                    Color.clear
-                ],
+                colors: [Color.cyan.opacity(0.1), Color.clear],
                 center: .bottomLeading,
                 startRadius: 100,
                 endRadius: 600
             )
             .ignoresSafeArea()
 
-            VStack(spacing: 80) {
+            VStack(spacing: 60) {
                 Spacer()
 
-                // Logo — clean, Apple-style
+                // Logo
                 VStack(spacing: 24) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 24)
@@ -63,29 +49,15 @@ struct LoginView: View {
                     }
 
                     Text("flow")
-                        .font(.system(size: 64, weight: .bold, design: .default))
+                        .font(.system(size: 64, weight: .bold))
                         .tracking(-2)
                         .foregroundColor(.white)
-
-                    Text(subtitleText)
-                        .font(.callout)
-                        .foregroundColor(Color.white.opacity(0.5))
-                        .multilineTextAlignment(.center)
                 }
 
-                // OTP form — tvOS style with large touch targets
-                VStack(spacing: 24) {
-                    switch authManager.otpStep {
-                    case .enterEmail:
-                        emailStepView
+                // Easy Login content based on state
+                easyLoginContent
 
-                    case .enterCode, .verifying:
-                        codeStepView
-                    }
-                }
-                .frame(width: 620)
-
-                // Demo mode — skip login entirely
+                // Demo mode
                 Button(action: {
                     authManager.loginAsDemo()
                 }) {
@@ -114,103 +86,105 @@ struct LoginView: View {
             }
         }
         .onAppear {
-            #if DEBUG
-            if email.isEmpty, let envEmail = ProcessInfo.processInfo.environment["FLOW_EMAIL"] {
-                email = envEmail
-            }
-            #endif
-            focusedField = .email
+            authManager.startEasyLogin()
+        }
+        .onDisappear {
+            authManager.easyLogin.disconnect()
         }
     }
 
-    // MARK: - Subtitle text based on current step
+    // MARK: - Easy Login States
 
-    private var subtitleText: String {
-        switch authManager.otpStep {
-        case .enterEmail:
-            return "Ingresá tu email o número de línea de Personal/Flow"
-        case .enterCode:
-            return "Te enviamos un código a \(email)"
-        case .verifying:
-            return "Verificando..."
+    @ViewBuilder
+    private var easyLoginContent: some View {
+        switch authManager.easyLogin.state {
+        case .idle, .connecting, .waitingForCode:
+            VStack(spacing: 20) {
+                ProgressView()
+                    .scaleEffect(1.5)
+                    .tint(.white)
+                Text("Conectando...")
+                    .font(.title3)
+                    .foregroundColor(Color.white.opacity(0.6))
+            }
+            .frame(height: 200)
+
+        case .showingCode(let code):
+            codeDisplayView(code: code)
+
+        case .authenticated:
+            VStack(spacing: 20) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(.green)
+                Text("Conectado")
+                    .font(.title2.weight(.semibold))
+                    .foregroundColor(.white)
+            }
+            .frame(height: 200)
+
+        case .failed:
+            VStack(spacing: 24) {
+                Image(systemName: "wifi.exclamationmark")
+                    .font(.system(size: 48))
+                    .foregroundColor(Color.white.opacity(0.4))
+
+                Text("No se pudo conectar")
+                    .font(.title3)
+                    .foregroundColor(Color.white.opacity(0.6))
+
+                Button(action: {
+                    authManager.resetEasyLogin()
+                    authManager.startEasyLogin()
+                }) {
+                    Text("Reintentar")
+                        .font(.title3.weight(.semibold))
+                        .frame(width: 540, height: 66)
+                        .background(Color.white)
+                        .foregroundColor(.black)
+                        .cornerRadius(16)
+                }
+                .focused($isFocused)
+            }
         }
     }
 
-    // MARK: - Step 1: Email entry
+    // MARK: - Code Display
 
-    private var emailStepView: some View {
-        VStack(spacing: 24) {
-            TextField("Email o número de línea", text: $email)
-                .focused($focusedField, equals: .email)
-                .textContentType(.emailAddress)
-                .autocorrectionDisabled()
-                .padding(20)
-                .background(Color.white.opacity(0.08))
-                .cornerRadius(16)
+    private func codeDisplayView(code: String) -> some View {
+        VStack(spacing: 32) {
+            Text("Ingresá este código en tu celular")
+                .font(.title3)
+                .foregroundColor(Color.white.opacity(0.7))
 
-            Button(action: {
-                Task { await authManager.sendCode(email: email) }
-            }) {
-                Group {
-                    if authManager.isLoading {
-                        ProgressView()
-                            .tint(.black)
-                    } else {
-                        Text("Enviar código")
-                            .font(.title3.weight(.semibold))
-                    }
+            // Large code display
+            HStack(spacing: 16) {
+                ForEach(Array(code), id: \.self) { char in
+                    Text(String(char))
+                        .font(.system(size: 72, weight: .bold, design: .monospaced))
+                        .foregroundColor(.white)
+                        .frame(width: 90, height: 110)
+                        .background(Color.white.opacity(0.1))
+                        .cornerRadius(16)
                 }
-                .frame(width: 540, height: 66)
-                .background(Color.white)
-                .foregroundColor(.black)
-                .cornerRadius(16)
             }
-            .disabled(authManager.isLoading || email.isEmpty)
-            .focused($focusedField, equals: .sendButton)
-        }
-    }
 
-    // MARK: - Step 2: OTP code entry
-
-    private var codeStepView: some View {
-        VStack(spacing: 24) {
-            TextField("Código de verificación", text: $otpCode)
-                .focused($focusedField, equals: .otpCode)
-                .textContentType(.oneTimeCode)
-                .autocorrectionDisabled()
-                .padding(20)
-                .background(Color.white.opacity(0.08))
-                .cornerRadius(16)
-                .onAppear {
-                    focusedField = .otpCode
-                }
-
-            Button(action: {
-                Task { await authManager.validateCode(email: email, code: otpCode) }
-            }) {
-                Group {
-                    if authManager.isLoading {
-                        ProgressView()
-                            .tint(.black)
-                    } else {
-                        Text("Verificar")
-                            .font(.title3.weight(.semibold))
-                    }
-                }
-                .frame(width: 540, height: 66)
-                .background(Color.white)
-                .foregroundColor(.black)
-                .cornerRadius(16)
+            VStack(spacing: 12) {
+                Text("Abrí **flow** en tu celular y")
+                    .font(.body)
+                    .foregroundColor(Color.white.opacity(0.5))
+                Text("andá a **Ajustes > Vincular dispositivo**")
+                    .font(.body)
+                    .foregroundColor(Color.white.opacity(0.5))
             }
-            .disabled(authManager.isLoading || otpCode.isEmpty)
-            .focused($focusedField, equals: .verifyButton)
+            .multilineTextAlignment(.center)
 
+            // Retry button
             Button(action: {
-                otpCode = ""
-                authManager.resetOTPFlow()
-                focusedField = .email
+                authManager.resetEasyLogin()
+                authManager.startEasyLogin()
             }) {
-                Text("Volver")
+                Text("Generar nuevo código")
                     .font(.callout.weight(.medium))
                     .frame(width: 540, height: 56)
                     .background(Color.white.opacity(0.08))
@@ -218,8 +192,6 @@ struct LoginView: View {
                     .cornerRadius(16)
             }
             .buttonStyle(.plain)
-            .disabled(authManager.isLoading)
-            .focused($focusedField, equals: .backButton)
         }
     }
 }

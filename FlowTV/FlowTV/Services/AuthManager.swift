@@ -1,11 +1,6 @@
 import Foundation
 import SwiftUI
-
-enum OTPStep {
-    case enterEmail
-    case enterCode
-    case verifying
-}
+import Combine
 
 @MainActor
 class AuthManager: ObservableObject {
@@ -14,9 +9,8 @@ class AuthManager: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
 
-    // OTP login state
-    @Published var otpStep: OTPStep = .enterEmail
-    @Published var otpCredentials: String?
+    // Easy Login service (WebSocket companion code flow)
+    let easyLogin = EasyLoginService()
 
     private let tokenKey = "com.flowtv.authtoken"
     private let userKey = "com.flowtv.user"
@@ -27,7 +21,92 @@ class AuthManager: ObservableObject {
     var apiService: FlowAPIService?
     var streamingService: StreamingService?
 
-    // MARK: - Login (Real Flow authentication)
+    private var easyLoginObserver: AnyCancellable?
+
+    init() {
+        observeEasyLogin()
+    }
+
+    // MARK: - Easy Login (WebSocket companion code)
+
+    /// Start the Easy Login flow — connects WebSocket and gets a code to display.
+    func startEasyLogin() {
+        errorMessage = nil
+        easyLogin.start()
+    }
+
+    /// Observe EasyLoginService state changes and complete auth when token arrives.
+    private func observeEasyLogin() {
+        // We poll the state via Combine since EasyLoginService is @MainActor @Published
+        easyLoginObserver = easyLogin.$state.sink { [weak self] newState in
+            guard let self else { return }
+            Task { @MainActor in
+                switch newState {
+                case .authenticated(let token):
+                    await self.completeEasyLogin(token: token)
+                case .failed(let msg):
+                    self.errorMessage = msg
+                default:
+                    break
+                }
+            }
+        }
+    }
+
+    /// Called when WebSocket receives the flowaccesstoken.
+    private func completeEasyLogin(token: String) async {
+        isLoading = true
+        errorMessage = nil
+
+        let api = apiService ?? FlowAPIService()
+        api.setJWTToken(token)
+        apiService?.setJWTToken(token)
+
+        let accountId = easyLogin.accountId ?? "user"
+
+        let user = FlowUser(
+            id: accountId,
+            email: accountId,
+            displayName: accountId,
+            avatarURL: nil,
+            plan: FlowPlan(name: "Flow", tier: .estandar, hasHD: true, has4K: false, maxDevices: 3),
+            maxStreams: 3,
+            activeStreams: 0
+        )
+
+        let authToken = AuthToken(
+            accessToken: token,
+            refreshToken: "",
+            expiresAt: Date().addingTimeInterval(43200) // 12 hours
+        )
+
+        self.currentUser = user
+        self.authToken = authToken
+        self.isAuthenticated = true
+
+        saveToken(authToken)
+        saveUser(user)
+
+        // Pass VUID to streaming service for DRM
+        if let vuid = api.vuid {
+            streamingService?.setVUID(vuid)
+        }
+
+        // Register PRM token in background
+        Task {
+            try? await streamingService?.registerPRM()
+        }
+
+        isLoading = false
+    }
+
+    /// Reset Easy Login flow.
+    func resetEasyLogin() {
+        easyLogin.reset()
+        errorMessage = nil
+    }
+
+    // MARK: - Login (Real Flow authentication — legacy email/password)
 
     func login(email: String, password: String) async -> Bool {
         isLoading = true
@@ -41,31 +120,21 @@ class AuthManager: ObservableObject {
             self.authToken = token
             self.isAuthenticated = true
 
-            // Persist session
             saveToken(token)
             saveUser(user)
 
-            // Ensure the shared API service has the JWT token
-            // (important when api == apiService, the token is already set;
-            //  but if apiService is a different instance, sync it)
             apiService?.setJWTToken(token.accessToken)
 
-            // Pass VUID to streaming service for DRM
             if let vuid = api.vuid {
                 streamingService?.setVUID(vuid)
             }
 
-            // Register PRM token in background (needed for playback)
             Task {
                 try? await streamingService?.registerPRM()
             }
 
-            // Verify device registration
             let deviceOk = await api.verifyDevice()
-            if !deviceOk {
-                // Device not registered but we can still proceed
-                // Flow allows new devices after login
-            }
+            if !deviceOk { /* Flow allows new devices after login */ }
 
             isLoading = false
             return true
@@ -74,13 +143,13 @@ class AuthManager: ObservableObject {
             case .unauthorized:
                 errorMessage = "Usuario o contraseña incorrectos."
             case .forbidden:
-                errorMessage = "Tu cuenta no tiene acceso a Flow. Verificá tu plan con Personal."
+                errorMessage = "Tu cuenta no tiene acceso a Flow."
             case .decodingError:
-                errorMessage = "Login exitoso pero hubo un error procesando la respuesta. Intentá de nuevo."
+                errorMessage = "Login exitoso pero hubo un error procesando la respuesta."
             case .serverError(let code):
-                errorMessage = "Error del servidor de Flow (HTTP \(code)). Intentá más tarde."
+                errorMessage = "Error del servidor de Flow (HTTP \(code))."
             default:
-                errorMessage = "No se pudo conectar con Flow. Intentá de nuevo."
+                errorMessage = "No se pudo conectar con Flow."
             }
             isLoading = false
             return false
@@ -91,147 +160,12 @@ class AuthManager: ObservableObject {
             } else {
                 errorMessage = "Error inesperado: \(error.localizedDescription)"
             }
-            print("[AuthManager] Login error: \(error)")
             isLoading = false
             return false
         }
     }
 
-    // MARK: - OTP Login Flow (New auth-daima endpoints)
-
-    /// Step 1: Send OTP code to the user's email/phone.
-    func sendCode(email: String) async {
-        isLoading = true
-        errorMessage = nil
-
-        let api = apiService ?? FlowAPIService()
-
-        do {
-            let credentials = try await api.sendOTPCode(accountId: email)
-            self.otpCredentials = credentials
-            self.otpStep = .enterCode
-        } catch let error as FlowAPIError {
-            switch error {
-            case .unauthorized:
-                errorMessage = "Cuenta no encontrada. Verificá tu email o número de línea."
-            case .serverError(let code):
-                errorMessage = "Error del servidor (\(code)). Intentá más tarde."
-            default:
-                errorMessage = "No se pudo enviar el código. Intentá de nuevo."
-            }
-        } catch {
-            let nsError = error as NSError
-            if nsError.domain == NSURLErrorDomain {
-                errorMessage = "Error de conexión. Verificá tu internet. (\(nsError.code))"
-            } else {
-                errorMessage = "Error inesperado: \(error.localizedDescription)"
-            }
-            print("[AuthManager] sendCode error: \(error)")
-        }
-
-        isLoading = false
-    }
-
-    /// Step 2: Validate the OTP code and complete login.
-    func validateCode(email: String, code: String) async {
-        guard let credentials = otpCredentials else {
-            errorMessage = "Credenciales OTP no disponibles. Volvé a enviar el código."
-            otpStep = .enterEmail
-            return
-        }
-
-        isLoading = true
-        errorMessage = nil
-        otpStep = .verifying
-
-        let api = apiService ?? FlowAPIService()
-
-        do {
-            // Step 2: Validate OTP and get session JWT
-            let sessionToken = try await api.validateOTPCode(
-                accountId: email,
-                code: code,
-                otpCredentials: credentials
-            )
-
-            // Step 3: Exchange session JWT for Flow access token
-            var flowToken = sessionToken
-            do {
-                let accessToken = try await api.fetchFlowAccessToken(bearerToken: sessionToken)
-                flowToken = accessToken
-            } catch {
-                // If the access token exchange fails, try using the session token directly
-                print("[AuthManager] flowAccessToken exchange failed, using session token: \(error)")
-            }
-
-            // Store the JWT and mark authenticated
-            api.setJWTToken(flowToken)
-            apiService?.setJWTToken(flowToken)
-
-            let user = FlowUser(
-                id: email,
-                email: email,
-                displayName: email,
-                avatarURL: nil,
-                plan: FlowPlan(name: "Flow", tier: .estandar, hasHD: true, has4K: false, maxDevices: 3),
-                maxStreams: 3,
-                activeStreams: 0
-            )
-
-            let authToken = AuthToken(
-                accessToken: flowToken,
-                refreshToken: "",
-                expiresAt: Date().addingTimeInterval(43200)
-            )
-
-            self.currentUser = user
-            self.authToken = authToken
-            self.isAuthenticated = true
-
-            saveToken(authToken)
-            saveUser(user)
-
-            // Pass VUID to streaming service for DRM
-            if let vuid = api.vuid {
-                streamingService?.setVUID(vuid)
-            }
-
-            // Register PRM token in background (needed for playback)
-            Task {
-                try? await streamingService?.registerPRM()
-            }
-        } catch let error as FlowAPIError {
-            otpStep = .enterCode
-            switch error {
-            case .unauthorized:
-                errorMessage = "Código incorrecto o expirado. Intentá de nuevo."
-            case .serverError(let code):
-                errorMessage = "Error del servidor (\(code)). Intentá más tarde."
-            default:
-                errorMessage = "No se pudo verificar el código. Intentá de nuevo."
-            }
-        } catch {
-            otpStep = .enterCode
-            let nsError = error as NSError
-            if nsError.domain == NSURLErrorDomain {
-                errorMessage = "Error de conexión. Verificá tu internet. (\(nsError.code))"
-            } else {
-                errorMessage = "Error inesperado: \(error.localizedDescription)"
-            }
-            print("[AuthManager] validateCode error: \(error)")
-        }
-
-        isLoading = false
-    }
-
-    /// Reset OTP flow back to email entry.
-    func resetOTPFlow() {
-        otpStep = .enterEmail
-        otpCredentials = nil
-        errorMessage = nil
-    }
-
-    // MARK: - Demo Mode (skip login, use mock data)
+    // MARK: - Demo Mode
 
     func loginAsDemo() {
         self.currentUser = MockData.user
@@ -245,6 +179,7 @@ class AuthManager: ObservableObject {
         isAuthenticated = false
         currentUser = nil
         authToken = nil
+        easyLogin.reset()
         apiService?.setJWTToken("")
         streamingService?.clear()
         clearStoredData()
@@ -256,7 +191,6 @@ class AuthManager: ObservableObject {
         guard let token = loadToken() else { return }
 
         if token.isExpired {
-            // Try to refresh the JWT (Flow tokens last 12h)
             await refreshSession(token)
             return
         }
@@ -282,12 +216,11 @@ class AuthManager: ObservableObject {
                 self.isAuthenticated = true
             }
         } catch {
-            // Token refresh failed, need to re-login
             clearStoredData()
         }
     }
 
-    // MARK: - Persistence (UserDefaults for tvOS)
+    // MARK: - Persistence
 
     private func saveToken(_ token: AuthToken) {
         if let data = try? JSONEncoder().encode(token) {
