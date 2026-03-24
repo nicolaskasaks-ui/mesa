@@ -3,87 +3,91 @@ import CoreImage.CIFilterBuiltins
 
 struct LoginView: View {
     @EnvironmentObject var authManager: AuthManager
-    @FocusState private var isFocused: Bool
+    @FocusState private var focusedButton: LoginButton?
+
+    enum LoginButton: Hashable {
+        case retry, demo
+    }
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            RadialGradient(
-                colors: [Color.purple.opacity(0.15), Color.clear],
-                center: .topTrailing,
-                startRadius: 100,
-                endRadius: 800
-            )
-            .ignoresSafeArea()
-
-            RadialGradient(
-                colors: [Color.cyan.opacity(0.1), Color.clear],
-                center: .bottomLeading,
-                startRadius: 100,
-                endRadius: 600
-            )
-            .ignoresSafeArea()
-
-            VStack(spacing: 60) {
+            // Background content preview (like the real Flow SmartTV login)
+            HStack {
                 Spacer()
+                ZStack {
+                    LinearGradient(
+                        colors: [.black, Color.black.opacity(0.3), Color.black.opacity(0.1)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    .frame(width: 900)
 
-                // Logo
-                VStack(spacing: 24) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 24)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color(red: 0.0, green: 0.7, blue: 0.9),
-                                        Color(red: 0.5, green: 0.0, blue: 0.8)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 120, height: 120)
+                    // Placeholder grid of colored rectangles mimicking content posters
+                    VStack(spacing: 12) {
+                        ForEach(0..<3, id: \.self) { row in
+                            HStack(spacing: 12) {
+                                ForEach(0..<4, id: \.self) { col in
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(
+                                            LinearGradient(
+                                                colors: posterColors(row: row, col: col),
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            )
+                                        )
+                                        .frame(width: 200, height: 120)
+                                        .opacity(0.3)
+                                }
+                            }
+                        }
+                    }
+                    .offset(x: 100)
 
-                        Image(systemName: "play.tv.fill")
-                            .font(.system(size: 56, weight: .medium))
+                    // Fade overlay
+                    LinearGradient(
+                        colors: [.black, .clear],
+                        startPoint: .leading,
+                        endPoint: .center
+                    )
+                }
+                .frame(width: 900)
+            }
+            .ignoresSafeArea()
+
+            // Main content
+            HStack(alignment: .top, spacing: 0) {
+                // Left side: login UI
+                VStack(alignment: .leading, spacing: 40) {
+                    Spacer()
+
+                    // "Ingresá a flow" header
+                    HStack(spacing: 16) {
+                        Text("Ingresá a")
+                            .font(.system(size: 42, weight: .light))
                             .foregroundColor(.white)
+
+                        // Flow logo
+                        HStack(spacing: 8) {
+                            Image(systemName: "play.circle.fill")
+                                .font(.system(size: 36))
+                                .foregroundColor(Color(red: 0.0, green: 0.8, blue: 0.7))
+                            Text("flow")
+                                .font(.system(size: 42, weight: .bold))
+                                .foregroundColor(.white)
+                        }
                     }
 
-                    Text("flow")
-                        .font(.system(size: 64, weight: .bold))
-                        .tracking(-2)
-                        .foregroundColor(.white)
-                }
+                    // Easy Login content
+                    easyLoginContent
 
-                // Easy Login content based on state
-                easyLoginContent
-
-                // Demo mode
-                Button(action: {
-                    authManager.loginAsDemo()
-                }) {
-                    Text("Entrar sin cuenta (Demo)")
-                        .font(.callout.weight(.medium))
-                        .frame(width: 540, height: 56)
-                        .background(Color.white.opacity(0.08))
-                        .foregroundColor(Color.white.opacity(0.7))
-                        .cornerRadius(16)
+                    Spacer()
                 }
-                .buttonStyle(.plain)
-
-                if let error = authManager.errorMessage {
-                    Text(error)
-                        .font(.callout)
-                        .foregroundColor(Color.red.opacity(0.9))
-                        .multilineTextAlignment(.center)
-                }
+                .frame(maxWidth: 700)
+                .padding(.leading, 100)
 
                 Spacer()
-
-                Text("flow es un servicio de Telecom Argentina S.A.")
-                    .font(.caption2)
-                    .foregroundColor(Color.white.opacity(0.25))
-                    .padding(.bottom, 40)
             }
         }
         .onAppear {
@@ -100,7 +104,7 @@ struct LoginView: View {
     private var easyLoginContent: some View {
         switch authManager.easyLogin.state {
         case .idle, .connecting, .waitingForCode:
-            VStack(spacing: 20) {
+            VStack(alignment: .leading, spacing: 20) {
                 ProgressView()
                     .scaleEffect(1.5)
                     .tint(.white)
@@ -108,7 +112,7 @@ struct LoginView: View {
                     .font(.title3)
                     .foregroundColor(Color.white.opacity(0.6))
             }
-            .frame(height: 300)
+            .frame(height: 400)
 
         case .showingCode(let code):
             codeDisplayView(code: code)
@@ -122,10 +126,10 @@ struct LoginView: View {
                     .font(.title2.weight(.semibold))
                     .foregroundColor(.white)
             }
-            .frame(height: 300)
+            .frame(height: 400)
 
         case .failed:
-            VStack(spacing: 24) {
+            VStack(alignment: .leading, spacing: 24) {
                 Image(systemName: "wifi.exclamationmark")
                     .font(.system(size: 48))
                     .foregroundColor(Color.white.opacity(0.4))
@@ -134,106 +138,134 @@ struct LoginView: View {
                     .font(.title3)
                     .foregroundColor(Color.white.opacity(0.6))
 
+                if let error = authManager.errorMessage {
+                    Text(error)
+                        .font(.callout)
+                        .foregroundColor(Color.red.opacity(0.9))
+                }
+
                 Button(action: {
                     authManager.resetEasyLogin()
                     authManager.startEasyLogin()
                 }) {
                     Text("Reintentar")
                         .font(.title3.weight(.semibold))
-                        .frame(width: 540, height: 66)
-                        .background(Color.white)
-                        .foregroundColor(.black)
-                        .cornerRadius(16)
+                        .frame(width: 400, height: 66)
+                        .background(Color.white.opacity(0.12))
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                        )
                 }
-                .focused($isFocused)
+                .focused($focusedButton, equals: .retry)
+
+                demoButton
             }
         }
     }
 
-    // MARK: - Code Display with QR
+    // MARK: - Code Display (matches real Flow SmartTV)
 
     private func codeDisplayView(code: String) -> some View {
-        HStack(spacing: 80) {
-            // Left side: QR code
-            VStack(spacing: 20) {
-                Text("Escaneá el QR")
-                    .font(.title3.weight(.semibold))
-                    .foregroundColor(.white)
-
-                if let qrImage = generateQRCode(
-                    from: "https://web.app.flow.com.ar/easyLogin?code=\(code)"
-                ) {
-                    Image(uiImage: qrImage)
-                        .interpolation(.none)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 240, height: 240)
-                        .background(Color.white)
-                        .cornerRadius(16)
-                }
-
-                Text("con la cámara de tu celular")
-                    .font(.callout)
-                    .foregroundColor(Color.white.opacity(0.5))
+        VStack(alignment: .leading, spacing: 40) {
+            // QR Code
+            if let qrImage = generateQRCode(
+                from: "https://web.app.flow.com.ar/easyLogin?code=\(code)"
+            ) {
+                Image(uiImage: qrImage)
+                    .interpolation(.none)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 280, height: 280)
+                    .padding(16)
+                    .background(Color.white)
+                    .cornerRadius(12)
             }
 
-            // Divider
-            VStack(spacing: 16) {
-                Rectangle()
-                    .fill(Color.white.opacity(0.15))
-                    .frame(width: 1, height: 80)
-                Text("o")
-                    .font(.title3)
-                    .foregroundColor(Color.white.opacity(0.4))
-                Rectangle()
-                    .fill(Color.white.opacity(0.15))
-                    .frame(width: 1, height: 80)
-            }
+            // Instructions + code
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Escaneá el QR o entrá a la app de Flow y en tu")
+                            .font(.system(size: 22))
+                            .foregroundColor(Color.white.opacity(0.7))
+                        HStack(spacing: 16) {
+                            Text("perfil ingresá en **Código de vinculación**:")
+                                .font(.system(size: 22))
+                                .foregroundColor(Color.white.opacity(0.7))
 
-            // Right side: code + instructions
-            VStack(spacing: 24) {
-                Text("Ingresá este código")
-                    .font(.title3.weight(.semibold))
-                    .foregroundColor(.white)
-
-                // Large code display
-                HStack(spacing: 12) {
-                    ForEach(Array(code.enumerated()), id: \.offset) { _, char in
-                        Text(String(char))
-                            .font(.system(size: 64, weight: .bold, design: .monospaced))
-                            .foregroundColor(.white)
-                            .frame(width: 80, height: 100)
-                            .background(Color.white.opacity(0.1))
-                            .cornerRadius(14)
+                            // Code box
+                            Text(code)
+                                .font(.system(size: 28, weight: .bold, design: .monospaced))
+                                .foregroundColor(.black)
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 10)
+                                .background(Color.white)
+                                .cornerRadius(8)
+                        }
                     }
                 }
 
-                VStack(spacing: 8) {
-                    Text("en **flow.com.ar/vincular**")
-                        .font(.body)
-                        .foregroundColor(Color.white.opacity(0.5))
-                    Text("o en la app Flow > Vincular dispositivo")
-                        .font(.callout)
-                        .foregroundColor(Color.white.opacity(0.35))
+                // Divider
+                Rectangle()
+                    .fill(Color.white.opacity(0.15))
+                    .frame(height: 1)
+                    .padding(.vertical, 8)
+
+                // Alternative: send code by email/SMS
+                Text("¿No tenés la app de Flow en tu celular?")
+                    .font(.system(size: 20))
+                    .foregroundColor(Color.white.opacity(0.5))
+
+                // Bottom buttons
+                HStack(spacing: 24) {
+                    Button(action: {
+                        authManager.resetEasyLogin()
+                        authManager.startEasyLogin()
+                    }) {
+                        Text("Generar nuevo código")
+                            .font(.system(size: 20, weight: .medium))
+                            .padding(.horizontal, 32)
+                            .padding(.vertical, 14)
+                            .background(Color.white.opacity(0.08))
+                            .foregroundColor(Color.white.opacity(0.8))
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .focused($focusedButton, equals: .retry)
+
+                    demoButton
                 }
-                .multilineTextAlignment(.center)
             }
         }
-        .padding(.bottom, 16)
+    }
 
-        // Retry button below
+    // MARK: - Demo Button
+
+    private var demoButton: some View {
         Button(action: {
-            authManager.resetEasyLogin()
-            authManager.startEasyLogin()
+            authManager.loginAsDemo()
         }) {
-            Text("Generar nuevo código")
-                .font(.callout.weight(.medium))
-                .frame(width: 540, height: 56)
+            Text("Entrar sin cuenta (Demo)")
+                .font(.system(size: 20, weight: .medium))
+                .padding(.horizontal, 32)
+                .padding(.vertical, 14)
                 .background(Color.white.opacity(0.08))
-                .foregroundColor(Color.white.opacity(0.7))
-                .cornerRadius(16)
+                .foregroundColor(Color.white.opacity(0.5))
+                .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                )
         }
         .buttonStyle(.plain)
+        .focused($focusedButton, equals: .demo)
     }
 
     // MARK: - QR Code Generation
@@ -246,13 +278,25 @@ struct LoginView: View {
 
         guard let outputImage = filter.outputImage else { return nil }
 
-        // Scale up for crisp rendering
-        let scale = 240.0 / outputImage.extent.width
+        let scale = 280.0 / outputImage.extent.width
         let scaledImage = outputImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
 
         guard let cgImage = context.createCGImage(scaledImage, from: scaledImage.extent) else {
             return nil
         }
         return UIImage(cgImage: cgImage)
+    }
+
+    // MARK: - Background Poster Colors
+
+    private func posterColors(row: Int, col: Int) -> [Color] {
+        let palettes: [[Color]] = [
+            [.blue, .purple], [.orange, .red], [.teal, .blue],
+            [.purple, .pink], [.green, .teal], [.red, .orange],
+            [.indigo, .blue], [.yellow, .orange], [.mint, .green],
+            [.pink, .purple], [.cyan, .blue], [.brown, .orange]
+        ]
+        let index = (row * 4 + col) % palettes.count
+        return palettes[index]
     }
 }
