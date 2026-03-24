@@ -969,9 +969,13 @@ export default function HostDashboard() {
                     {recentlySeated.map(table => {
                       const cfg = S[table.status] || S.sentado;
                       const guestName = table.waitlist?.guest_name;
-                      const isMeantime = !!table.waitlist_id;
-                      const barBg = isMeantime ? T.gold : cfg.bg;
-                      const barColor = isMeantime ? "#fff" : cfg.color;
+                      const src = table.waitlist?.source;
+                      const isOT = src === "opentable";
+                      const isMT = src === "qr" || src === "whatsapp" || src === "whatsapp_bot";
+                      const isWI = src === "walkin";
+                      const barBg = isOT ? S.pidio_cuenta.bg : isMT ? T.gold : cfg.bg;
+                      const barColor = "#fff";
+                      const badgeLabel = isOT ? "OpenTable" : isMT ? "Meantime" : isWI ? "Walk-in" : null;
                       const mins = Math.floor((Date.now() - new Date(table.seated_at).getTime()) / 60000);
                       const timeStr = mins < 1 ? "ahora" : mins < 60 ? `${mins}m` : `${Math.floor(mins/60)}h${mins%60}m`;
                       return (
@@ -988,7 +992,7 @@ export default function HostDashboard() {
                             <div style={{ fontFamily: f.display, fontSize: "16px", fontWeight: "800", color: barColor }}>{table.id}</div>
                             <div style={{ fontSize: "12px", color: barColor, opacity: 0.8 }}>{table.capacity}p</div>
                             {guestName && <div style={{ fontSize: "12px", color: barColor, opacity: 0.9, fontWeight: "600" }}>{guestName}</div>}
-                            {isMeantime && <span style={{ fontSize: "9px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px", background: "rgba(255,255,255,0.2)", color: barColor, letterSpacing: "0.03em" }}>Meantime</span>}
+                            {badgeLabel && <span style={{ fontSize: "9px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px", background: "rgba(255,255,255,0.2)", color: barColor, letterSpacing: "0.03em" }}>{badgeLabel}</span>}
                             {table.waitlist?.customers?.allergies?.length > 0 && table.waitlist.customers.allergies.map(a => (
                               <span key={a} style={{ fontSize: "9px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px", background: "#C93B3B", color: "#fff" }}>⚠ {a}</span>
                             ))}
@@ -1008,7 +1012,7 @@ export default function HostDashboard() {
                     const cfg = S[table.status] || S.libre;
                     const time = table.seated_at ? ago(table.seated_at) : "";
                     const guestName = table.waitlist?.guest_name;
-                    const isMeantime = !!table.waitlist_id;
+                    const tileSrc = table.waitlist?.source;
                     const isSeated = table.status === "sentado";
                     const seatedMin = table.seated_at ? Math.floor((Date.now() - new Date(table.seated_at).getTime()) / 60000) : 0;
                     const alertColor = isSeated && seatedMin >= 180 ? S.pidio_cuenta.bg : isSeated && seatedMin >= 120 ? S.postre.bg : null;
@@ -1055,9 +1059,15 @@ export default function HostDashboard() {
                           transition: "border 0.15s, background 0.15s, transform 0.15s",
                           transform: isDropHover && canDrop ? "scale(1.05)" : "scale(1)",
                         }}>
-                        {isMeantime && (
-                          <div style={{ position: "absolute", top: "6px", right: "6px", fontSize: "8px", fontWeight: "800", padding: "2px 4px", borderRadius: "3px", background: T.gold, color: "#fff", letterSpacing: "0.05em" }}>M</div>
-                        )}
+                        {tileSrc && (() => {
+                          const badge = tileSrc === "opentable" ? { label: "OT", bg: S.pidio_cuenta.bg }
+                            : tileSrc === "walkin" ? { label: "WI", bg: "#1A1A1A" }
+                            : (tileSrc === "qr" || tileSrc === "whatsapp" || tileSrc === "whatsapp_bot") ? { label: "M", bg: T.gold }
+                            : null;
+                          return badge ? (
+                            <div style={{ position: "absolute", top: "6px", right: "6px", fontSize: "8px", fontWeight: "800", padding: "2px 4px", borderRadius: "3px", background: badge.bg, color: "#fff", letterSpacing: "0.05em" }}>{badge.label}</div>
+                          ) : null;
+                        })()}
                         <div style={{ fontFamily: f.display, fontSize: isSeated ? "16px" : "22px", fontWeight: "800", color: cfg.color, lineHeight: 1 }}>{table.id}</div>
                         <div style={{ fontSize: isSeated ? "10px" : "11px", color: cfg.color, marginTop: "3px", fontWeight: "600", opacity: 0.8 }}>{cfg.label}</div>
                         <div style={{ fontSize: "10px", color: cfg.color, marginTop: "2px", opacity: 0.6 }}>{table.capacity}p</div>
