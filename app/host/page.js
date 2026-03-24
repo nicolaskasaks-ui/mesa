@@ -91,7 +91,9 @@ export default function HostDashboard() {
   const [profileEntry, setProfileEntry] = useState(null);
   const [draggingEntry, setDraggingEntry] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
+  const [hostToast, setHostToast] = useState(null);
   const longPressTimer = useRef(null);
+  const prevQueueRef = useRef([]);
 
   // Check if already authed from session + set host title
   useEffect(() => {
@@ -108,7 +110,30 @@ export default function HostDashboard() {
         fetch("/api/waitlist").then(r => r.json()),
       ]);
       if (Array.isArray(tablesRes)) setTables(tablesRes);
-      if (Array.isArray(queueRes)) setQueue(queueRes);
+      if (Array.isArray(queueRes)) {
+        // Detect new "confirmado" arrivals
+        const prev = prevQueueRef.current;
+        for (const entry of queueRes) {
+          if (entry.activity === "confirmado") {
+            const prevEntry = prev.find(p => p.id === entry.id);
+            if (!prevEntry || prevEntry.activity !== "confirmado") {
+              const dist = entry.distance_m;
+              const eta = dist != null && dist > 0 ? Math.max(1, Math.ceil(dist / 80)) : null;
+              setHostToast({
+                name: entry.guest_name,
+                party: entry.party_size,
+                eta,
+                dist,
+                ts: Date.now(),
+              });
+              // Vibrate if supported
+              if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            }
+          }
+        }
+        prevQueueRef.current = queueRes;
+        setQueue(queueRes);
+      }
       // Count seated today
       if (supabase) {
         const today = new Date().toISOString().slice(0, 10);
@@ -654,6 +679,9 @@ export default function HostDashboard() {
                                 color: isExtended ? S.sentado.color : act.color,
                               }}>
                                 {isExtended ? "Paso turno" : act.label}
+                                {entry.activity === "confirmado" && entry.distance_m != null && entry.distance_m > 0 && (
+                                  <> · ~{Math.max(1, Math.ceil(entry.distance_m / 80))}min</>
+                                )}
                               </span>
                             ) : null
                           )}
@@ -887,6 +915,32 @@ export default function HostDashboard() {
 
         </div>
       </div>
+
+      {/* ── ARRIVAL TOAST ── */}
+      {hostToast && (Date.now() - hostToast.ts < 8000) && (
+        <div className="toast" style={{
+          position: "fixed", bottom: "24px", left: "50%", transform: "translateX(-50%)",
+          zIndex: 500, padding: "16px 24px", borderRadius: "16px",
+          background: T.success, color: "#fff", boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+          display: "flex", alignItems: "center", gap: "12px", maxWidth: "400px",
+          fontFamily: f.sans,
+        }}>
+          <div style={{ fontSize: "24px" }}>🏃</div>
+          <div>
+            <div style={{ fontWeight: "700", fontSize: "15px" }}>{hostToast.name} esta llegando</div>
+            <div style={{ fontSize: "13px", opacity: 0.9, marginTop: "2px" }}>
+              {hostToast.party}p
+              {hostToast.eta ? ` · ~${hostToast.eta} min` : ""}
+              {hostToast.dist != null ? ` · ${hostToast.dist}m` : ""}
+            </div>
+          </div>
+          <button onClick={() => setHostToast(null)} style={{
+            background: "rgba(255,255,255,0.2)", border: "none", color: "#fff",
+            borderRadius: "8px", padding: "4px 8px", cursor: "pointer", fontSize: "12px",
+            fontWeight: "600", marginLeft: "auto",
+          }}>OK</button>
+        </div>
+      )}
     </div>
   );
 }
