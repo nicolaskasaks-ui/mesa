@@ -94,6 +94,7 @@ export default function HostDashboard() {
   const [dropTarget, setDropTarget] = useState(null);
   const [hostToast, setHostToast] = useState(null);
   const [allergyConfirm, setAllergyConfirm] = useState(null); // { entry, table, allergies }
+  const [sourcePrompt, setSourcePrompt] = useState(null); // { table }
   const longPressTimer = useRef(null);
   const prevQueueRef = useRef([]);
 
@@ -177,11 +178,31 @@ export default function HostDashboard() {
     };
   }, []);
 
+  const seatTableAs = async (table, source) => {
+    // Create a walkin/opentable waitlist entry and seat it
+    const res = await window.fetch("/api/waitlist", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guest_name: source === "opentable" ? "OpenTable" : "Walk-in", party_size: table.capacity, source }),
+    });
+    const entry = await res.json();
+    if (entry?.id) {
+      await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "seated" }) });
+      await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: table.id, status: "sentado", waitlist_id: entry.id }) });
+    } else {
+      await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: table.id, status: "sentado" }) });
+    }
+    setSourcePrompt(null);
+    fetchAll();
+  };
+
   const cycleTable = async (table) => {
-    // Libre → show picker if candidates, else cycle
+    // Libre → show picker if candidates, else ask source
     if (table.status === "libre") {
       const candidates = getCandidates(queue, table.capacity);
       if (candidates.length > 0) { setPicker({ table, candidates }); return; }
+      // No candidates — ask source
+      setSourcePrompt({ table });
+      return;
     }
 
     const next = STATUS_FLOW[(STATUS_FLOW.indexOf(table.status) + 1) % STATUS_FLOW.length];
@@ -354,6 +375,35 @@ export default function HostDashboard() {
 
   return (
     <div style={{ minHeight: "100dvh", fontFamily: f.sans, color: T.text }}>
+
+      {/* ── SOURCE PROMPT (libre → sentado) ── */}
+      {sourcePrompt && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setSourcePrompt(null); }}>
+          <div style={{
+            background: T.card, borderRadius: "20px", padding: "28px 24px", width: "calc(100% - 48px)", maxWidth: "340px",
+            boxShadow: "0 12px 48px rgba(0,0,0,0.15)", textAlign: "center",
+          }}>
+            <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "700", color: T.text }}>Mesa {sourcePrompt.table.id}</div>
+            <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>{sourcePrompt.table.capacity} personas</div>
+            <div style={{ fontSize: "14px", color: T.textMed, marginTop: "16px", marginBottom: "16px" }}>¿Cómo llega este cliente?</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <button onClick={() => seatTableAs(sourcePrompt.table, "walkin")} style={{
+                padding: "16px", borderRadius: "12px", background: T.accent, color: "#fff",
+                border: "none", fontSize: "15px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans,
+              }}>Walk-in</button>
+              <button onClick={() => seatTableAs(sourcePrompt.table, "opentable")} style={{
+                padding: "16px", borderRadius: "12px", background: S.pidio_cuenta.bg, color: "#fff",
+                border: "none", fontSize: "15px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans,
+              }}>OpenTable</button>
+              <button onClick={() => setSourcePrompt(null)} style={{
+                padding: "12px", borderRadius: "12px", background: T.bgPage, color: T.textMed,
+                border: `1px solid ${T.border}`, fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
+              }}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── ALLERGY CONFIRM MODAL ── */}
       {allergyConfirm && (
