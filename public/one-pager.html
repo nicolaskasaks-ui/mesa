@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meantime - La fila virtual para restaurantes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --accent: #1A1A1A;
+      --success: #2D7A4F;
+      --gold: #B8943E;
+      --bg: #FFFFFF;
+      --bg-subtle: #FAFAF8;
+      --text: #1A1A1A;
+      --text-muted: #6B6B6B;
+      --border: #E8E8E4;
+    }
+
+    html, body {
+      font-family: 'Nunito', sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .page {
+      width: 210mm;
+      height: 297mm;
+      margin: 0 auto;
+      padding: 20mm 18mm 14mm 18mm;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 5mm;
+      padding-bottom: 4mm;
+      border-bottom: 1.5px solid var(--border);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-left img {
+      height: 32px;
+      width: auto;
+    }
+
+    .header-tagline {
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      margin-bottom: 6mm;
+    }
+
+    .hero h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+
+    .hero h1 span {
+      color: var(--success);
+    }
+
+    /* ── Problem ── */
+    .problem {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 20px;
+      margin-bottom: 6mm;
+      display: flex;
+      gap: 24px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .problem-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .problem-icon {
+      width: 32px;
+      height: 32px;
+      background: #FFF3F3;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .problem-divider {
+      width: 1px;
+      height: 32px;
+      background: var(--border);
+    }
+
+    /* ── Solution ── */
+    .section-label {
+      font-family: 'Outfit', sans-serif;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--gold);
+      margin-bottom: 3mm;
+      text-align: center;
+    }
+
+    .solution {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 6mm;
+    }
+
+    .solution-card {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 14px;
+      text-align: center;
+    }
+
+    .solution-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 10px;
+      font-size: 22px;
+    }
+
+    .solution-card:nth-child(1) .solution-icon { background: #EDF7F1; }
+    .solution-card:nth-child(2) .solution-icon { background: #E8F4E8; }
+    .solution-card:nth-child(3) .solution-icon { background: #F5F0E6; }
+
+    .solution-step {
+      font-family: 'Outfit', sans-serif;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--success);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+
+    .solution-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 4px;
+      line-height: 1.25;
+    }
+
+    .solution-desc {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* ── Stats ── */
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 6mm;
+    }
+
+    .stat-card {
+      text-align: center;
+      padding: 14px 10px;
+      border-radius: 10px;
+      border: 1.5px solid var(--success);
+      background: #F6FBF8;
+    }
+
+    .stat-number {
+      font-family: 'Outfit', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--success);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.3;
+      font-weight: 600;
+    }
+
+    /* ── Social proof ── */
+    .social-proof {
+      text-align: center;
+      margin-bottom: 6mm;
+      padding: 10px 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .social-proof-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 4px;
+    }
+
+    .stars {
+      color: var(--gold);
+      font-size: 16px;
+      letter-spacing: 2px;
+    }
+
+    /* ── CTA ── */
+    .cta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 12px;
+      padding: 16px 24px;
+      margin-bottom: auto;
+    }
+
+    .qr-placeholder {
+      width: 72px;
+      height: 72px;
+      background: #fff;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .qr-placeholder span {
+      font-family: 'Outfit', sans-serif;
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.2;
+    }
+
+    .cta-content {
+      text-align: left;
+    }
+
+    .cta-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .cta-url {
+      font-family: 'Outfit', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--gold);
+      margin-bottom: 2px;
+    }
+
+    .cta-whatsapp {
+      font-size: 12px;
+      opacity: 0.75;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      text-align: center;
+      padding-top: 4mm;
+      margin-top: auto;
+      font-size: 10.5px;
+      color: var(--text-muted);
+    }
+
+    .footer a {
+      color: var(--text-muted);
+      text-decoration: none;
+    }
+
+    /* ── Decorative line ── */
+    .accent-bar {
+      height: 3px;
+      background: linear-gradient(90deg, var(--success) 0%, var(--gold) 50%, var(--success) 100%);
+      border-radius: 2px;
+      margin-bottom: 5mm;
+    }
+
+    /* ── Print ── */
+    @media print {
+      @page {
+        size: A4;
+        margin: 0;
+      }
+
+      html, body {
+        width: 210mm;
+        height: 297mm;
+      }
+
+      .page {
+        page-break-after: avoid;
+        page-break-inside: avoid;
+      }
+
+      .cta {
+        background: var(--accent) !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .stat-card {
+        background: #F6FBF8 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .problem {
+        background: var(--bg-subtle) !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .solution-card {
+        background: var(--bg-subtle) !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+
+    /* ── Screen centering ── */
+    @media screen {
+      body {
+        background: #E8E8E4;
+        padding: 20px 0;
+      }
+
+      .page {
+        box-shadow: 0 2px 24px rgba(0,0,0,0.10);
+        border-radius: 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <img src="/logo-dark.png" alt="Meantime">
+      </div>
+      <div class="header-tagline">La fila virtual para restaurantes</div>
+    </header>
+
+    <!-- Accent bar -->
+    <div class="accent-bar"></div>
+
+    <!-- Hero -->
+    <div class="hero">
+      <h1>Tu restaurante pierde clientes<br>cada noche. <span>Nosotros los recuperamos.</span></h1>
+    </div>
+
+    <!-- Problem -->
+    <div class="problem">
+      <div class="problem-item">
+        <div class="problem-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+        </div>
+        <div>El <strong>20-30%</strong> de tus clientes<br>se van cuando ven la fila</div>
+      </div>
+      <div class="problem-divider"></div>
+      <div class="problem-item">
+        <div class="problem-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <div>Cada mesa vacia en hora pico<br>= <strong>$15,000 ARS</strong> perdidos</div>
+      </div>
+    </div>
+
+    <!-- Solution -->
+    <div class="section-label">Como funciona</div>
+    <div class="solution">
+      <div class="solution-card">
+        <div class="solution-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2D7A4F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="2" y="14" width="8" height="8" rx="1"/><rect x="14" y="14" width="8" height="8" rx="1"/></svg>
+        </div>
+        <div class="solution-step">Paso 1</div>
+        <div class="solution-title">QR en la puerta</div>
+        <div class="solution-desc">El cliente se anota en la fila en 10 segundos</div>
+      </div>
+      <div class="solution-card">
+        <div class="solution-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2D7A4F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div class="solution-step">Paso 2</div>
+        <div class="solution-title">WhatsApp automatico</div>
+        <div class="solution-desc">Le avisamos cuando su mesa esta lista</div>
+      </div>
+      <div class="solution-card">
+        <div class="solution-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B8943E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </div>
+        <div class="solution-step">Paso 3</div>
+        <div class="solution-title">Dashboard hostess</div>
+        <div class="solution-desc">Gestion de mesas en tiempo real</div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="section-label">Resultados</div>
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-number">-70%</div>
+        <div class="stat-label">Reduccion en<br>abandonos</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">+15 min</div>
+        <div class="stat-label">De consumo en barra<br>durante la espera</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">+20%</div>
+        <div class="stat-label">En facturacion<br>por noche</div>
+      </div>
+    </div>
+
+    <!-- Social proof -->
+    <div class="social-proof">
+      <div class="social-proof-text">Usado por Chui, Villa Crespo</div>
+      <div class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta">
+      <div class="qr-placeholder">
+        <span>QR<br>CODE</span>
+      </div>
+      <div class="cta-content">
+        <div class="cta-title">Escanea para probar gratis</div>
+        <div class="cta-url">meantime.ar</div>
+        <div class="cta-whatsapp">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.136.558 4.143 1.536 5.887L0 24l6.305-1.654A11.94 11.94 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.82c-1.87 0-3.63-.5-5.14-1.38l-.37-.22-3.83 1 1.02-3.74-.24-.38A9.77 9.77 0 0 1 2.18 12c0-5.42 4.4-9.82 9.82-9.82 5.42 0 9.82 4.4 9.82 9.82 0 5.42-4.4 9.82-9.82 9.82z"/></svg>
+          WhatsApp: contacto disponible
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      Contacto: hola@meantime.ar&ensp;|&ensp;@meantime.ar
+    </footer>
+
+  </div>
+</body>
+</html>
