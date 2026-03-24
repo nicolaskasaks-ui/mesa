@@ -194,6 +194,19 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
 
     // MARK: - Send Messages
 
+    private func sendJSON(_ dict: [String: Any]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: dict),
+              let text = String(data: data, encoding: .utf8) else { return }
+        print("[EasyLogin] Sending: \(text)")
+        webSocket?.send(.string(text)) { error in
+            if let error {
+                print("[EasyLogin] Send error: \(error)")
+            } else {
+                print("[EasyLogin] Send OK")
+            }
+        }
+    }
+
     private func sendOutputRequest() {
         let text = "{\"sendType\":\"OUTPUT\",\"method\":\"code\",\"data\":\"\"}"
         print("[EasyLogin] Sending: \(text)")
