@@ -4,10 +4,10 @@ import { supabase } from "../../lib/supabase";
 import { T, f } from "../../lib/tokens";
 
 const S = {
-  libre:        { label: "Libre",     color: "#fff", bg: "#2D7A4F", border: "#246B42" },
-  sentado:      { label: "Sentado",   color: "#fff", bg: "#1A1A1A", border: "#333" },
-  postre:       { label: "Postre",    color: "#fff", bg: "#D4942A", border: "#B87E20" },
-  pidio_cuenta: { label: "Cuenta",    color: "#fff", bg: "#C93B3B", border: "#A83030" },
+  libre:        { label: "Libre",     color: "#fff", bg: "rgba(45,122,79,0.75)", border: "rgba(45,122,79,0.3)", glass: true },
+  sentado:      { label: "Sentado",   color: "#fff", bg: "rgba(26,26,26,0.65)", border: "rgba(255,255,255,0.08)", glass: true },
+  postre:       { label: "Postre",    color: "#fff", bg: "rgba(212,148,42,0.75)", border: "rgba(212,148,42,0.3)", glass: true },
+  pidio_cuenta: { label: "Cuenta",    color: "#fff", bg: "rgba(201,59,59,0.75)", border: "rgba(201,59,59,0.3)", glass: true },
 };
 const STATUS_FLOW = ["libre", "sentado", "postre", "pidio_cuenta"];
 
@@ -850,14 +850,16 @@ export default function HostDashboard() {
                         style={{
                           padding: isSeated ? "10px 8px" : "14px 8px 12px",
                           borderRadius: T.radius,
-                          border: isDropHover && canDrop ? `3px solid ${T.gold}` : isDropHover ? `3px dashed ${T.danger}` : "3px solid transparent",
-                          background: isDropHover && canDrop ? T.goldLight : cfg.bg,
+                          border: isDropHover && canDrop ? `3px solid ${T.gold}` : isDropHover ? `3px dashed rgba(201,59,59,0.5)` : `1px solid ${cfg.border}`,
+                          background: isDropHover && canDrop ? "rgba(184,148,62,0.2)" : cfg.bg,
+                          backdropFilter: "saturate(180%) blur(16px)",
+                          WebkitBackdropFilter: "saturate(180%) blur(16px)",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.15)",
                           cursor: draggingEntry ? (canDrop ? "copy" : "not-allowed") : "pointer",
                           textAlign: "center",
                           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                           minHeight: isSeated ? "72px" : "100px",
                           WebkitTouchCallout: "none", userSelect: "none",
-                          opacity: isSeated ? 0.85 : 1,
                           position: "relative",
                           transition: "border 0.15s, background 0.15s, transform 0.15s",
                           transform: isDropHover && canDrop ? "scale(1.05)" : "scale(1)",
