@@ -125,6 +125,7 @@ class FairPlayDRMManager: NSObject, AVContentKeySessionDelegate {
         request.setValue("Bearer \(jwtToken)", forHTTPHeaderField: "Authorization")
         request.setValue(FlowAPIService.baseURL, forHTTPHeaderField: "referer")
         request.setValue(FlowAPIService.baseURL, forHTTPHeaderField: "origin")
+        request.setValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse,
@@ -153,6 +154,7 @@ class FairPlayDRMManager: NSObject, AVContentKeySessionDelegate {
         request.setValue("Bearer \(jwtToken)", forHTTPHeaderField: "Authorization")
         request.setValue(FlowAPIService.appBaseURL, forHTTPHeaderField: "origin")
         request.setValue(FlowAPIService.appBaseURL, forHTTPHeaderField: "referer")
+        request.setValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
 
         // DRM token header (required by Flow's license server)
         if let drmToken {
