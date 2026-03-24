@@ -26,7 +26,7 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
     private var pingTimer: Timer?
     private var codeSent = false
 
-    private static let easyLoginURL = "wss://easylogin.app.flow.com.ar"
+    private static let easyLoginURL = "wss://easylogin.dev.app.flow.com.ar"
 
     // MARK: - Public
 
@@ -136,23 +136,10 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
 
         switch method {
         case "code":
-            // Server ready — generate code + session and register via "start"
-            let code = Self.generateCode()
-            let session = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
-            self.sessionID = session
-            let startMsg: [String: Any] = [
-                "method": "start",
-                "data": [
-                    "sessionID": session,
-                    "code": code,
-                    "SDK": true,
-                    "sfat": false
-                ] as [String: Any]
-            ]
-            sendJSON(startMsg)
-            print("[EasyLogin] Registered code: \(code), session: \(session)")
+            // Server signals code phase — wait for "start" with the actual code
+            print("[EasyLogin] Code phase, waiting for server to send code...")
             DispatchQueue.main.async {
-                self.state = .showingCode(code)
+                self.state = .waitingForCode
             }
 
         case "error":
