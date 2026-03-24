@@ -135,11 +135,8 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
 
         switch method {
         case "code":
-            // Server prompts us to send our code request
-            if !codeSent {
-                codeSent = true
-                sendOutputRequest()
-            }
+            // Server tells us it's in the code phase — just wait for "start" with the actual code
+            print("[EasyLogin] Server in code phase, waiting for start message...")
             DispatchQueue.main.async {
                 self.state = .waitingForCode
             }
