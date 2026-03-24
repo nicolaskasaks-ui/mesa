@@ -71,6 +71,12 @@ class FlowAPIService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
+        // Browser-like User-Agent (Flow drops connections without one)
+        request.setValue(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            forHTTPHeaderField: "User-Agent"
+        )
+
         // Mandatory headers (as required by Flow's MandatoryHeadersFilter)
         request.setValue(Self.baseURL, forHTTPHeaderField: "referer")
         request.setValue(Self.baseURL, forHTTPHeaderField: "origin")
