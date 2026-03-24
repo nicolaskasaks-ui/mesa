@@ -846,7 +846,7 @@ export default function HostDashboard() {
                             <div style={{ fontSize: "12px", color: barColor, opacity: 0.8 }}>{table.capacity}p</div>
                             {guestName && <div style={{ fontSize: "12px", color: barColor, opacity: 0.9, fontWeight: "600" }}>{guestName}</div>}
                             {isMeantime && <span style={{ fontSize: "9px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px", background: "rgba(255,255,255,0.2)", color: barColor, letterSpacing: "0.03em" }}>Meantime</span>}
-                            {table.waitlist?.allergies?.length > 0 && table.waitlist.allergies.map(a => (
+                            {table.waitlist?.customers?.allergies?.length > 0 && table.waitlist.customers.allergies.map(a => (
                               <span key={a} style={{ fontSize: "9px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px", background: "#C93B3B", color: "#fff" }}>⚠ {a}</span>
                             ))}
                           </div>
