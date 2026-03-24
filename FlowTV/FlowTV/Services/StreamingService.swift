@@ -54,10 +54,10 @@ class StreamingService: ObservableObject {
         request.setValue(FlowAPIService.baseURL, forHTTPHeaderField: "origin")
 
         let body: [String: String] = [
-            "deviceBrand": "Apple",
-            "deviceModel": "AppleTV",
-            "deviceType": "STB",
-            "playerType": "NATIVE",
+            "deviceBrand": "",
+            "deviceModel": "",
+            "deviceType": "WEB",
+            "playerType": "VISUAL_ON",
             "networkType": "BROADBAND"
         ]
         request.httpBody = try JSONEncoder().encode(body)

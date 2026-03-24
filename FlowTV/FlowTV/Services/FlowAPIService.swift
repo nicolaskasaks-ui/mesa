@@ -17,16 +17,16 @@ class FlowAPIService: ObservableObject {
     private let dynamicPath = "/api/v1/dynamic"
 
     // Device identification for API
-    // Using STB (set-top box) profile to request HLS+FairPlay streams
-    // instead of WEB profile which returns DASH+Widevine
+    // Using WEB profile (same as Kodi plugin) — this is the known working configuration.
+    // Flow's backend validates device type and rejects unknown profiles.
     private let apiVersion = "3.78.1"
     private let apiType = "CVA"
-    private let deviceType = "STB"
-    private let deviceModel = "AppleTV"
-    private let deviceName = "FlowTV-AppleTV"
-    private let platform = "TVOS"
+    private let deviceType = "WEB"
+    private let deviceModel = "PC"
+    private let deviceName = "FlowTV"
+    private let platform = "WINDOWS"
     private let company = "flow"
-    private let requestIdPrefix = "appletv"
+    private let requestIdPrefix = "web"
 
     @Published var channels: [Channel] = []
     @Published var featuredContent: [FeaturedContent] = []
@@ -93,7 +93,13 @@ class FlowAPIService: ObservableObject {
 
         switch httpResponse.statusCode {
         case 200...299:
-            return try JSONDecoder.flowDecoder.decode(T.self, from: data)
+            do {
+                return try JSONDecoder.flowDecoder.decode(T.self, from: data)
+            } catch {
+                let preview = String(data: data.prefix(500), encoding: .utf8) ?? "(binary)"
+                print("[FlowAPI] Decoding \(T.self) failed: \(error)\nResponse: \(preview)")
+                throw FlowAPIError.decodingError(error)
+            }
         case 401:
             throw FlowAPIError.unauthorized
         case 403:
@@ -103,6 +109,8 @@ class FlowAPIService: ObservableObject {
         case 429:
             throw FlowAPIError.rateLimited
         default:
+            let preview = String(data: data.prefix(300), encoding: .utf8) ?? ""
+            print("[FlowAPI] HTTP \(httpResponse.statusCode) for \(endpoint): \(preview)")
             throw FlowAPIError.serverError(httpResponse.statusCode)
         }
     }

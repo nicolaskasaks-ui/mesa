@@ -35,6 +35,11 @@ class AuthManager: ObservableObject {
             saveToken(token)
             saveUser(user)
 
+            // Ensure the shared API service has the JWT token
+            // (important when api == apiService, the token is already set;
+            //  but if apiService is a different instance, sync it)
+            apiService?.setJWTToken(token.accessToken)
+
             // Pass VUID to streaming service for DRM
             if let vuid = api.vuid {
                 streamingService?.setVUID(vuid)
@@ -60,13 +65,23 @@ class AuthManager: ObservableObject {
                 errorMessage = "Usuario o contraseña incorrectos."
             case .forbidden:
                 errorMessage = "Tu cuenta no tiene acceso a Flow. Verificá tu plan con Personal."
+            case .decodingError:
+                errorMessage = "Login exitoso pero hubo un error procesando la respuesta. Intentá de nuevo."
+            case .serverError(let code):
+                errorMessage = "Error del servidor de Flow (HTTP \(code)). Intentá más tarde."
             default:
                 errorMessage = "No se pudo conectar con Flow. Intentá de nuevo."
             }
             isLoading = false
             return false
         } catch {
-            errorMessage = "Error de conexión. Verificá tu internet."
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain {
+                errorMessage = "Error de conexión. Verificá tu internet. (\(nsError.code))"
+            } else {
+                errorMessage = "Error inesperado: \(error.localizedDescription)"
+            }
+            print("[AuthManager] Login error: \(error)")
             isLoading = false
             return false
         }
