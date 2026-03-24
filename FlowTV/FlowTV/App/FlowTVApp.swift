@@ -6,6 +6,7 @@ struct FlowTVApp: App {
     @StateObject private var flowAPI = FlowAPIService()
     @StateObject private var streamingService = StreamingService()
     @StateObject private var favoritesManager = FavoritesManager()
+    @StateObject private var csdkBridge = CSDKBridge.shared
 
     var body: some Scene {
         WindowGroup {
@@ -15,6 +16,7 @@ struct FlowTVApp: App {
                 .environmentObject(flowAPI)
                 .environmentObject(streamingService)
                 .environmentObject(favoritesManager)
+                .environmentObject(csdkBridge)
                 .onAppear {
                     // Link services together
                     authManager.apiService = flowAPI
