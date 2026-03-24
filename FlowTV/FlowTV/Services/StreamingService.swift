@@ -131,7 +131,7 @@ class StreamingService: ObservableObject {
             break
         case 401:
             // PRM token expired, retry once
-            prmToken = nil
+            self.prmToken = nil
             try await registerPRM()
             return try await resolveStream(id: id, type: type)
         case 403:
