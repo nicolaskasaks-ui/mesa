@@ -1081,17 +1081,17 @@ export default function HostDashboard() {
                           transition: "border 0.15s, background 0.15s, transform 0.15s",
                           transform: isDropHover && canDrop ? "scale(1.05)" : "scale(1)",
                         }}>
+                        <div style={{ fontFamily: f.display, fontSize: isSeated ? "16px" : "22px", fontWeight: "800", color: cfg.color, lineHeight: 1 }}>{table.id}</div>
                         {tileSrc && (() => {
-                          const badge = tileSrc === "opentable" ? { label: "OT", bg: S.pidio_cuenta.bg }
-                            : tileSrc === "walkin" ? { label: "WI", bg: "#1A1A1A" }
-                            : (tileSrc === "qr" || tileSrc === "whatsapp" || tileSrc === "whatsapp_bot") ? { label: "M", bg: T.gold }
+                          const badge = tileSrc === "opentable" ? { label: "OpenTable", bg: S.pidio_cuenta.bg }
+                            : tileSrc === "walkin" ? { label: "Walk-in", bg: "rgba(255,255,255,0.15)" }
+                            : (tileSrc === "qr" || tileSrc === "whatsapp" || tileSrc === "whatsapp_bot") ? { label: "Meantime", bg: T.gold }
                             : null;
                           return badge ? (
-                            <div style={{ position: "absolute", top: "6px", right: "6px", fontSize: "8px", fontWeight: "800", padding: "2px 4px", borderRadius: "3px", background: badge.bg, color: "#fff", letterSpacing: "0.05em" }}>{badge.label}</div>
+                            <div style={{ fontSize: "8px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px", background: badge.bg, color: "#fff", letterSpacing: "0.03em", marginTop: "3px" }}>{badge.label}</div>
                           ) : null;
                         })()}
-                        <div style={{ fontFamily: f.display, fontSize: isSeated ? "16px" : "22px", fontWeight: "800", color: cfg.color, lineHeight: 1 }}>{table.id}</div>
-                        <div style={{ fontSize: isSeated ? "10px" : "11px", color: cfg.color, marginTop: "3px", fontWeight: "600", opacity: 0.8 }}>{cfg.label}</div>
+                        {!tileSrc && <div style={{ fontSize: isSeated ? "10px" : "11px", color: cfg.color, marginTop: "3px", fontWeight: "600", opacity: 0.8 }}>{cfg.label}</div>}
                         <div style={{ fontSize: "10px", color: cfg.color, marginTop: "2px", opacity: 0.6 }}>{table.capacity}p</div>
                         {guestName && (
                           <div style={{ fontSize: "10px", color: cfg.color, marginTop: "3px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "600", opacity: 0.85, padding: "2px 6px", borderRadius: "4px", background: "rgba(255,255,255,0.15)" }}>
