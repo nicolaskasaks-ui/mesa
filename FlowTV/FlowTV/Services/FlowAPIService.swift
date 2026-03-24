@@ -520,6 +520,20 @@ struct FlowProgramResponse: Decodable {
 struct FlowVODResponse: Decodable {
     let items: [FlowVODItemResponse]?
     let total: Int?
+
+    func toCategories() -> [VODCategory] {
+        guard let items else { return [] }
+        var genreMap: [String: [VODContent]] = [:]
+        for item in items {
+            let content = item.toVODContent()
+            for genre in content.genre where !genre.isEmpty {
+                genreMap[genre, default: []].append(content)
+            }
+        }
+        return genreMap.sorted { $0.key < $1.key }.map { genre, contents in
+            VODCategory(id: genre, name: genre, items: contents)
+        }
+    }
 }
 
 struct FlowVODItemResponse: Decodable {
