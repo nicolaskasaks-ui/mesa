@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreImage.CIFilterBuiltins
 
 struct LoginView: View {
     @EnvironmentObject var authManager: AuthManager
@@ -107,7 +108,7 @@ struct LoginView: View {
                     .font(.title3)
                     .foregroundColor(Color.white.opacity(0.6))
             }
-            .frame(height: 200)
+            .frame(height: 300)
 
         case .showingCode(let code):
             codeDisplayView(code: code)
@@ -121,7 +122,7 @@ struct LoginView: View {
                     .font(.title2.weight(.semibold))
                     .foregroundColor(.white)
             }
-            .frame(height: 200)
+            .frame(height: 300)
 
         case .failed:
             VStack(spacing: 24) {
@@ -149,49 +150,109 @@ struct LoginView: View {
         }
     }
 
-    // MARK: - Code Display
+    // MARK: - Code Display with QR
 
     private func codeDisplayView(code: String) -> some View {
-        VStack(spacing: 32) {
-            Text("Ingresá este código en tu celular")
-                .font(.title3)
-                .foregroundColor(Color.white.opacity(0.7))
+        HStack(spacing: 80) {
+            // Left side: QR code
+            VStack(spacing: 20) {
+                Text("Escaneá el QR")
+                    .font(.title3.weight(.semibold))
+                    .foregroundColor(.white)
 
-            // Large code display
-            HStack(spacing: 16) {
-                ForEach(Array(code), id: \.self) { char in
-                    Text(String(char))
-                        .font(.system(size: 72, weight: .bold, design: .monospaced))
-                        .foregroundColor(.white)
-                        .frame(width: 90, height: 110)
-                        .background(Color.white.opacity(0.1))
+                if let qrImage = generateQRCode(
+                    from: "https://web.app.flow.com.ar/easyLogin?code=\(code)"
+                ) {
+                    Image(uiImage: qrImage)
+                        .interpolation(.none)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 240, height: 240)
+                        .background(Color.white)
                         .cornerRadius(16)
                 }
-            }
 
-            VStack(spacing: 12) {
-                Text("Abrí **flow** en tu celular y")
-                    .font(.body)
-                    .foregroundColor(Color.white.opacity(0.5))
-                Text("andá a **Ajustes > Vincular dispositivo**")
-                    .font(.body)
+                Text("con la cámara de tu celular")
+                    .font(.callout)
                     .foregroundColor(Color.white.opacity(0.5))
             }
-            .multilineTextAlignment(.center)
 
-            // Retry button
-            Button(action: {
-                authManager.resetEasyLogin()
-                authManager.startEasyLogin()
-            }) {
-                Text("Generar nuevo código")
-                    .font(.callout.weight(.medium))
-                    .frame(width: 540, height: 56)
-                    .background(Color.white.opacity(0.08))
-                    .foregroundColor(Color.white.opacity(0.7))
-                    .cornerRadius(16)
+            // Divider
+            VStack(spacing: 16) {
+                Rectangle()
+                    .fill(Color.white.opacity(0.15))
+                    .frame(width: 1, height: 80)
+                Text("o")
+                    .font(.title3)
+                    .foregroundColor(Color.white.opacity(0.4))
+                Rectangle()
+                    .fill(Color.white.opacity(0.15))
+                    .frame(width: 1, height: 80)
             }
-            .buttonStyle(.plain)
+
+            // Right side: code + instructions
+            VStack(spacing: 24) {
+                Text("Ingresá este código")
+                    .font(.title3.weight(.semibold))
+                    .foregroundColor(.white)
+
+                // Large code display
+                HStack(spacing: 12) {
+                    ForEach(Array(code.enumerated()), id: \.offset) { _, char in
+                        Text(String(char))
+                            .font(.system(size: 64, weight: .bold, design: .monospaced))
+                            .foregroundColor(.white)
+                            .frame(width: 80, height: 100)
+                            .background(Color.white.opacity(0.1))
+                            .cornerRadius(14)
+                    }
+                }
+
+                VStack(spacing: 8) {
+                    Text("en **flow.com.ar/vincular**")
+                        .font(.body)
+                        .foregroundColor(Color.white.opacity(0.5))
+                    Text("o en la app Flow > Vincular dispositivo")
+                        .font(.callout)
+                        .foregroundColor(Color.white.opacity(0.35))
+                }
+                .multilineTextAlignment(.center)
+            }
         }
+        .padding(.bottom, 16)
+
+        // Retry button below
+        Button(action: {
+            authManager.resetEasyLogin()
+            authManager.startEasyLogin()
+        }) {
+            Text("Generar nuevo código")
+                .font(.callout.weight(.medium))
+                .frame(width: 540, height: 56)
+                .background(Color.white.opacity(0.08))
+                .foregroundColor(Color.white.opacity(0.7))
+                .cornerRadius(16)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - QR Code Generation
+
+    private func generateQRCode(from string: String) -> UIImage? {
+        let context = CIContext()
+        let filter = CIFilter.qrCodeGenerator()
+        filter.message = Data(string.utf8)
+        filter.correctionLevel = "M"
+
+        guard let outputImage = filter.outputImage else { return nil }
+
+        // Scale up for crisp rendering
+        let scale = 240.0 / outputImage.extent.width
+        let scaledImage = outputImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+
+        guard let cgImage = context.createCGImage(scaledImage, from: scaledImage.extent) else {
+            return nil
+        }
+        return UIImage(cgImage: cgImage)
     }
 }
