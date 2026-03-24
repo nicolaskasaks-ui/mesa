@@ -6,27 +6,246 @@
 	objectVersion = 56;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		F100000001 /* FlowTVApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000001; };
+		F100000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000002; };
+		F100000003 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000003; };
+		F100000004 /* Channel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000004; };
+		F100000005 /* VODContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000005; };
+		F100000006 /* User.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000006; };
+		F100000007 /* EPG.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000007; };
+		F100000008 /* FlowAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000008; };
+		F100000009 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000009; };
+		F10000000A /* MockData.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000A; };
+		F10000000B /* StreamingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000B; };
+		F10000000C /* FairPlayDRMManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000C; };
+		F10000000D /* FavoritesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000D; };
+		F10000000E /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000E; };
+		F10000000F /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000F; };
+		F100000010 /* LiveTVView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000010; };
+		F100000011 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000011; };
+		F100000012 /* OnDemandView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000012; };
+		F100000013 /* ContentDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000013; };
+		F100000014 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000014; };
+		F100000015 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000015; };
+		F100000016 /* Color+Flow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000016; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		F200000001 /* FlowTVApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowTVApp.swift; sourceTree = "<group>"; };
+		F200000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		F200000003 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		F200000004 /* Channel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Channel.swift; sourceTree = "<group>"; };
+		F200000005 /* VODContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VODContent.swift; sourceTree = "<group>"; };
+		F200000006 /* User.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = User.swift; sourceTree = "<group>"; };
+		F200000007 /* EPG.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EPG.swift; sourceTree = "<group>"; };
+		F200000008 /* FlowAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowAPIService.swift; sourceTree = "<group>"; };
+		F200000009 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
+		F20000000A /* MockData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockData.swift; sourceTree = "<group>"; };
+		F20000000B /* StreamingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingService.swift; sourceTree = "<group>"; };
+		F20000000C /* FairPlayDRMManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FairPlayDRMManager.swift; sourceTree = "<group>"; };
+		F20000000D /* FavoritesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesManager.swift; sourceTree = "<group>"; };
+		F20000000E /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		F20000000F /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		F200000010 /* LiveTVView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTVView.swift; sourceTree = "<group>"; };
+		F200000011 /* PlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
+		F200000012 /* OnDemandView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDemandView.swift; sourceTree = "<group>"; };
+		F200000013 /* ContentDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentDetailView.swift; sourceTree = "<group>"; };
+		F200000014 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
+		F200000015 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		F200000016 /* Color+Flow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Flow.swift"; sourceTree = "<group>"; };
+		F200000017 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F200000050 /* FlowTV.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FlowTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		F300000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXGroup section */
-		ROOT_GROUP = {
+		F400000001 /* Root */ = {
 			isa = PBXGroup;
 			children = (
-				APP_GROUP,
+				F400000002 /* FlowTV */,
+				F400000010 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		APP_GROUP = {
+		F400000010 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				F200000050 /* FlowTV.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F400000002 /* FlowTV */ = {
+			isa = PBXGroup;
+			children = (
+				F400000003 /* App */,
+				F400000004 /* Models */,
+				F400000005 /* Services */,
+				F400000006 /* Views */,
+				F40000000B /* Extensions */,
+				F200000017 /* Info.plist */,
 			);
 			path = FlowTV;
 			sourceTree = "<group>";
 		};
+		F400000003 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				F200000001 /* FlowTVApp.swift */,
+				F200000002 /* ContentView.swift */,
+				F200000003 /* MainTabView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		F400000004 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				F200000004 /* Channel.swift */,
+				F200000005 /* VODContent.swift */,
+				F200000006 /* User.swift */,
+				F200000007 /* EPG.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		F400000005 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				F200000008 /* FlowAPIService.swift */,
+				F200000009 /* AuthManager.swift */,
+				F20000000A /* MockData.swift */,
+				F20000000B /* StreamingService.swift */,
+				F20000000C /* FairPlayDRMManager.swift */,
+				F20000000D /* FavoritesManager.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		F400000006 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				F400000007 /* Auth */,
+				F400000008 /* Home */,
+				F400000009 /* LiveTV */,
+				F40000000C /* Player */,
+				F40000000D /* OnDemand */,
+				F40000000E /* Search */,
+				F40000000F /* Settings */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		F400000007 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				F20000000E /* LoginView.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		F400000008 /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				F20000000F /* HomeView.swift */,
+			);
+			path = Home;
+			sourceTree = "<group>";
+		};
+		F400000009 /* LiveTV */ = {
+			isa = PBXGroup;
+			children = (
+				F200000010 /* LiveTVView.swift */,
+			);
+			path = LiveTV;
+			sourceTree = "<group>";
+		};
+		F40000000C /* Player */ = {
+			isa = PBXGroup;
+			children = (
+				F200000011 /* PlayerView.swift */,
+			);
+			path = Player;
+			sourceTree = "<group>";
+		};
+		F40000000D /* OnDemand */ = {
+			isa = PBXGroup;
+			children = (
+				F200000012 /* OnDemandView.swift */,
+				F200000013 /* ContentDetailView.swift */,
+			);
+			path = OnDemand;
+			sourceTree = "<group>";
+		};
+		F40000000E /* Search */ = {
+			isa = PBXGroup;
+			children = (
+				F200000014 /* SearchView.swift */,
+			);
+			path = Search;
+			sourceTree = "<group>";
+		};
+		F40000000F /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				F200000015 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		F40000000B /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				F200000016 /* Color+Flow.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
+/* Begin PBXNativeTarget section */
+		F500000001 /* FlowTV */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F700000003 /* Build configuration list for PBXNativeTarget "FlowTV" */;
+			buildPhases = (
+				F600000001 /* Sources */,
+				F300000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FlowTV;
+			productName = FlowTV;
+			productReference = F200000050 /* FlowTV.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
 /* Begin PBXProject section */
-		PROJECT_ROOT = {
+		F800000001 /* Project object */ = {
 			isa = PBXProject;
-			buildConfigurationList = PROJECT_BUILD_CONFIG_LIST;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					F500000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = F700000001 /* Build configuration list for PBXProject "FlowTV" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = es;
 			hasScannedForEncodings = 0;
@@ -35,15 +254,237 @@
 				en,
 				Base,
 			);
-			mainGroup = ROOT_GROUP;
-			productRefGroup = PRODUCTS_GROUP;
+			mainGroup = F400000001 /* Root */;
+			productRefGroup = F400000010 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				F500000001 /* FlowTV */,
 			);
 		};
 /* End PBXProject section */
 
+/* Begin PBXSourcesBuildPhase section */
+		F600000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F100000001 /* FlowTVApp.swift in Sources */,
+				F100000002 /* ContentView.swift in Sources */,
+				F100000003 /* MainTabView.swift in Sources */,
+				F100000004 /* Channel.swift in Sources */,
+				F100000005 /* VODContent.swift in Sources */,
+				F100000006 /* User.swift in Sources */,
+				F100000007 /* EPG.swift in Sources */,
+				F100000008 /* FlowAPIService.swift in Sources */,
+				F100000009 /* AuthManager.swift in Sources */,
+				F10000000A /* MockData.swift in Sources */,
+				F10000000B /* StreamingService.swift in Sources */,
+				F10000000C /* FairPlayDRMManager.swift in Sources */,
+				F10000000D /* FavoritesManager.swift in Sources */,
+				F10000000E /* LoginView.swift in Sources */,
+				F10000000F /* HomeView.swift in Sources */,
+				F100000010 /* LiveTVView.swift in Sources */,
+				F100000011 /* PlayerView.swift in Sources */,
+				F100000012 /* OnDemandView.swift in Sources */,
+				F100000013 /* ContentDetailView.swift in Sources */,
+				F100000014 /* SearchView.swift in Sources */,
+				F100000015 /* SettingsView.swift in Sources */,
+				F100000016 /* Color+Flow.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		F900000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = appletvos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Debug;
+		};
+		F900000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = appletvos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		F900000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FlowTV/Info.plist;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.flowtv.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 3;
+			};
+			name = Debug;
+		};
+		F900000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "App Icon & Top Shelf Image";
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FlowTV/Info.plist;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.flowtv.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 3;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		F700000001 /* Build configuration list for PBXProject "FlowTV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F900000001 /* Debug */,
+				F900000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F700000003 /* Build configuration list for PBXNativeTarget "FlowTV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F900000003 /* Debug */,
+				F900000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
 	};
-	rootObject = PROJECT_ROOT;
+	rootObject = F800000001 /* Project object */;
 }
