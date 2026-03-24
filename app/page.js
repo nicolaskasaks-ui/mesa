@@ -77,6 +77,7 @@ export default function MeantimeCustomer() {
   const [barRedeemed, setBarRedeemed] = useState(false);
   const [arrivalCountdown, setArrivalCountdown] = useState(null);
   const [toast, setToast] = useState(null);
+  const [waitPrediction, setWaitPrediction] = useState(null);
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
 
   // Restore returning customer + check referral code
@@ -157,6 +158,22 @@ export default function MeantimeCustomer() {
       }).subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [entry]);
+
+  // Fetch ML wait time prediction
+  useEffect(() => {
+    if (!entry || !position || position < 1) { setWaitPrediction(null); return; }
+    let cancelled = false;
+    const fetchPrediction = async () => {
+      try {
+        const res = await fetch(`/api/predict-wait?party_size=${party}&queue_position=${position}`);
+        const data = await res.json();
+        if (!cancelled) setWaitPrediction(data);
+      } catch {}
+    };
+    fetchPrediction();
+    const iv = setInterval(fetchPrediction, 60000); // refresh every minute
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [entry, position, party]);
 
   // Always track distance to Chuí and push every 15s
   useEffect(() => {
@@ -484,6 +501,33 @@ export default function MeantimeCustomer() {
             {queueCount} en espera
           </div>
         </div>
+        {/* ML wait estimate */}
+        {waitPrediction && waitPrediction.confidence !== "fallback" && (
+          <div style={{ marginTop: "16px", padding: "14px 20px", borderRadius: T.radiusSm, background: T.bgPage, display: "inline-flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <span style={{
+                width: "7px", height: "7px", borderRadius: "50%", display: "inline-block",
+                background: waitPrediction.confidence === "high" ? T.success : waitPrediction.confidence === "medium" ? T.warn : T.danger,
+              }} />
+              <span style={{ fontFamily: f.display, fontSize: "18px", fontWeight: "700", color: T.text }}>
+                Espera estimada: ~{waitPrediction.estimated_minutes} min
+              </span>
+            </div>
+            {waitPrediction.range && (
+              <span style={{ fontSize: "12px", color: T.textLight, fontFamily: f.sans }}>
+                entre {waitPrediction.range.min} y {waitPrediction.range.max} min
+              </span>
+            )}
+          </div>
+        )}
+        {waitPrediction && waitPrediction.confidence === "fallback" && (
+          <div style={{ marginTop: "16px", padding: "14px 20px", borderRadius: T.radiusSm, background: T.bgPage, display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ fontFamily: f.display, fontSize: "18px", fontWeight: "700", color: T.text }}>
+              Espera estimada: ~{waitPrediction.estimated_minutes} min
+            </span>
+          </div>
+        )}
+
         {/* Position change notification — animated */}
         {prevPosition !== null && prevPosition !== position && position > 0 && (
           <div className="card-enter" style={{ marginTop: "14px", fontSize: "13px", color: T.success, fontWeight: "700", padding: "8px 16px", borderRadius: "10px", background: T.successLight, display: "inline-block" }}>

@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let log = Logger(subsystem: "com.flowtv.app", category: "EasyLogin")
 
 /// Easy Login service for Flow SmartTV.
 /// Flow: 1) GET /easylogin/v1/code → get code+sessionID
@@ -15,7 +18,7 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
     }
 
     @Published var state: LoginState = .idle {
-        didSet { print("[EasyLogin] State changed to: \(state)") }
+        didSet { log.info("[EasyLogin] State changed to: \(String(describing: self.state))") }
     }
     @Published var accountId: String?
 
@@ -37,7 +40,7 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
     func start() {
         disconnect()
         DispatchQueue.main.async { self.state = .connecting }
-        print("[EasyLogin] Starting...")
+        log.info("[EasyLogin] Starting...")
 
         // Step 1: Fetch companion code via HTTP
         fetchCode()
@@ -79,19 +82,19 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
         request.setValue(Self.ua, forHTTPHeaderField: "User-Agent")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        print("[EasyLogin] GET \(Self.codeURL)")
+        log.info("[EasyLogin] GET \(Self.codeURL)")
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             guard let self = self else { return }
 
             if let error = error {
-                print("[EasyLogin] HTTP error: \(error)")
+                log.info("[EasyLogin] HTTP error: \(error)")
                 DispatchQueue.main.async { self.state = .failed("Error de conexión") }
                 return
             }
 
             let http = response as? HTTPURLResponse
-            print("[EasyLogin] HTTP \(http?.statusCode ?? 0)")
+            log.info("[EasyLogin] HTTP \(http?.statusCode ?? 0)")
 
             guard let data = data else {
                 DispatchQueue.main.async { self.state = .failed("Sin respuesta") }
@@ -99,13 +102,13 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
             }
 
             let body = String(data: data, encoding: .utf8) ?? ""
-            print("[EasyLogin] Response: \(body.prefix(500))")
+            log.info("[EasyLogin] Response: \(body.prefix(500))")
 
             // Try to parse code and sessionID from response
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                 let code = json["code"] as? String
                 let session = json["sessionID"] as? String ?? json["sessionId"] as? String ?? json["session"] as? String
-                print("[EasyLogin] Parsed code: \(code ?? "nil"), session: \(session ?? "nil")")
+                log.info("[EasyLogin] Parsed code: \(code ?? "nil"), session: \(session ?? "nil")")
 
                 if let code = code {
                     self.companionCode = code
@@ -147,16 +150,20 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
 
         DispatchQueue.main.async { self.startPingTimer() }
 
-        // Timeout
-        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
+        // Timeout — code is valid for 5 minutes
+        DispatchQueue.main.asyncAfter(deadline: .now() + 300) { [weak self] in
             guard let self = self else { return }
-            if case .showingCode = self.state { return }
+            if case .showingCode = self.state {
+                self.state = .failed("El código expiró. Generá uno nuevo.")
+                self.disconnect()
+                return
+            }
             if case .authenticated = self.state { return }
             if case .idle = self.state { return }
             self.state = .failed("Timeout. Intentá de nuevo.")
         }
 
-        print("[EasyLogin] WebSocket connecting to \(Self.wsURL)")
+        log.info("[EasyLogin] WebSocket connecting to \(Self.wsURL)")
     }
 
     // MARK: - WebSocket Messages
@@ -169,7 +176,7 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
                 self.handleMessage(message)
                 self.receiveMessage()
             case .failure(let error):
-                print("[EasyLogin] WS receive error: \(error)")
+                log.info("[EasyLogin] WS receive error: \(error)")
                 DispatchQueue.main.async {
                     if case .authenticated = self.state { return }
                     self.state = .failed("Conexión perdida")
@@ -186,7 +193,7 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
         @unknown default: return
         }
 
-        print("[EasyLogin] WS message: \(text.prefix(200))")
+        log.info("[EasyLogin] WS message: \(text.prefix(200))")
 
         guard let data = text.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
@@ -197,7 +204,7 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
         switch method {
         case "code":
             // Server ready — send our pre-registered code
-            print("[EasyLogin] Server ready, sending start with code: \(companionCode ?? "?")")
+            log.info("[EasyLogin] Server ready, sending start with code: \(self.companionCode ?? "?")")
             guard let code = companionCode else { return }
             var startData: [String: Any] = [
                 "code": code,
@@ -216,7 +223,7 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
         case "start":
             // Server confirmed — show code
             if let dataDict = msgData as? [String: Any], let code = dataDict["code"] as? String {
-                print("[EasyLogin] Server confirmed code: \(code)")
+                log.info("[EasyLogin] Server confirmed code: \(code)")
                 DispatchQueue.main.async { self.state = .showingCode(code) }
             }
 
@@ -224,7 +231,7 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
             if let dataDict = msgData as? [String: Any],
                let token = dataDict["flowaccesstoken"] as? String {
                 let account = dataDict["accountId"] as? String
-                print("[EasyLogin] Authenticated! account: \(account ?? "?")")
+                log.info("[EasyLogin] Authenticated! account: \(account ?? "?")")
                 DispatchQueue.main.async {
                     self.accountId = account
                     self.state = .authenticated(token)
@@ -236,20 +243,20 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
         case "error":
             let errData = msgData as? [String: Any]
             let msg = errData?["message"] as? String ?? "Error"
-            print("[EasyLogin] Server error: \(msg)")
+            log.info("[EasyLogin] Server error: \(msg)")
             DispatchQueue.main.async { self.state = .failed(msg) }
 
         default:
-            print("[EasyLogin] Unhandled: \(method) - \(json)")
+            log.info("[EasyLogin] Unhandled: \(method) - \(json)")
         }
     }
 
     private func sendJSON(_ dict: [String: Any]) {
         guard let data = try? JSONSerialization.data(withJSONObject: dict),
               let text = String(data: data, encoding: .utf8) else { return }
-        print("[EasyLogin] Sending: \(text)")
+        log.info("[EasyLogin] Sending: \(text)")
         webSocket?.send(.string(text)) { error in
-            if let error { print("[EasyLogin] Send error: \(error)") }
+            if let error { log.info("[EasyLogin] Send error: \(error)") }
         }
     }
 
@@ -265,10 +272,10 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
     // MARK: - URLSessionWebSocketDelegate
 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol proto: String?) {
-        print("[EasyLogin] WebSocket connected")
+        log.info("[EasyLogin] WebSocket connected")
     }
 
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith code: URLSessionWebSocketTask.CloseCode, reason: Data?) {
-        print("[EasyLogin] WebSocket closed: \(code)")
+        log.info("[EasyLogin] WebSocket closed: \(code.rawValue)")
     }
 }

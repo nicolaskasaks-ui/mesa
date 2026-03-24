@@ -28,6 +28,7 @@ enum MockData {
     // Apple's public HLS test streams for demo mode
     private static let testStream1 = "https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_adv_example_hevc/master.m3u8"
     private static let testStream2 = "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8"
+    private static let testStream3 = "https://devstreaming-cdn.apple.com/videos/streaming/examples/adv_dv_atmos/main.m3u8"
 
     static let channels: [Channel] = [
         Channel(id: "ch-eltrece", number: 13, name: "eltrece", logoURL: nil, category: .entretenimiento, isHD: true, streamURL: testStream1, currentProgram: sampleProgram("Pasapalabra", "Entretenimiento"), nextProgram: nil),
@@ -68,28 +69,28 @@ enum MockData {
     // MARK: - VOD Content
 
     static let vodItems: [VODContent] = [
-        VODContent(id: "vod-001", title: "Argentina, 1985", originalTitle: nil, description: "La historia del juicio a las juntas militares de la última dictadura argentina, liderado por los fiscales Julio Strassera y Luis Moreno Ocampo.", year: 2022, duration: 140, rating: "ATP +13", genre: ["Drama", "Historia"], posterURL: nil, backdropURL: nil, streamURL: nil, contentType: .movie, seasons: nil, isFavorite: false),
-        VODContent(id: "vod-002", title: "El Secreto de sus Ojos", originalTitle: nil, description: "Un empleado judicial retirado escribe una novela basada en un caso que lo marcó: la violación y asesinato de una joven.", year: 2009, duration: 129, rating: "ATP +16", genre: ["Drama", "Thriller"], posterURL: nil, backdropURL: nil, streamURL: nil, contentType: .movie, seasons: nil, isFavorite: true),
-        VODContent(id: "vod-003", title: "Relatos Salvajes", originalTitle: nil, description: "Seis historias independientes conectadas por la violencia y la venganza en la sociedad argentina moderna.", year: 2014, duration: 122, rating: "ATP +16", genre: ["Comedia", "Drama", "Thriller"], posterURL: nil, backdropURL: nil, streamURL: nil, contentType: .movie, seasons: nil, isFavorite: false),
-        VODContent(id: "vod-004", title: "El Clan", originalTitle: nil, description: "La historia real de la familia Puccio, que secuestraba personas durante la transición democrática argentina.", year: 2015, duration: 110, rating: "ATP +16", genre: ["Drama", "Thriller"], posterURL: nil, backdropURL: nil, streamURL: nil, contentType: .movie, seasons: nil, isFavorite: false),
-        VODContent(id: "vod-005", title: "Nueve Reinas", originalTitle: nil, description: "Dos estafadores se encuentran y planean un gran golpe con unas estampillas falsas.", year: 2000, duration: 114, rating: "ATP +13", genre: ["Comedia", "Drama", "Thriller"], posterURL: nil, backdropURL: nil, streamURL: nil, contentType: .movie, seasons: nil, isFavorite: true),
-        VODContent(id: "vod-006", title: "La Odisea de los Giles", originalTitle: nil, description: "Un grupo de vecinos de un pueblo decide recuperar sus ahorros tras ser estafados durante la crisis de 2001.", year: 2019, duration: 116, rating: "ATP +13", genre: ["Comedia", "Drama"], posterURL: nil, backdropURL: nil, streamURL: nil, contentType: .movie, seasons: nil, isFavorite: false),
-        VODContent(id: "vod-007", title: "El Marginal", originalTitle: nil, description: "Un ex policía se infiltra en una cárcel para rescatar a la hija de un juez, descubriendo un mundo de corrupción y violencia.", year: 2016, duration: nil, rating: "ATP +16", genre: ["Drama", "Acción"], posterURL: nil, backdropURL: nil, streamURL: nil, contentType: .series, seasons: [
+        VODContent(id: "vod-001", title: "Argentina, 1985", originalTitle: nil, description: "La historia del juicio a las juntas militares de la última dictadura argentina, liderado por los fiscales Julio Strassera y Luis Moreno Ocampo.", year: 2022, duration: 140, rating: "ATP +13", genre: ["Drama", "Historia"], posterURL: nil, backdropURL: nil, streamURL: testStream1, contentType: .movie, seasons: nil, isFavorite: false),
+        VODContent(id: "vod-002", title: "El Secreto de sus Ojos", originalTitle: nil, description: "Un empleado judicial retirado escribe una novela basada en un caso que lo marcó: la violación y asesinato de una joven.", year: 2009, duration: 129, rating: "ATP +16", genre: ["Drama", "Thriller"], posterURL: nil, backdropURL: nil, streamURL: testStream2, contentType: .movie, seasons: nil, isFavorite: true),
+        VODContent(id: "vod-003", title: "Relatos Salvajes", originalTitle: nil, description: "Seis historias independientes conectadas por la violencia y la venganza en la sociedad argentina moderna.", year: 2014, duration: 122, rating: "ATP +16", genre: ["Comedia", "Drama", "Thriller"], posterURL: nil, backdropURL: nil, streamURL: testStream3, contentType: .movie, seasons: nil, isFavorite: false),
+        VODContent(id: "vod-004", title: "El Clan", originalTitle: nil, description: "La historia real de la familia Puccio, que secuestraba personas durante la transición democrática argentina.", year: 2015, duration: 110, rating: "ATP +16", genre: ["Drama", "Thriller"], posterURL: nil, backdropURL: nil, streamURL: testStream1, contentType: .movie, seasons: nil, isFavorite: false),
+        VODContent(id: "vod-005", title: "Nueve Reinas", originalTitle: nil, description: "Dos estafadores se encuentran y planean un gran golpe con unas estampillas falsas.", year: 2000, duration: 114, rating: "ATP +13", genre: ["Comedia", "Drama", "Thriller"], posterURL: nil, backdropURL: nil, streamURL: testStream2, contentType: .movie, seasons: nil, isFavorite: true),
+        VODContent(id: "vod-006", title: "La Odisea de los Giles", originalTitle: nil, description: "Un grupo de vecinos de un pueblo decide recuperar sus ahorros tras ser estafados durante la crisis de 2001.", year: 2019, duration: 116, rating: "ATP +13", genre: ["Comedia", "Drama"], posterURL: nil, backdropURL: nil, streamURL: testStream3, contentType: .movie, seasons: nil, isFavorite: false),
+        VODContent(id: "vod-007", title: "El Marginal", originalTitle: nil, description: "Un ex policía se infiltra en una cárcel para rescatar a la hija de un juez, descubriendo un mundo de corrupción y violencia.", year: 2016, duration: nil, rating: "ATP +16", genre: ["Drama", "Acción"], posterURL: nil, backdropURL: nil, streamURL: testStream1, contentType: .series, seasons: [
             Season(id: "s1", number: 1, episodes: (1...13).map { ep in
-                Episode(id: "s1e\(ep)", number: ep, title: "Episodio \(ep)", description: nil, duration: 45, imageURL: nil, streamURL: nil)
+                Episode(id: "s1e\(ep)", number: ep, title: "Episodio \(ep)", description: nil, duration: 45, imageURL: nil, streamURL: testStream2)
             })
         ], isFavorite: true),
-        VODContent(id: "vod-008", title: "El Encargado", originalTitle: nil, description: "Eliseo es el encargado de un edificio en Buenos Aires que manipula a los vecinos para su beneficio.", year: 2022, duration: nil, rating: "ATP +13", genre: ["Comedia", "Drama"], posterURL: nil, backdropURL: nil, streamURL: nil, contentType: .series, seasons: [
+        VODContent(id: "vod-008", title: "El Encargado", originalTitle: nil, description: "Eliseo es el encargado de un edificio en Buenos Aires que manipula a los vecinos para su beneficio.", year: 2022, duration: nil, rating: "ATP +13", genre: ["Comedia", "Drama"], posterURL: nil, backdropURL: nil, streamURL: testStream2, contentType: .series, seasons: [
             Season(id: "s1", number: 1, episodes: (1...10).map { ep in
-                Episode(id: "s1e\(ep)", number: ep, title: "Episodio \(ep)", description: nil, duration: 30, imageURL: nil, streamURL: nil)
+                Episode(id: "s1e\(ep)", number: ep, title: "Episodio \(ep)", description: nil, duration: 30, imageURL: nil, streamURL: testStream1)
             })
         ], isFavorite: false),
-        VODContent(id: "vod-009", title: "Ocupas", originalTitle: nil, description: "Un joven de clase media termina viviendo en una casa okupa, donde descubre una realidad muy diferente.", year: 2000, duration: nil, rating: "ATP +16", genre: ["Drama"], posterURL: nil, backdropURL: nil, streamURL: nil, contentType: .series, seasons: [
+        VODContent(id: "vod-009", title: "Ocupas", originalTitle: nil, description: "Un joven de clase media termina viviendo en una casa okupa, donde descubre una realidad muy diferente.", year: 2000, duration: nil, rating: "ATP +16", genre: ["Drama"], posterURL: nil, backdropURL: nil, streamURL: testStream3, contentType: .series, seasons: [
             Season(id: "s1", number: 1, episodes: (1...11).map { ep in
-                Episode(id: "s1e\(ep)", number: ep, title: "Episodio \(ep)", description: nil, duration: 50, imageURL: nil, streamURL: nil)
+                Episode(id: "s1e\(ep)", number: ep, title: "Episodio \(ep)", description: nil, duration: 50, imageURL: nil, streamURL: testStream1)
             })
         ], isFavorite: false),
-        VODContent(id: "vod-010", title: "Esperando la Carroza", originalTitle: nil, description: "Una familia disfuncional argentina enfrenta el caos cuando desaparece la abuela Mamá Cora.", year: 1985, duration: 87, rating: "ATP", genre: ["Comedia"], posterURL: nil, backdropURL: nil, streamURL: nil, contentType: .movie, seasons: nil, isFavorite: true),
+        VODContent(id: "vod-010", title: "Esperando la Carroza", originalTitle: nil, description: "Una familia disfuncional argentina enfrenta el caos cuando desaparece la abuela Mamá Cora.", year: 1985, duration: 87, rating: "ATP", genre: ["Comedia"], posterURL: nil, backdropURL: nil, streamURL: testStream2, contentType: .movie, seasons: nil, isFavorite: true),
     ]
 
     // MARK: - VOD Categories
@@ -115,9 +116,9 @@ enum MockData {
     // MARK: - Continue Watching
 
     static let continueWatching: [ContinueWatching] = [
-        ContinueWatching(id: "cw-1", contentId: "vod-007", title: "El Marginal - T1 E5", imageURL: nil, progress: 0.65, streamURL: nil, lastWatched: Date().addingTimeInterval(-3600)),
-        ContinueWatching(id: "cw-2", contentId: "vod-008", title: "El Encargado - T1 E3", imageURL: nil, progress: 0.3, streamURL: nil, lastWatched: Date().addingTimeInterval(-7200)),
-        ContinueWatching(id: "cw-3", contentId: "vod-001", title: "Argentina, 1985", imageURL: nil, progress: 0.45, streamURL: nil, lastWatched: Date().addingTimeInterval(-86400)),
+        ContinueWatching(id: "cw-1", contentId: "vod-007", title: "El Marginal - T1 E5", imageURL: nil, progress: 0.65, streamURL: testStream1, lastWatched: Date().addingTimeInterval(-3600)),
+        ContinueWatching(id: "cw-2", contentId: "vod-008", title: "El Encargado - T1 E3", imageURL: nil, progress: 0.3, streamURL: testStream2, lastWatched: Date().addingTimeInterval(-7200)),
+        ContinueWatching(id: "cw-3", contentId: "vod-001", title: "Argentina, 1985", imageURL: nil, progress: 0.45, streamURL: testStream3, lastWatched: Date().addingTimeInterval(-86400)),
     ]
 
     // MARK: - Helpers

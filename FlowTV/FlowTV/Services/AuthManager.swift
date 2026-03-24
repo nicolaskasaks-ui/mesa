@@ -1,5 +1,8 @@
 import Foundation
 import SwiftUI
+import os
+
+private let authLog = Logger(subsystem: "com.flowtv.app", category: "AuthManager")
 
 @MainActor
 class AuthManager: ObservableObject {
@@ -39,9 +42,38 @@ class AuthManager: ObservableObject {
         isLoading = true
         errorMessage = nil
 
+        authLog.info("[Auth] completeEasyLogin called. token length: \(token.count), account: \(accountId ?? "nil")")
+
+        // Save token to temp file for API testing
+        let tokenPath = NSTemporaryDirectory() + "flow_token.txt"
+        try? token.write(toFile: tokenPath, atomically: true, encoding: .utf8)
+        authLog.info("[Auth] Token saved to \(tokenPath)")
+
         let api = apiService ?? FlowAPIService()
-        api.setJWTToken(token)
-        apiService?.setJWTToken(token)
+
+        // The EasyLogin WebSocket returns an identity JWT from the auth-sdk.
+        // We need to provision a device session to get a content API token.
+        var contentToken = token
+
+        // Step 1: Try to provision via gateway login/v2 (what the SmartTV Minerva SDK does)
+        do {
+            let sessionToken = try await api.provisionWithToken(token)
+            authLog.info("[Auth] Provisioned device, got session token length: \(sessionToken.count)")
+            contentToken = sessionToken
+        } catch {
+            authLog.info("[Auth] Provision failed: \(error). Trying token exchange...")
+            // Step 2: Fallback — try exchanging via auth-sdk
+            do {
+                let flowToken = try await api.fetchFlowAccessToken(bearerToken: token)
+                authLog.info("[Auth] Exchanged JWT for Flow access token, length: \(flowToken.count)")
+                contentToken = flowToken
+            } catch {
+                authLog.info("[Auth] Token exchange also failed: \(error). Using original token.")
+            }
+        }
+
+        api.setJWTToken(contentToken)
+        apiService?.setJWTToken(contentToken)
 
         let id = accountId ?? "user"
 
@@ -56,8 +88,8 @@ class AuthManager: ObservableObject {
         )
 
         let authToken = AuthToken(
-            accessToken: token,
-            refreshToken: "",
+            accessToken: contentToken,
+            refreshToken: token, // keep original JWT as refresh
             expiresAt: Date().addingTimeInterval(43200)
         )
 
@@ -71,6 +103,16 @@ class AuthManager: ObservableObject {
         if let vuid = api.vuid {
             streamingService?.setVUID(vuid)
         }
+
+        // Pre-load channels right away
+        authLog.info("[Auth] Authenticated. Loading content...")
+        await api.fetchChannels()
+        authLog.info("[Auth] Channels loaded: \(api.channels.count)")
+
+        // Start the Minerva WebBridge to get real channel data from the CSDK
+        // The bridge loads the SmartTV web app in a hidden WKWebView
+        authLog.info("[Auth] Starting Minerva WebBridge for real API access...")
+        MinervaWebBridge.shared.start(with: token)
 
         Task {
             try? await streamingService?.registerPRM()

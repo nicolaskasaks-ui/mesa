@@ -87,16 +87,10 @@ export default function HostDashboard() {
   const [now, setNow] = useState(Date.now());
   const [confirmAssign, setConfirmAssign] = useState(null);
   const [seatedToday, setSeatedToday] = useState(0);
-  const [seatedBySource, setSeatedBySource] = useState({ meantime: 0, walkin: 0, opentable: 0 });
   const [undoTable, setUndoTable] = useState(null);
   const [profileEntry, setProfileEntry] = useState(null);
-  const [draggingEntry, setDraggingEntry] = useState(null);
-  const [dropTarget, setDropTarget] = useState(null);
-  const [hostToast, setHostToast] = useState(null);
-  const [allergyConfirm, setAllergyConfirm] = useState(null); // { entry, table, allergies }
-  const [sourcePrompt, setSourcePrompt] = useState(null); // { table }
+  const [waitEstimates, setWaitEstimates] = useState({}); // { entryId: { estimated_minutes, confidence, range } }
   const longPressTimer = useRef(null);
-  const prevQueueRef = useRef([]);
 
   // Check if already authed from session + set host title
   useEffect(() => {
@@ -107,120 +101,53 @@ export default function HostDashboard() {
   }, []);
 
   const fetchAll = async () => {
-    try {
-      const [tablesRes, queueRes] = await Promise.all([
-        fetch("/api/tables").then(r => r.json()),
-        fetch("/api/waitlist").then(r => r.json()),
-      ]);
-      if (Array.isArray(tablesRes)) setTables(tablesRes);
-      if (Array.isArray(queueRes)) {
-        // Detect new "confirmado" arrivals
-        const prev = prevQueueRef.current;
-        for (const entry of queueRes) {
-          if (entry.activity === "confirmado") {
-            const prevEntry = prev.find(p => p.id === entry.id);
-            if (!prevEntry || prevEntry.activity !== "confirmado") {
-              const dist = entry.distance_m;
-              const eta = dist != null && dist > 0 ? Math.max(1, Math.ceil(dist / 80)) : null;
-              setHostToast({
-                name: entry.guest_name,
-                party: entry.party_size,
-                eta,
-                dist,
-                ts: Date.now(),
-              });
-              // Vibrate if supported
-              if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-            }
-          }
-        }
-        prevQueueRef.current = queueRes;
-        setQueue(queueRes);
-      }
-      // Count seated today by source
-      if (supabase) {
-        const today = new Date().toISOString().slice(0, 10);
-        const { data: seatedData } = await supabase.from("waitlist")
-          .select("id, source")
-          .eq("status", "seated")
-          .gte("seated_at", `${today}T00:00:00`);
-        if (seatedData) {
-          setSeatedToday(seatedData.length);
-          const mt = seatedData.filter(s => s.source === "qr" || s.source === "whatsapp").length;
-          const ot = seatedData.filter(s => s.source === "opentable").length;
-          const wi = seatedData.length - mt - ot;
-          setSeatedBySource({ meantime: mt, walkin: wi, opentable: ot });
-        }
-      }
-    } catch (e) {
-      console.error("fetchAll error:", e);
-    }
+    if (!supabase) return;
+    const [t, q] = await Promise.all([
+      supabase.from("tables").select("*, waitlist(guest_name, party_size)").order("id"),
+      supabase.from("waitlist")
+        .select("*, customers(id, name, phone, allergies, visit_count, trust_level, no_show_count, last_visit)")
+        .in("status", ["waiting", "notified", "extended"])
+        .order("joined_at", { ascending: true }),
+    ]);
+    if (t.data) setTables(t.data);
+    if (q.data) setQueue(q.data);
+    // Count seated today
+    const today = new Date().toISOString().slice(0, 10);
+    const { count } = await supabase.from("waitlist")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "seated")
+      .gte("seated_at", `${today}T00:00:00`);
+    setSeatedToday(count || 0);
     setLoading(false);
   };
 
   useEffect(() => {
     fetchAll();
-    // Realtime via Supabase channels
-    let ch1, ch2;
-    if (supabase) {
-      ch1 = supabase.channel("host-tables").on("postgres_changes", { event: "*", schema: "public", table: "tables" }, fetchAll).subscribe();
-      ch2 = supabase.channel("host-queue").on("postgres_changes", { event: "*", schema: "public", table: "waitlist" }, fetchAll).subscribe();
-    }
-    // Polling fallback every 5s (in case realtime fails)
-    const poll = setInterval(fetchAll, 5000);
+    if (!supabase) return;
+    const ch1 = supabase.channel("host-tables").on("postgres_changes", { event: "*", schema: "public", table: "tables" }, fetchAll).subscribe();
+    const ch2 = supabase.channel("host-queue").on("postgres_changes", { event: "*", schema: "public", table: "waitlist" }, fetchAll).subscribe();
     // Tick every 5s to update times + countdowns
     const tick = setInterval(() => setNow(Date.now()), 5000);
-    return () => {
-      if (ch1) supabase.removeChannel(ch1);
-      if (ch2) supabase.removeChannel(ch2);
-      clearInterval(poll);
-      clearInterval(tick);
-    };
+    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); clearInterval(tick); };
   }, []);
 
-  const seatTableAs = async (table, source) => {
-    // Create a walkin/opentable waitlist entry and seat it
-    const res = await window.fetch("/api/waitlist", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ guest_name: source === "opentable" ? "OpenTable" : "Walk-in", party_size: table.capacity, source }),
-    });
-    const entry = await res.json();
-    if (entry?.id) {
-      await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "seated" }) });
-      await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: table.id, status: "sentado", waitlist_id: entry.id }) });
-    } else {
-      await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: table.id, status: "sentado" }) });
-    }
-    setSourcePrompt(null);
-    fetchAll();
-  };
-
   const cycleTable = async (table) => {
-    // Libre → always show picker (with candidates + walk-in/OT options)
+    // Libre → show picker if candidates, else cycle
     if (table.status === "libre") {
       const candidates = getCandidates(queue, table.capacity);
-      setPicker({ table, candidates });
-      return;
+      if (candidates.length > 0) { setPicker({ table, candidates }); return; }
     }
 
     const next = STATUS_FLOW[(STATUS_FLOW.indexOf(table.status) + 1) % STATUS_FLOW.length];
-
-    // pidio_cuenta → libre: confirm before releasing
-    if (next === "libre") {
-      setUndoTable({ ...table, _confirmLiberar: true });
-      return;
-    }
-
     await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: table.id, status: next }) });
 
-    // pidio_cuenta → show picker
-    if (next === "pidio_cuenta") {
+    // Libre or pidio_cuenta → show picker (mesa is becoming available)
+    if (next === "libre" || next === "pidio_cuenta") {
       const candidates = getCandidates(queue, table.capacity);
       if (candidates.length > 0) {
         setPicker({ table: { ...table, status: next }, candidates });
       }
     }
-    fetchAll();
   };
 
   const doNotify = async (entry) => {
@@ -243,26 +170,10 @@ export default function HostDashboard() {
   };
 
   const notifyFromPicker = async (entry) => { await doNotify(entry); setPicker(null); fetchAll(); };
-  const doSeat = async (entry, targetTable) => {
-    try {
-      await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "seated" }) });
-    } catch {}
-    if (targetTable) {
-      try {
-        await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: targetTable.id, status: "sentado", waitlist_id: entry.id }) });
-      } catch {}
-    }
+  const seatDirect = async (entry) => {
+    await doNotify(entry);
+    try { await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "seated" }) }); } catch {}
     setPicker(null); fetchAll();
-  };
-
-  const seatDirect = (entry, table) => {
-    const targetTable = table || picker?.table;
-    const allergies = entry.customers?.allergies || entry.allergies || [];
-    if (allergies.length > 0) {
-      setAllergyConfirm({ entry, table: targetTable, allergies });
-    } else {
-      doSeat(entry, targetTable);
-    }
   };
   const undoSeat = async (table) => {
     // Revert table to libre and revert waitlist entry to waiting
@@ -308,6 +219,27 @@ export default function HostDashboard() {
       fetchAll();
     } catch { alert("Error de conexion"); }
   };
+
+  // Fetch ML wait time predictions for queue entries
+  useEffect(() => {
+    if (queue.length === 0) { setWaitEstimates({}); return; }
+    const waitingEntries = queue.filter(e => e.status === "waiting" || e.status === "extended");
+    let cancelled = false;
+    (async () => {
+      const newEstimates = {};
+      for (let i = 0; i < waitingEntries.length; i++) {
+        if (cancelled) break;
+        const e = waitingEntries[i];
+        try {
+          const res = await window.fetch(`/api/predict-wait?party_size=${e.party_size}&queue_position=${i + 1}`);
+          const data = await res.json();
+          if (!cancelled) newEstimates[e.id] = data;
+        } catch {}
+      }
+      if (!cancelled) setWaitEstimates(newEstimates);
+    })();
+    return () => { cancelled = true; };
+  }, [queue.length]);
 
   const libre = tables.filter(t => t.status === "libre").length;
   const waiting = queue.filter(q => q.status === "waiting").length;
@@ -380,87 +312,7 @@ export default function HostDashboard() {
   );
 
   return (
-    <div style={{ minHeight: "100dvh", fontFamily: f.sans, color: T.text }}>
-
-      {/* ── SOURCE PROMPT (libre → sentado) ── */}
-      {sourcePrompt && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}
-          onClick={(e) => { if (e.target === e.currentTarget) setSourcePrompt(null); }}>
-          <div style={{
-            background: T.card, borderRadius: "20px", padding: "28px 24px", width: "calc(100% - 48px)", maxWidth: "340px",
-            boxShadow: "0 12px 48px rgba(0,0,0,0.15)", textAlign: "center",
-          }}>
-            <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "700", color: T.text }}>Mesa {sourcePrompt.table.id}</div>
-            <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>{sourcePrompt.table.capacity} personas</div>
-            <div style={{ fontSize: "14px", color: T.textMed, marginTop: "16px", marginBottom: "16px" }}>¿Cómo llega este cliente?</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              <button onClick={() => seatTableAs(sourcePrompt.table, "walkin")} style={{
-                padding: "16px", borderRadius: "12px", background: T.accent, color: "#fff",
-                border: "none", fontSize: "15px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans,
-              }}>Walk-in</button>
-              <button onClick={() => seatTableAs(sourcePrompt.table, "opentable")} style={{
-                padding: "16px", borderRadius: "12px", background: S.pidio_cuenta.bg, color: "#fff",
-                border: "none", fontSize: "15px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans,
-              }}>OpenTable</button>
-              <button onClick={() => setSourcePrompt(null)} style={{
-                padding: "12px", borderRadius: "12px", background: T.bgPage, color: T.textMed,
-                border: `1px solid ${T.border}`, fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
-              }}>Cancelar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── ALLERGY CONFIRM MODAL ── */}
-      {allergyConfirm && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}
-          onClick={(e) => { if (e.target === e.currentTarget) setAllergyConfirm(null); }}>
-          <div style={{
-            background: T.card, borderRadius: "20px", padding: "28px 24px", width: "calc(100% - 48px)", maxWidth: "360px",
-            boxShadow: "0 12px 48px rgba(0,0,0,0.15)",
-          }}>
-            {/* Warning header */}
-            <div style={{ textAlign: "center", marginBottom: "20px" }}>
-              <div style={{ fontSize: "36px", marginBottom: "8px" }}>⚠️</div>
-              <div style={{ fontFamily: f.display, fontSize: "18px", fontWeight: "700", color: T.text }}>Alergias — Avisar al mesero</div>
-            </div>
-
-            {/* Guest info */}
-            <div style={{ textAlign: "center", marginBottom: "16px" }}>
-              <span style={{ fontFamily: f.display, fontSize: "16px", fontWeight: "700" }}>{allergyConfirm.entry.guest_name}</span>
-              <span style={{ fontSize: "14px", color: T.textMed, marginLeft: "8px" }}>{allergyConfirm.entry.party_size}p</span>
-              {allergyConfirm.table && <span style={{ fontSize: "14px", color: T.textMed, marginLeft: "8px" }}>→ Mesa {allergyConfirm.table.id}</span>}
-            </div>
-
-            {/* Allergy badges — big and prominent */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "center", marginBottom: "24px" }}>
-              {allergyConfirm.allergies.map(a => (
-                <span key={a} style={{
-                  fontSize: "14px", fontWeight: "700", padding: "8px 16px", borderRadius: "10px",
-                  background: "#C93B3B", color: "#fff", textTransform: "uppercase", letterSpacing: "0.04em",
-                }}>⚠ {a}</span>
-              ))}
-            </div>
-
-            {/* Actions */}
-            <div style={{ display: "flex", gap: "10px" }}>
-              <button onClick={() => setAllergyConfirm(null)} style={{
-                flex: 1, padding: "14px", borderRadius: "12px", background: T.bgPage,
-                color: T.textMed, border: `1px solid ${T.border}`, fontSize: "14px",
-                fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
-              }}>Cancelar</button>
-              <button onClick={() => {
-                doSeat(allergyConfirm.entry, allergyConfirm.table);
-                setAllergyConfirm(null);
-              }} style={{
-                flex: 1, padding: "14px", borderRadius: "12px", background: T.accent,
-                color: "#fff", border: "none", fontSize: "14px",
-                fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
-              }}>Sentar</button>
-            </div>
-          </div>
-        </div>
-      )}
+    <div style={{ minHeight: "100dvh", background: T.bgPage, fontFamily: f.sans, color: T.text }}>
 
       {/* ── UNDO TABLE (long-press) ── */}
       {undoTable && (
@@ -481,22 +333,8 @@ export default function HostDashboard() {
                 color: T.textMed, border: `1px solid ${T.border}`, fontSize: "14px",
                 fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
               }}>Cancelar</button>
-              <button onClick={async () => {
-                if (undoTable._confirmLiberar) {
-                  // Normal cycle: pidio_cuenta → libre
-                  await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: undoTable.id, status: "libre" }) });
-                  setUndoTable(null);
-                  // Show picker if candidates
-                  const candidates = getCandidates(queue, undoTable.capacity);
-                  if (candidates.length > 0) {
-                    setPicker({ table: { ...undoTable, status: "libre" }, candidates });
-                  }
-                  fetchAll();
-                } else {
-                  undoSeat(undoTable);
-                }
-              }} style={{
-                flex: 1, padding: "14px", borderRadius: "12px", background: S.libre.bg,
+              <button onClick={() => undoSeat(undoTable)} style={{
+                flex: 1, padding: "14px", borderRadius: "12px", background: S.pidio_cuenta.bg,
                 color: "#fff", border: "none", fontSize: "14px",
                 fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
               }}>Liberar</button>
@@ -634,28 +472,15 @@ export default function HostDashboard() {
                       {isExact && <span style={{ fontSize: "10px", fontWeight: "600", padding: "2px 6px", borderRadius: "4px", background: S.libre.bg, color: S.libre.color }}>Match exacto</span>}
                       {c?.allergies?.map(a => <span key={a} style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: S.pidio_cuenta.bg, color: S.pidio_cuenta.color }}>{a}</span>)}
                     </div>
-                    <button onClick={() => seatDirect(entry)} style={{ width: "100%", padding: "14px", marginTop: "12px", borderRadius: "10px", background: T.gold, color: "#fff", border: "none", fontSize: "14px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans }}>
-                      Sentar en mesa {picker.table.id}
-                    </button>
+                    <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+                      <button onClick={() => notifyFromPicker(entry)} style={{ flex: 1, padding: "12px", borderRadius: "10px", background: T.accent, color: "#fff", border: "none", fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans }}>Avisar</button>
+                      <button onClick={() => seatDirect(entry)} style={{ flex: 1, padding: "12px", borderRadius: "10px", background: T.bgPage, color: T.textMed, border: `1px solid ${T.border}`, fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans }}>Sentar directo</button>
+                    </div>
                   </div>
                 );
               })}
             </div>
-            {/* Walk-in / OpenTable options */}
-            <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: `1px solid ${T.cardBorder}` }}>
-              <div style={{ fontSize: "11px", color: T.textLight, fontWeight: "600", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: "10px" }}>Sin fila</div>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button onClick={() => { seatTableAs(picker.table, "walkin"); setPicker(null); }} style={{
-                  flex: 1, padding: "14px", borderRadius: "12px", background: T.accent, color: "#fff",
-                  border: "none", fontSize: "14px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans,
-                }}>Walk-in</button>
-                <button onClick={() => { seatTableAs(picker.table, "opentable"); setPicker(null); }} style={{
-                  flex: 1, padding: "14px", borderRadius: "12px", background: S.pidio_cuenta.bg, color: "#fff",
-                  border: "none", fontSize: "14px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans,
-                }}>OpenTable</button>
-              </div>
-            </div>
-            <button onClick={() => setPicker(null)} style={{ width: "100%", padding: "12px", marginTop: "10px", borderRadius: "12px", background: "transparent", color: T.textLight, border: "none", fontSize: "13px", cursor: "pointer", fontFamily: f.sans }}>Cancelar</button>
+            <button onClick={() => setPicker(null)} style={{ width: "100%", padding: "14px", marginTop: "14px", borderRadius: "12px", background: "transparent", color: T.textLight, border: "none", fontSize: "13px", cursor: "pointer", fontFamily: f.sans }}>No sentar a nadie</button>
           </div>
         </div>
       )}
@@ -667,34 +492,20 @@ export default function HostDashboard() {
             <img src="/logo-dark.png" alt="Chui" style={{ height: "28px", objectFit: "contain" }} />
             <span style={{ fontSize: "11px", color: T.textLight, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: "600" }}>Hostess</span>
           </div>
-          <div style={{ display: "flex", gap: "0", alignItems: "center" }}>
-            {/* Live status */}
-            <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: f.display, fontSize: "24px", fontWeight: "700", color: S.libre.bg }}>{libre}</div>
-                <div style={{ fontSize: "10px", color: T.textLight, fontWeight: "600", letterSpacing: "0.04em" }}>libres</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: f.display, fontSize: "24px", fontWeight: "700", color: waiting > 0 ? S.pidio_cuenta.bg : T.text }}>{waiting}</div>
-                <div style={{ fontSize: "10px", color: T.textLight, fontWeight: "600", letterSpacing: "0.04em" }}>en fila</div>
-              </div>
+          <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: f.display, fontSize: "24px", fontWeight: "700", color: S.libre.bg }}>{libre}</div>
+              <div style={{ fontSize: "10px", color: T.textLight, fontWeight: "600", letterSpacing: "0.04em" }}>libres</div>
             </div>
-            {/* Divider */}
-            <div style={{ width: "1px", height: "36px", background: T.border, margin: "0 18px" }} />
-            {/* Seated today by source */}
-            <div style={{ display: "flex", gap: "14px", alignItems: "center", padding: "6px 14px", borderRadius: "10px", background: T.bgPage }}>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: f.display, fontSize: "18px", fontWeight: "700", color: T.gold }}>{seatedBySource.meantime}</div>
-                <div style={{ fontSize: "9px", color: T.gold, fontWeight: "700", letterSpacing: "0.04em" }}>Meantime</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: f.display, fontSize: "18px", fontWeight: "700", color: T.textMed }}>{seatedBySource.walkin}</div>
-                <div style={{ fontSize: "9px", color: T.textLight, fontWeight: "600", letterSpacing: "0.04em" }}>Walk-in</div>
-              </div>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: f.display, fontSize: "18px", fontWeight: "700", color: S.pidio_cuenta.bg }}>{seatedBySource.opentable}</div>
-                <div style={{ fontSize: "9px", color: T.textLight, fontWeight: "600", letterSpacing: "0.04em" }}>OpenTable</div>
-              </div>
+            <div style={{ width: "1px", height: "28px", background: T.border }} />
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: f.display, fontSize: "24px", fontWeight: "700", color: waiting > 0 ? S.pidio_cuenta.bg : T.text }}>{waiting}</div>
+              <div style={{ fontSize: "10px", color: T.textLight, fontWeight: "600", letterSpacing: "0.04em" }}>en fila</div>
+            </div>
+            <div style={{ width: "1px", height: "28px", background: T.border }} />
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: f.display, fontSize: "24px", fontWeight: "700", color: T.text }}>{seatedToday}</div>
+              <div style={{ fontSize: "10px", color: T.textLight, fontWeight: "600", letterSpacing: "0.04em" }}>hoy</div>
             </div>
           </div>
         </div>
@@ -760,31 +571,10 @@ export default function HostDashboard() {
                     const pred = predictions[entry.id];
 
                     return (
-                      <div key={entry.id}
-                        draggable
-                        onDragStart={(e) => {
-                          setDraggingEntry(entry);
-                          e.dataTransfer.effectAllowed = "move";
-                          e.dataTransfer.setData("text/plain", entry.id);
-                          // Custom drag image — solid pill with name
-                          const ghost = document.createElement("div");
-                          ghost.textContent = `${entry.guest_name} · ${entry.party_size}p`;
-                          ghost.style.cssText = `
-                            position:fixed; top:-100px; padding:10px 18px; border-radius:12px;
-                            background:#1A1A1A; color:#fff; font-family:Outfit,sans-serif;
-                            font-size:14px; font-weight:700; white-space:nowrap;
-                            box-shadow:0 4px 16px rgba(0,0,0,0.2);
-                          `;
-                          document.body.appendChild(ghost);
-                          e.dataTransfer.setDragImage(ghost, ghost.offsetWidth / 2, 20);
-                          setTimeout(() => ghost.remove(), 0);
-                        }}
-                        onDragEnd={() => { setDraggingEntry(null); setDropTarget(null); }}
-                        style={{
+                      <div key={entry.id} style={{
                         padding: "14px 16px",
                         borderBottom: i < queue.length - 1 ? `1px solid ${T.cardBorder}` : "none",
                         borderLeft: isNotified ? `3px solid ${S.pidio_cuenta.bg}` : isExtended ? `3px solid ${S.sentado.bg}` : `3px solid transparent`,
-                        cursor: "grab",
                       }}>
                         {/* Row 1: name + location + time */}
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -845,15 +635,6 @@ export default function HostDashboard() {
                                 }}>
                                   {graceExpired ? "VENCIDO" : expired ? `+${Math.floor((elapsed - 600) / 60)}:${String((elapsed - 600) % 60).padStart(2, "0")} gracia` : `${mins}:${secs.toString().padStart(2, "0")}`}
                                 </span>
-                                {entry.activity === "confirmado" && entry.distance_m != null && entry.distance_m > 0 && (
-                                  <span style={{
-                                    fontSize: "11px", fontWeight: "700", padding: "4px 10px", borderRadius: "6px",
-                                    fontFamily: "'Futura', 'Outfit', sans-serif",
-                                    background: "#2D7A4F", color: "#fff",
-                                  }}>
-                                    🏃 ~{Math.max(1, Math.ceil(entry.distance_m / 80))}min
-                                  </span>
-                                )}
                               </>
                             );
                           })() : (
@@ -864,9 +645,6 @@ export default function HostDashboard() {
                                 color: isExtended ? S.sentado.color : act.color,
                               }}>
                                 {isExtended ? "Paso turno" : act.label}
-                                {entry.activity === "confirmado" && entry.distance_m != null && entry.distance_m > 0 && (
-                                  <> · ~{Math.max(1, Math.ceil(entry.distance_m / 80))}min</>
-                                )}
                               </span>
                             ) : null
                           )}
@@ -882,6 +660,25 @@ export default function HostDashboard() {
                             </span>
                           )}
                         </div>
+
+                        {/* ML wait estimate */}
+                        {(() => {
+                          const est = waitEstimates[entry.id];
+                          if (!est || est.confidence === "fallback" || isNotified) return null;
+                          const dot = est.confidence === "high" ? T.success : est.confidence === "medium" ? T.warn : T.danger;
+                          return (
+                            <div style={{ marginTop: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
+                              <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: dot, display: "inline-block", flexShrink: 0 }} />
+                              <span style={{ fontSize: "12px", fontWeight: "700", color: T.text, fontFamily: f.display }}>~{est.estimated_minutes}min</span>
+                              {est.range && (
+                                <span style={{ fontSize: "11px", color: T.textLight }}>({est.range.min}-{est.range.max})</span>
+                              )}
+                              {est.factors?.velocity && (
+                                <span style={{ fontSize: "10px", color: T.textLight, marginLeft: "auto" }}>{est.factors.velocity}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         {/* Table prediction */}
                         {pred && !isNotified && (
@@ -932,14 +729,7 @@ export default function HostDashboard() {
                               fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
                             }}>Deshacer</button>
                           )}
-                          <button onClick={() => {
-                            const freeTables = tables.filter(t => t.status === "libre" && t.capacity >= entry.party_size).sort((a,b) => a.capacity - b.capacity);
-                            if (freeTables.length > 0) {
-                              seatDirect(entry, freeTables[0]);
-                            } else {
-                              setStatus(entry.id, "seated");
-                            }
-                          }} style={{
+                          <button onClick={() => setStatus(entry.id, "seated")} style={{
                             flex: 1, padding: "11px", borderRadius: "10px", background: T.accent,
                             color: "#fff", border: "none",
                             fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
@@ -991,13 +781,6 @@ export default function HostDashboard() {
                     {recentlySeated.map(table => {
                       const cfg = S[table.status] || S.sentado;
                       const guestName = table.waitlist?.guest_name;
-                      const src = table.waitlist?.source;
-                      const isOT = src === "opentable";
-                      const isMT = src === "qr" || src === "whatsapp" || src === "whatsapp_bot";
-                      const isWI = src === "walkin";
-                      const barBg = isOT ? S.pidio_cuenta.bg : isMT ? T.gold : cfg.bg;
-                      const barColor = "#fff";
-                      const badgeLabel = isOT ? "OpenTable" : isMT ? "Meantime" : isWI ? "Walk-in" : null;
                       const mins = Math.floor((Date.now() - new Date(table.seated_at).getTime()) / 60000);
                       const timeStr = mins < 1 ? "ahora" : mins < 60 ? `${mins}m` : `${Math.floor(mins/60)}h${mins%60}m`;
                       return (
@@ -1007,19 +790,15 @@ export default function HostDashboard() {
                           onContextMenu={(e) => e.preventDefault()}
                           style={{
                             display: "flex", alignItems: "center", justifyContent: "space-between",
-                            padding: "10px 14px", borderRadius: "12px", background: barBg, border: "none",
-                            cursor: "pointer", WebkitTouchCallout: "none", userSelect: "none", width: "100%",
+                            padding: "10px 14px", borderRadius: "12px", background: cfg.bg, border: "none",
+                            cursor: "pointer", WebkitTouchCallout: "none", userSelect: "none",
                           }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            <div style={{ fontFamily: f.display, fontSize: "16px", fontWeight: "800", color: barColor }}>{table.id}</div>
-                            <div style={{ fontSize: "12px", color: barColor, opacity: 0.8 }}>{table.capacity}p</div>
-                            {guestName && <div style={{ fontSize: "12px", color: barColor, opacity: 0.9, fontWeight: "600" }}>{guestName}</div>}
-                            {badgeLabel && <span style={{ fontSize: "9px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px", background: "rgba(255,255,255,0.2)", color: barColor, letterSpacing: "0.03em" }}>{badgeLabel}</span>}
-                            {table.waitlist?.customers?.allergies?.length > 0 && table.waitlist.customers.allergies.map(a => (
-                              <span key={a} style={{ fontSize: "9px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px", background: "#C93B3B", color: "#fff" }}>⚠ {a}</span>
-                            ))}
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <div style={{ fontFamily: f.display, fontSize: "16px", fontWeight: "800", color: cfg.color }}>{table.id}</div>
+                            <div style={{ fontSize: "12px", color: cfg.color, opacity: 0.8 }}>{table.capacity}p · {cfg.label}</div>
+                            {guestName && <div style={{ fontSize: "12px", color: cfg.color, opacity: 0.9, fontWeight: "600" }}>{guestName}</div>}
                           </div>
-                          <div style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "13px", fontWeight: "700", color: barColor, opacity: 0.9 }}>{timeStr}</div>
+                          <div style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "13px", fontWeight: "700", color: cfg.color, opacity: 0.9 }}>{timeStr}</div>
                         </button>
                       );
                     })}
@@ -1034,13 +813,9 @@ export default function HostDashboard() {
                     const cfg = S[table.status] || S.libre;
                     const time = table.seated_at ? ago(table.seated_at) : "";
                     const guestName = table.waitlist?.guest_name;
-                    const tileSrc = table.waitlist?.source;
                     const isSeated = table.status === "sentado";
                     const seatedMin = table.seated_at ? Math.floor((Date.now() - new Date(table.seated_at).getTime()) / 60000) : 0;
                     const alertColor = isSeated && seatedMin >= 180 ? S.pidio_cuenta.bg : isSeated && seatedMin >= 120 ? S.postre.bg : null;
-
-                    const isDropHover = dropTarget === table.id && draggingEntry;
-                    const canDrop = table.status === "libre" && draggingEntry && table.capacity >= draggingEntry.party_size;
 
                     return (
                       <button key={table.id}
@@ -1048,50 +823,22 @@ export default function HostDashboard() {
                         onTouchStart={() => handleLongPressStart(table)}
                         onTouchEnd={handleLongPressEnd}
                         onTouchCancel={handleLongPressEnd}
-                        onMouseDown={() => { if (!draggingEntry) handleLongPressStart(table); }}
+                        onMouseDown={() => handleLongPressStart(table)}
                         onMouseUp={handleLongPressEnd}
-                        onMouseLeave={() => { handleLongPressEnd(); setDropTarget(null); }}
+                        onMouseLeave={handleLongPressEnd}
                         onContextMenu={(e) => e.preventDefault()}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          e.dataTransfer.dropEffect = canDrop ? "move" : "none";
-                          setDropTarget(table.id);
-                        }}
-                        onDragLeave={() => setDropTarget(null)}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          setDropTarget(null);
-                          if (draggingEntry && table.status === "libre") {
-                            seatDirect(draggingEntry, table);
-                          }
-                          setDraggingEntry(null);
-                        }}
                         aria-label={`Mesa ${table.id} - ${cfg.label} - ${table.capacity} personas${guestName ? ` - ${guestName}` : ""}${time ? ` - ${time}` : ""}`}
                         style={{
                           padding: isSeated ? "10px 8px" : "14px 8px 12px",
-                          borderRadius: T.radius,
-                          border: isDropHover && canDrop ? `3px solid ${T.gold}` : isDropHover ? `3px dashed ${T.danger}` : "none",
-                          background: isDropHover && canDrop ? T.goldLight : cfg.bg,
-                          cursor: draggingEntry ? (canDrop ? "copy" : "not-allowed") : "pointer",
-                          textAlign: "center",
+                          borderRadius: T.radius, border: "none",
+                          background: cfg.bg, cursor: "pointer", textAlign: "center",
                           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                           minHeight: isSeated ? "72px" : "100px",
                           WebkitTouchCallout: "none", userSelect: "none",
-                          position: "relative",
-                          transition: "border 0.15s, background 0.15s, transform 0.15s",
-                          transform: isDropHover && canDrop ? "scale(1.05)" : "scale(1)",
+                          opacity: isSeated ? 0.85 : 1,
                         }}>
                         <div style={{ fontFamily: f.display, fontSize: isSeated ? "16px" : "22px", fontWeight: "800", color: cfg.color, lineHeight: 1 }}>{table.id}</div>
-                        {tileSrc && (() => {
-                          const badge = tileSrc === "opentable" ? { label: "OpenTable", bg: S.pidio_cuenta.bg }
-                            : tileSrc === "walkin" ? { label: "Walk-in", bg: "rgba(255,255,255,0.15)" }
-                            : (tileSrc === "qr" || tileSrc === "whatsapp" || tileSrc === "whatsapp_bot") ? { label: "Meantime", bg: T.gold }
-                            : null;
-                          return badge ? (
-                            <div style={{ fontSize: "8px", fontWeight: "700", padding: "2px 6px", borderRadius: "4px", background: badge.bg, color: "#fff", letterSpacing: "0.03em", marginTop: "3px" }}>{badge.label}</div>
-                          ) : null;
-                        })()}
-                        {!tileSrc && <div style={{ fontSize: isSeated ? "10px" : "11px", color: cfg.color, marginTop: "3px", fontWeight: "600", opacity: 0.8 }}>{cfg.label}</div>}
+                        <div style={{ fontSize: isSeated ? "10px" : "11px", color: cfg.color, marginTop: "3px", fontWeight: "600", opacity: 0.8 }}>{cfg.label}</div>
                         <div style={{ fontSize: "10px", color: cfg.color, marginTop: "2px", opacity: 0.6 }}>{table.capacity}p</div>
                         {guestName && (
                           <div style={{ fontSize: "10px", color: cfg.color, marginTop: "3px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "600", opacity: 0.85, padding: "2px 6px", borderRadius: "4px", background: "rgba(255,255,255,0.15)" }}>
@@ -1113,32 +860,6 @@ export default function HostDashboard() {
 
         </div>
       </div>
-
-      {/* ── ARRIVAL TOAST ── */}
-      {hostToast && (Date.now() - hostToast.ts < 8000) && (
-        <div className="toast" style={{
-          position: "fixed", bottom: "24px", left: "50%", transform: "translateX(-50%)",
-          zIndex: 500, padding: "16px 24px", borderRadius: "16px",
-          background: T.success, color: "#fff", boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
-          display: "flex", alignItems: "center", gap: "12px", maxWidth: "400px",
-          fontFamily: f.sans,
-        }}>
-          <div style={{ fontSize: "24px" }}>🏃</div>
-          <div>
-            <div style={{ fontWeight: "700", fontSize: "15px" }}>{hostToast.name} esta llegando</div>
-            <div style={{ fontSize: "13px", opacity: 0.9, marginTop: "2px" }}>
-              {hostToast.party}p
-              {hostToast.eta ? ` · ~${hostToast.eta} min` : ""}
-              {hostToast.dist != null ? ` · ${hostToast.dist}m` : ""}
-            </div>
-          </div>
-          <button onClick={() => setHostToast(null)} style={{
-            background: "rgba(255,255,255,0.2)", border: "none", color: "#fff",
-            borderRadius: "8px", padding: "4px 8px", cursor: "pointer", fontSize: "12px",
-            fontWeight: "600", marginLeft: "auto",
-          }}>OK</button>
-        </div>
-      )}
     </div>
   );
 }

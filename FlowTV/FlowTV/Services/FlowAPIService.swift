@@ -1,5 +1,8 @@
 import Foundation
 import Combine
+import os
+
+private let apiLog = Logger(subsystem: "com.flowtv.app", category: "FlowAPI")
 
 /// Flow API Service - connects to the real Flow (Personal/Telecom Argentina) platform
 /// Based on the Minerva OTT platform used by Telecom Argentina
@@ -10,6 +13,8 @@ class FlowAPIService: ObservableObject {
     nonisolated static let baseURL = "https://web.flow.com.ar"
     nonisolated static let imagesBaseURL = "https://static.flow.com.ar"
     nonisolated static let appBaseURL = "https://web.app.flow.com.ar"
+    // SmartTV origin/referer for CORS
+    nonisolated static let smartTVOrigin = "https://fenix-smarttv.dev.app.flow.com.ar"
 
     // API paths
     private let authPath = "/auth/v2"
@@ -47,7 +52,7 @@ class FlowAPIService: ObservableObject {
     nonisolated static let flowSession: URLSession = {
         let config = URLSessionConfiguration.ephemeral
         config.httpAdditionalHeaders = [
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebKit/537.36 (KHTML, like Gecko) Version/5.0 TV Safari/537.36"
         ]
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 60
@@ -83,9 +88,9 @@ class FlowAPIService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("close", forHTTPHeaderField: "Connection")
 
-        // Mandatory headers (as required by Flow's MandatoryHeadersFilter)
-        request.setValue(Self.baseURL, forHTTPHeaderField: "referer")
-        request.setValue(Self.baseURL, forHTTPHeaderField: "origin")
+        // Mandatory headers — SmartTV origin for CORS
+        request.setValue(Self.smartTVOrigin + "/", forHTTPHeaderField: "referer")
+        request.setValue(Self.smartTVOrigin, forHTTPHeaderField: "origin")
         request.setValue(generateRequestId(), forHTTPHeaderField: "x-request-id")
 
         // JWT Bearer token for authenticated requests
@@ -97,7 +102,7 @@ class FlowAPIService: ObservableObject {
             request.httpBody = body
         }
 
-        print("[FlowAPI] \(method) \(url.absoluteString)")
+        apiLog.info("[FlowAPI] \(method) \(url.absoluteString)")
 
         // Retry loop for -1005 (NSURLErrorNetworkConnectionLost)
         var lastError: Error?
@@ -109,7 +114,7 @@ class FlowAPIService: ObservableObject {
                     throw FlowAPIError.invalidResponse
                 }
 
-                print("[FlowAPI] HTTP \(httpResponse.statusCode) for \(endpoint)")
+                apiLog.info("[FlowAPI] HTTP \(httpResponse.statusCode) for \(endpoint)")
 
                 switch httpResponse.statusCode {
                 case 200...299:
@@ -117,7 +122,7 @@ class FlowAPIService: ObservableObject {
                         return try JSONDecoder.flowDecoder.decode(T.self, from: data)
                     } catch {
                         let preview = String(data: data.prefix(500), encoding: .utf8) ?? "(binary)"
-                        print("[FlowAPI] Decoding \(T.self) failed: \(error)\nResponse: \(preview)")
+                        apiLog.info("[FlowAPI] Decoding \(T.self) failed: \(error)\nResponse: \(preview)")
                         throw FlowAPIError.decodingError(error)
                     }
                 case 401:
@@ -130,11 +135,11 @@ class FlowAPIService: ObservableObject {
                     throw FlowAPIError.rateLimited
                 default:
                     let preview = String(data: data.prefix(300), encoding: .utf8) ?? ""
-                    print("[FlowAPI] HTTP \(httpResponse.statusCode) for \(endpoint): \(preview)")
+                    apiLog.info("[FlowAPI] HTTP \(httpResponse.statusCode) for \(endpoint): \(preview)")
                     throw FlowAPIError.serverError(httpResponse.statusCode)
                 }
             } catch let error as NSError where error.code == -1005 && attempt < 3 {
-                print("[FlowAPI] Connection lost (-1005), retry \(attempt)/3...")
+                apiLog.info("[FlowAPI] Connection lost (-1005), retry \(attempt)/3...")
                 lastError = error
                 try await Task.sleep(nanoseconds: UInt64(attempt) * 1_000_000_000)
                 continue
@@ -208,13 +213,106 @@ class FlowAPIService: ObservableObject {
 
             return (user, authToken)
         } catch {
-            print("[FlowAPI] Login failed: \(error)")
+            apiLog.info("[FlowAPI] Login failed: \(error)")
             throw error
         }
     }
 
     func setJWTToken(_ token: String) {
         self.jwtToken = token
+    }
+
+    /// Provision/login using an identity JWT (from EasyLogin) to get a content session token.
+    /// The SmartTV Minerva SDK calls this internally after EasyLogin.
+    func provisionWithToken(_ identityToken: String) async throws -> String {
+        let url = URL(string: "https://gw-ff-dev.cablevisionflow.com.ar/auth/v2/provision/login/v2")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 30
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(identityToken)", forHTTPHeaderField: "Authorization")
+        request.setValue(Self.smartTVOrigin, forHTTPHeaderField: "origin")
+        request.setValue(Self.smartTVOrigin + "/", forHTTPHeaderField: "referer")
+        request.setValue(
+            "Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebKit/537.36 (KHTML, like Gecko) Version/5.0 TV Safari/537.36",
+            forHTTPHeaderField: "User-Agent"
+        )
+
+        if casId == nil { casId = UUID().uuidString }
+
+        let body: [String: Any] = [
+            "deviceName": "FlowTV",
+            "deviceType": "SmartTV",
+            "devicePlatform": "Tizen",
+            "clientCasId": casId ?? UUID().uuidString,
+            "version": apiVersion,
+            "type": apiType,
+            "deviceModel": "SmartTV",
+            "company": "flow"
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        apiLog.info("[FlowAPI] POST provision/login/v2 with bearer token")
+
+        // Use a fresh session to avoid -1005 HTTP/2 connection reuse issues
+        let freshConfig = URLSessionConfiguration.ephemeral
+        freshConfig.timeoutIntervalForRequest = 30
+        let freshSession = URLSession(configuration: freshConfig)
+        defer { freshSession.finishTasksAndInvalidate() }
+
+        var lastError: Error?
+        var data: Data = Data()
+        var http: HTTPURLResponse?
+
+        for attempt in 1...3 {
+            do {
+                let (d, r) = try await freshSession.data(for: request)
+                data = d
+                http = r as? HTTPURLResponse
+                lastError = nil
+                break
+            } catch let error as NSError where error.code == -1005 && attempt < 3 {
+                apiLog.info("[FlowAPI] provision -1005, retry \(attempt)/3...")
+                lastError = error
+                try await Task.sleep(nanoseconds: UInt64(attempt) * 500_000_000)
+                continue
+            } catch {
+                lastError = error
+                break
+            }
+        }
+        if let lastError { throw lastError }
+
+        apiLog.info("[FlowAPI] provision/login/v2 HTTP \(http?.statusCode ?? 0)")
+
+        let preview = String(data: data.prefix(500), encoding: .utf8) ?? ""
+        apiLog.info("[FlowAPI] provision/login/v2 response: \(preview)")
+
+        guard let http = http, (200...299).contains(http.statusCode) else {
+            throw FlowAPIError.serverError(http?.statusCode ?? 0)
+        }
+
+        // Try to extract session token from response
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let token = json["token"] as? String ?? json["jwt"] as? String ?? json["sessionToken"] as? String {
+                self.jwtToken = token
+                if let responseVuid = json["multiRightVuid"] as? String { self.vuid = responseVuid }
+                if let responseDeviceId = json["deviceId"] as? String { self.deviceId = responseDeviceId }
+                return token
+            }
+        }
+
+        // If the response is itself the session token
+        let decoded = try JSONDecoder.flowDecoder.decode(FlowLoginResponse.self, from: data)
+        if let token = decoded.effectiveToken {
+            self.jwtToken = token
+            if let v = decoded.multiRightVuid { self.vuid = v }
+            if let d = decoded.deviceId { self.deviceId = d }
+            return token
+        }
+
+        throw FlowAPIError.invalidResponse
     }
 
     // MARK: - OTP Authentication (New Flow auth-daima endpoints)
@@ -224,7 +322,7 @@ class FlowAPIService: ObservableObject {
 
     private static let authDaimaBaseURL = "https://authdaima.dev.app.flow.com.ar"
     private static let authSDKBaseURL = "https://authsdk.app.flow.com.ar"
-    private static let smartTVOrigin = "https://fenix-smarttv.dev.app.flow.com.ar"
+    // smartTVOrigin defined at class level
 
     /// Builds a URLRequest with the headers required by the new auth-daima / auth-sdk endpoints.
     private func makeOTPRequest(url: URL, body: Data?) -> URLRequest {
@@ -233,7 +331,7 @@ class FlowAPIService: ObservableObject {
         request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebKit/537.36 (KHTML, like Gecko) Version/5.0 TV Safari/537.36",
             forHTTPHeaderField: "User-Agent"
         )
         request.setValue(Self.smartTVOrigin, forHTTPHeaderField: "origin")
@@ -258,15 +356,15 @@ class FlowAPIService: ObservableObject {
         }
 
         let request = makeOTPRequest(url: url, body: body)
-        print("[FlowAPI] POST \(url.absoluteString)")
+        apiLog.info("[FlowAPI] POST \(url.absoluteString)")
 
         let (data, response) = try await Self.flowSession.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw FlowAPIError.invalidResponse }
-        print("[FlowAPI] HTTP \(http.statusCode) for sendCode")
+        apiLog.info("[FlowAPI] HTTP \(http.statusCode) for sendCode")
 
         guard (200...299).contains(http.statusCode) else {
             let preview = String(data: data.prefix(300), encoding: .utf8) ?? ""
-            print("[FlowAPI] sendCode error: \(preview)")
+            apiLog.info("[FlowAPI] sendCode error: \(preview)")
             if http.statusCode == 401 { throw FlowAPIError.unauthorized }
             throw FlowAPIError.serverError(http.statusCode)
         }
@@ -295,15 +393,15 @@ class FlowAPIService: ObservableObject {
         }
 
         let request = makeOTPRequest(url: url, body: body)
-        print("[FlowAPI] POST \(url.absoluteString)")
+        apiLog.info("[FlowAPI] POST \(url.absoluteString)")
 
         let (data, response) = try await Self.flowSession.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw FlowAPIError.invalidResponse }
-        print("[FlowAPI] HTTP \(http.statusCode) for validateCode")
+        apiLog.info("[FlowAPI] HTTP \(http.statusCode) for validateCode")
 
         guard (200...299).contains(http.statusCode) else {
             let preview = String(data: data.prefix(300), encoding: .utf8) ?? ""
-            print("[FlowAPI] validateCode error: \(preview)")
+            apiLog.info("[FlowAPI] validateCode error: \(preview)")
             if http.statusCode == 401 { throw FlowAPIError.unauthorized }
             throw FlowAPIError.serverError(http.statusCode)
         }
@@ -323,15 +421,15 @@ class FlowAPIService: ObservableObject {
 
         var request = makeOTPRequest(url: url, body: nil)
         request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
-        print("[FlowAPI] POST \(url.absoluteString)")
+        apiLog.info("[FlowAPI] POST \(url.absoluteString)")
 
         let (data, response) = try await Self.flowSession.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw FlowAPIError.invalidResponse }
-        print("[FlowAPI] HTTP \(http.statusCode) for flowaccesstoken")
+        apiLog.info("[FlowAPI] HTTP \(http.statusCode) for flowaccesstoken")
 
         guard (200...299).contains(http.statusCode) else {
             let preview = String(data: data.prefix(300), encoding: .utf8) ?? ""
-            print("[FlowAPI] flowaccesstoken error: \(preview)")
+            apiLog.info("[FlowAPI] flowaccesstoken error: \(preview)")
             if http.statusCode == 401 { throw FlowAPIError.unauthorized }
             throw FlowAPIError.serverError(http.statusCode)
         }

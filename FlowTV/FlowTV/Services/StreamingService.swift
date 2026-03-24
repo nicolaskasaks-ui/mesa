@@ -50,9 +50,9 @@ class StreamingService: ObservableObject {
         request.timeoutInterval = 15
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(jwtToken)", forHTTPHeaderField: "Authorization")
-        request.setValue(FlowAPIService.baseURL, forHTTPHeaderField: "referer")
-        request.setValue(FlowAPIService.baseURL, forHTTPHeaderField: "origin")
-        request.setValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
+        request.setValue(FlowAPIService.smartTVOrigin + "/", forHTTPHeaderField: "referer")
+        request.setValue(FlowAPIService.smartTVOrigin, forHTTPHeaderField: "origin")
+        request.setValue("Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebKit/537.36 (KHTML, like Gecko) Version/5.0 TV Safari/537.36", forHTTPHeaderField: "User-Agent")
 
         let body: [String: String] = [
             "deviceBrand": "",
@@ -119,9 +119,9 @@ class StreamingService: ObservableObject {
         request.timeoutInterval = 15
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(prmToken)", forHTTPHeaderField: "Authorization")
-        request.setValue(FlowAPIService.baseURL, forHTTPHeaderField: "referer")
-        request.setValue(FlowAPIService.baseURL, forHTTPHeaderField: "origin")
-        request.setValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
+        request.setValue(FlowAPIService.smartTVOrigin + "/", forHTTPHeaderField: "referer")
+        request.setValue(FlowAPIService.smartTVOrigin, forHTTPHeaderField: "origin")
+        request.setValue("Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebKit/537.36 (KHTML, like Gecko) Version/5.0 TV Safari/537.36", forHTTPHeaderField: "User-Agent")
 
         let (data, response) = try await FlowAPIService.flowSession.data(for: request)
         guard let http = response as? HTTPURLResponse else {
@@ -171,9 +171,9 @@ class StreamingService: ObservableObject {
         request.timeoutInterval = 10
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(jwtToken)", forHTTPHeaderField: "Authorization")
-        request.setValue(FlowAPIService.baseURL, forHTTPHeaderField: "referer")
-        request.setValue(FlowAPIService.baseURL, forHTTPHeaderField: "origin")
-        request.setValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
+        request.setValue(FlowAPIService.smartTVOrigin + "/", forHTTPHeaderField: "referer")
+        request.setValue(FlowAPIService.smartTVOrigin, forHTTPHeaderField: "origin")
+        request.setValue("Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebKit/537.36 (KHTML, like Gecko) Version/5.0 TV Safari/537.36", forHTTPHeaderField: "User-Agent")
         request.httpBody = "{}".data(using: .utf8)
 
         let (_, response) = try await FlowAPIService.flowSession.data(for: request)
