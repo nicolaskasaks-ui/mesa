@@ -613,6 +613,18 @@ export default function HostDashboard() {
                           setDraggingEntry(entry);
                           e.dataTransfer.effectAllowed = "move";
                           e.dataTransfer.setData("text/plain", entry.id);
+                          // Custom drag image — solid pill with name
+                          const ghost = document.createElement("div");
+                          ghost.textContent = `${entry.guest_name} · ${entry.party_size}p`;
+                          ghost.style.cssText = `
+                            position:fixed; top:-100px; padding:10px 18px; border-radius:12px;
+                            background:#1A1A1A; color:#fff; font-family:Outfit,sans-serif;
+                            font-size:14px; font-weight:700; white-space:nowrap;
+                            box-shadow:0 4px 16px rgba(0,0,0,0.2);
+                          `;
+                          document.body.appendChild(ghost);
+                          e.dataTransfer.setDragImage(ghost, ghost.offsetWidth / 2, 20);
+                          setTimeout(() => ghost.remove(), 0);
                         }}
                         onDragEnd={() => { setDraggingEntry(null); setDropTarget(null); }}
                         style={{
