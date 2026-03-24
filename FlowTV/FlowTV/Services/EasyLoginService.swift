@@ -135,10 +135,24 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
 
         switch method {
         case "code":
-            // Server tells us it's in the code phase — just wait for "start" with the actual code
-            print("[EasyLogin] Server in code phase, waiting for start message...")
+            // Server is ready — generate our own code and session, then register it
+            print("[EasyLogin] Server ready, generating code and registering...")
+            let code = Self.generateCode()
+            let session = UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(32)
+            self.sessionID = String(session)
+            let startMsg: [String: Any] = [
+                "method": "start",
+                "data": [
+                    "sessionID": String(session),
+                    "code": code,
+                    "SDK": true,
+                    "sfat": false
+                ]
+            ]
+            sendJSON(startMsg)
+            print("[EasyLogin] Registered code: \(code)")
             DispatchQueue.main.async {
-                self.state = .waitingForCode
+                self.state = .showingCode(code)
             }
 
         case "start":
@@ -168,6 +182,14 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
         default:
             print("[EasyLogin] Unhandled method: \(method), full json: \(json)")
         }
+    }
+
+    // MARK: - Code Generation
+
+    /// Generate a 5-character alphanumeric code (uppercase, no ambiguous chars)
+    private static func generateCode() -> String {
+        let chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no 0/O/1/I
+        return String((0..<5).map { _ in chars.randomElement()! })
     }
 
     // MARK: - Send Messages
