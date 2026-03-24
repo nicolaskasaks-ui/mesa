@@ -4,19 +4,21 @@ import Foundation
 /// Connects to easylogin.app.flow.com.ar, receives a companion code,
 /// and waits for the user to enter that code on their phone/web.
 /// Once validated, receives the flowaccesstoken via WebSocket.
-@MainActor
-class EasyLoginService: NSObject, ObservableObject {
-    enum State: Equatable {
+class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
+    enum LoginState: Equatable {
         case idle
         case connecting
         case waitingForCode
-        case showingCode(String)       // code to display on TV
-        case authenticated(String)     // flowaccesstoken received
-        case failed(String)            // error message
+        case showingCode(String)
+        case authenticated(String)
+        case failed(String)
     }
 
-    @Published var state: State = .idle
+    @Published var state: LoginState = .idle
     @Published var accountId: String?
+
+    /// Called on main thread when authentication completes.
+    var onAuthenticated: ((String, String?) -> Void)?
 
     private var webSocket: URLSessionWebSocketTask?
     private var urlSession: URLSession?
@@ -27,10 +29,11 @@ class EasyLoginService: NSObject, ObservableObject {
 
     // MARK: - Public
 
-    /// Start the Easy Login flow: connect WebSocket, receive code.
     func start() {
         disconnect()
-        state = .connecting
+        DispatchQueue.main.async {
+            self.state = .connecting
+        }
 
         let config = URLSessionConfiguration.default
         config.httpAdditionalHeaders = [
@@ -40,7 +43,7 @@ class EasyLoginService: NSObject, ObservableObject {
         urlSession = URLSession(configuration: config, delegate: self, delegateQueue: nil)
 
         guard let url = URL(string: Self.easyLoginURL) else {
-            state = .failed("URL inválida")
+            DispatchQueue.main.async { self.state = .failed("URL inválida") }
             return
         }
 
@@ -48,19 +51,20 @@ class EasyLoginService: NSObject, ObservableObject {
         self.webSocket = task
         task.resume()
 
-        // Start receiving messages
         receiveMessage()
 
-        // Start keep-alive pings
-        startPingTimer()
+        DispatchQueue.main.async {
+            self.startPingTimer()
+        }
 
         print("[EasyLogin] Connecting to \(Self.easyLoginURL)")
     }
 
-    /// Stop the Easy Login flow and clean up.
     func disconnect() {
-        pingTimer?.invalidate()
-        pingTimer = nil
+        DispatchQueue.main.async {
+            self.pingTimer?.invalidate()
+            self.pingTimer = nil
+        }
         webSocket?.cancel(with: .normalClosure, reason: nil)
         webSocket = nil
         urlSession?.invalidateAndCancel()
@@ -68,26 +72,26 @@ class EasyLoginService: NSObject, ObservableObject {
         sessionID = nil
     }
 
-    /// Reset to idle state.
     func reset() {
         disconnect()
-        state = .idle
-        accountId = nil
+        DispatchQueue.main.async {
+            self.state = .idle
+            self.accountId = nil
+        }
     }
 
     // MARK: - WebSocket Message Handling
 
     private func receiveMessage() {
         webSocket?.receive { [weak self] result in
-            Task { @MainActor in
-                guard let self else { return }
-                switch result {
-                case .success(let message):
-                    self.handleMessage(message)
-                    // Continue receiving
-                    self.receiveMessage()
-                case .failure(let error):
-                    print("[EasyLogin] WebSocket receive error: \(error)")
+            guard let self = self else { return }
+            switch result {
+            case .success(let message):
+                self.handleMessage(message)
+                self.receiveMessage()
+            case .failure(let error):
+                print("[EasyLogin] WebSocket receive error: \(error)")
+                DispatchQueue.main.async {
                     if case .authenticated = self.state { return }
                     self.state = .failed("Conexión perdida. Intentá de nuevo.")
                 }
@@ -118,28 +122,30 @@ class EasyLoginService: NSObject, ObservableObject {
 
         switch method {
         case "code":
-            // Server asks us to request a code — send OUTPUT to trigger code generation
-            state = .waitingForCode
+            DispatchQueue.main.async {
+                self.state = .waitingForCode
+            }
             sendOutputRequest()
 
         case "start":
-            // Received session with companion code
             if let code = msgData?["code"] as? String {
                 sessionID = msgData?["sessionID"] as? String
-                state = .showingCode(code)
                 print("[EasyLogin] Got code: \(code), sessionID: \(sessionID ?? "nil")")
+                DispatchQueue.main.async {
+                    self.state = .showingCode(code)
+                }
             }
 
         case "flowaccesstoken":
-            // User entered the code on their phone — we got the token!
             if let tokenData = msgData,
                let token = tokenData["flowaccesstoken"] as? String {
-                // Extract accountId if present
-                if let account = tokenData["accountId"] as? String {
-                    accountId = account
+                let account = tokenData["accountId"] as? String
+                print("[EasyLogin] Got flowaccesstoken! accountId: \(account ?? "unknown")")
+                DispatchQueue.main.async {
+                    self.accountId = account
+                    self.state = .authenticated(token)
+                    self.onAuthenticated?(token, account)
                 }
-                state = .authenticated(token)
-                print("[EasyLogin] Got flowaccesstoken! accountId: \(accountId ?? "unknown")")
                 disconnect()
             }
 
@@ -169,7 +175,7 @@ class EasyLoginService: NSObject, ObservableObject {
         }
     }
 
-    // MARK: - Keep-alive
+    // MARK: - Keep-alive (must be called on main thread)
 
     private func startPingTimer() {
         pingTimer?.invalidate()
@@ -181,12 +187,10 @@ class EasyLoginService: NSObject, ObservableObject {
             }
         }
     }
-}
 
-// MARK: - URLSessionWebSocketDelegate
+    // MARK: - URLSessionWebSocketDelegate
 
-extension EasyLoginService: URLSessionWebSocketDelegate {
-    nonisolated func urlSession(
+    func urlSession(
         _ session: URLSession,
         webSocketTask: URLSessionWebSocketTask,
         didOpenWithProtocol protocol: String?
@@ -194,7 +198,7 @@ extension EasyLoginService: URLSessionWebSocketDelegate {
         print("[EasyLogin] WebSocket connected")
     }
 
-    nonisolated func urlSession(
+    func urlSession(
         _ session: URLSession,
         webSocketTask: URLSessionWebSocketTask,
         didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
