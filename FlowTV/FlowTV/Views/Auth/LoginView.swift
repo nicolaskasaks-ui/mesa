@@ -3,12 +3,11 @@ import SwiftUI
 struct LoginView: View {
     @EnvironmentObject var authManager: AuthManager
     @State private var email = ""
-    @State private var password = ""
-    @State private var showPassword = false
+    @State private var otpCode = ""
     @FocusState private var focusedField: LoginField?
 
     enum LoginField: Hashable {
-        case email, password, loginButton
+        case email, otpCode, sendButton, verifyButton, backButton
     }
 
     var body: some View {
@@ -68,72 +67,23 @@ struct LoginView: View {
                         .tracking(-2)
                         .foregroundColor(.white)
 
-                    Text("Iniciá sesión con tu cuenta de Personal o Flow")
+                    Text(subtitleText)
                         .font(.callout)
                         .foregroundColor(Color.white.opacity(0.5))
+                        .multilineTextAlignment(.center)
                 }
 
-                // Login form — tvOS style with large touch targets
+                // OTP form — tvOS style with large touch targets
                 VStack(spacing: 24) {
-                    TextField("Email o número de línea", text: $email)
-                        .focused($focusedField, equals: .email)
-                        .textContentType(.emailAddress)
-                        .autocorrectionDisabled()
-                        .padding(20)
-                        .background(Color.white.opacity(0.08))
-                        .cornerRadius(16)
+                    switch authManager.otpStep {
+                    case .enterEmail:
+                        emailStepView
 
-                    HStack(spacing: 12) {
-                        if showPassword {
-                            TextField("Contraseña", text: $password)
-                                .focused($focusedField, equals: .password)
-                                .autocorrectionDisabled()
-                                .padding(20)
-                                .background(Color.white.opacity(0.08))
-                                .cornerRadius(16)
-                        } else {
-                            SecureField("Contraseña", text: $password)
-                                .focused($focusedField, equals: .password)
-                                .padding(20)
-                                .background(Color.white.opacity(0.08))
-                                .cornerRadius(16)
-                        }
-
-                        Button {
-                            showPassword.toggle()
-                        } label: {
-                            Image(systemName: showPassword ? "eye.slash" : "eye")
-                                .font(.title3)
-                                .foregroundColor(Color.white.opacity(0.5))
-                                .frame(width: 66, height: 66)
-                                .background(Color.white.opacity(0.08))
-                                .cornerRadius(16)
-                        }
-                        .buttonStyle(.plain)
+                    case .enterCode, .verifying:
+                        codeStepView
                     }
                 }
                 .frame(width: 620)
-
-                // Login button
-                Button(action: {
-                    Task { await authManager.login(email: email, password: password) }
-                }) {
-                    Group {
-                        if authManager.isLoading {
-                            ProgressView()
-                                .tint(.black)
-                        } else {
-                            Text("Iniciar Sesión")
-                                .font(.title3.weight(.semibold))
-                        }
-                    }
-                    .frame(width: 540, height: 66)
-                    .background(Color.white)
-                    .foregroundColor(.black)
-                    .cornerRadius(16)
-                }
-                .disabled(authManager.isLoading || email.isEmpty || password.isEmpty)
-                .focused($focusedField, equals: .loginButton)
 
                 // Demo mode — skip login entirely
                 Button(action: {
@@ -164,17 +114,112 @@ struct LoginView: View {
             }
         }
         .onAppear {
-            // In DEBUG, load credentials from Xcode scheme environment variables
-            // Set FLOW_EMAIL and FLOW_PASSWORD in: Product > Scheme > Edit Scheme > Run > Arguments > Environment Variables
             #if DEBUG
             if email.isEmpty, let envEmail = ProcessInfo.processInfo.environment["FLOW_EMAIL"] {
                 email = envEmail
             }
-            if password.isEmpty, let envPass = ProcessInfo.processInfo.environment["FLOW_PASSWORD"] {
-                password = envPass
-            }
             #endif
             focusedField = .email
+        }
+    }
+
+    // MARK: - Subtitle text based on current step
+
+    private var subtitleText: String {
+        switch authManager.otpStep {
+        case .enterEmail:
+            return "Ingresá tu email o número de línea de Personal/Flow"
+        case .enterCode:
+            return "Te enviamos un código a \(email)"
+        case .verifying:
+            return "Verificando..."
+        }
+    }
+
+    // MARK: - Step 1: Email entry
+
+    private var emailStepView: some View {
+        VStack(spacing: 24) {
+            TextField("Email o número de línea", text: $email)
+                .focused($focusedField, equals: .email)
+                .textContentType(.emailAddress)
+                .autocorrectionDisabled()
+                .padding(20)
+                .background(Color.white.opacity(0.08))
+                .cornerRadius(16)
+
+            Button(action: {
+                Task { await authManager.sendCode(email: email) }
+            }) {
+                Group {
+                    if authManager.isLoading {
+                        ProgressView()
+                            .tint(.black)
+                    } else {
+                        Text("Enviar código")
+                            .font(.title3.weight(.semibold))
+                    }
+                }
+                .frame(width: 540, height: 66)
+                .background(Color.white)
+                .foregroundColor(.black)
+                .cornerRadius(16)
+            }
+            .disabled(authManager.isLoading || email.isEmpty)
+            .focused($focusedField, equals: .sendButton)
+        }
+    }
+
+    // MARK: - Step 2: OTP code entry
+
+    private var codeStepView: some View {
+        VStack(spacing: 24) {
+            TextField("Código de verificación", text: $otpCode)
+                .focused($focusedField, equals: .otpCode)
+                .textContentType(.oneTimeCode)
+                .autocorrectionDisabled()
+                .padding(20)
+                .background(Color.white.opacity(0.08))
+                .cornerRadius(16)
+                .onAppear {
+                    focusedField = .otpCode
+                }
+
+            Button(action: {
+                Task { await authManager.validateCode(email: email, code: otpCode) }
+            }) {
+                Group {
+                    if authManager.isLoading {
+                        ProgressView()
+                            .tint(.black)
+                    } else {
+                        Text("Verificar")
+                            .font(.title3.weight(.semibold))
+                    }
+                }
+                .frame(width: 540, height: 66)
+                .background(Color.white)
+                .foregroundColor(.black)
+                .cornerRadius(16)
+            }
+            .disabled(authManager.isLoading || otpCode.isEmpty)
+            .focused($focusedField, equals: .verifyButton)
+
+            Button(action: {
+                otpCode = ""
+                authManager.resetOTPFlow()
+                focusedField = .email
+            }) {
+                Text("Volver")
+                    .font(.callout.weight(.medium))
+                    .frame(width: 540, height: 56)
+                    .background(Color.white.opacity(0.08))
+                    .foregroundColor(Color.white.opacity(0.7))
+                    .cornerRadius(16)
+            }
+            .buttonStyle(.plain)
+            .disabled(authManager.isLoading)
+            .focused($focusedField, equals: .backButton)
         }
     }
 }
