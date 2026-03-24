@@ -583,8 +583,7 @@ export default function HostDashboard() {
                         padding: "14px 16px",
                         borderBottom: i < queue.length - 1 ? `1px solid ${T.cardBorder}` : "none",
                         borderLeft: isNotified ? `3px solid ${S.pidio_cuenta.bg}` : isExtended ? `3px solid ${S.sentado.bg}` : `3px solid transparent`,
-                        cursor: "grab", opacity: draggingEntry?.id === entry.id ? 0.4 : 1,
-                        transition: "opacity 0.2s",
+                        cursor: "grab",
                       }}>
                         {/* Row 1: name + location + time */}
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
