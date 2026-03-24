@@ -135,24 +135,25 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
 
         switch method {
         case "code":
-            // Server is ready — generate our own code and session, then register it
-            print("[EasyLogin] Server ready, generating code and registering...")
-            let code = Self.generateCode()
-            let session = UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(32)
-            self.sessionID = String(session)
-            let startMsg: [String: Any] = [
-                "method": "start",
-                "data": [
-                    "sessionID": String(session),
-                    "code": code,
-                    "SDK": true,
-                    "sfat": false
-                ]
+            // Server says OUTPUT/code with empty data — request a code with INPUT
+            print("[EasyLogin] Server ready, requesting code...")
+            let requestMsg: [String: Any] = [
+                "sendType": "INPUT",
+                "method": "code",
+                "data": ""
             ]
-            sendJSON(startMsg)
-            print("[EasyLogin] Registered code: \(code)")
+            sendJSON(requestMsg)
             DispatchQueue.main.async {
-                self.state = .showingCode(code)
+                self.state = .waitingForCode
+            }
+
+        case "error":
+            // Server returned an error
+            let errorData = msgData as? [String: Any]
+            let errorMsg = errorData?["message"] as? String ?? "Error desconocido"
+            print("[EasyLogin] Server error: \(errorMsg)")
+            DispatchQueue.main.async {
+                self.state = .failed(errorMsg)
             }
 
         case "start":
