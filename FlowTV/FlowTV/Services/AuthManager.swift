@@ -1,6 +1,5 @@
 import Foundation
 import SwiftUI
-import Combine
 
 @MainActor
 class AuthManager: ObservableObject {
@@ -14,47 +13,29 @@ class AuthManager: ObservableObject {
 
     private let tokenKey = "com.flowtv.authtoken"
     private let userKey = "com.flowtv.user"
-    private let casIdKey = "com.flowtv.casid"
     private var authToken: AuthToken?
 
     // Shared service references
     var apiService: FlowAPIService?
     var streamingService: StreamingService?
 
-    private var easyLoginObserver: AnyCancellable?
-
     init() {
-        observeEasyLogin()
+        easyLogin.onAuthenticated = { [weak self] token, accountId in
+            guard let self = self else { return }
+            Task { @MainActor in
+                await self.completeEasyLogin(token: token, accountId: accountId)
+            }
+        }
     }
 
     // MARK: - Easy Login (WebSocket companion code)
 
-    /// Start the Easy Login flow — connects WebSocket and gets a code to display.
     func startEasyLogin() {
         errorMessage = nil
         easyLogin.start()
     }
 
-    /// Observe EasyLoginService state changes and complete auth when token arrives.
-    private func observeEasyLogin() {
-        // We poll the state via Combine since EasyLoginService is @MainActor @Published
-        easyLoginObserver = easyLogin.$state.sink { [weak self] newState in
-            guard let self else { return }
-            Task { @MainActor in
-                switch newState {
-                case .authenticated(let token):
-                    await self.completeEasyLogin(token: token)
-                case .failed(let msg):
-                    self.errorMessage = msg
-                default:
-                    break
-                }
-            }
-        }
-    }
-
-    /// Called when WebSocket receives the flowaccesstoken.
-    private func completeEasyLogin(token: String) async {
+    private func completeEasyLogin(token: String, accountId: String?) async {
         isLoading = true
         errorMessage = nil
 
@@ -62,12 +43,12 @@ class AuthManager: ObservableObject {
         api.setJWTToken(token)
         apiService?.setJWTToken(token)
 
-        let accountId = easyLogin.accountId ?? "user"
+        let id = accountId ?? "user"
 
         let user = FlowUser(
-            id: accountId,
-            email: accountId,
-            displayName: accountId,
+            id: id,
+            email: id,
+            displayName: id,
             avatarURL: nil,
             plan: FlowPlan(name: "Flow", tier: .estandar, hasHD: true, has4K: false, maxDevices: 3),
             maxStreams: 3,
@@ -77,7 +58,7 @@ class AuthManager: ObservableObject {
         let authToken = AuthToken(
             accessToken: token,
             refreshToken: "",
-            expiresAt: Date().addingTimeInterval(43200) // 12 hours
+            expiresAt: Date().addingTimeInterval(43200)
         )
 
         self.currentUser = user
@@ -87,12 +68,10 @@ class AuthManager: ObservableObject {
         saveToken(authToken)
         saveUser(user)
 
-        // Pass VUID to streaming service for DRM
         if let vuid = api.vuid {
             streamingService?.setVUID(vuid)
         }
 
-        // Register PRM token in background
         Task {
             try? await streamingService?.registerPRM()
         }
@@ -100,13 +79,12 @@ class AuthManager: ObservableObject {
         isLoading = false
     }
 
-    /// Reset Easy Login flow.
     func resetEasyLogin() {
         easyLogin.reset()
         errorMessage = nil
     }
 
-    // MARK: - Login (Real Flow authentication — legacy email/password)
+    // MARK: - Login (legacy email/password)
 
     func login(email: String, password: String) async -> Bool {
         isLoading = true
@@ -122,19 +100,13 @@ class AuthManager: ObservableObject {
 
             saveToken(token)
             saveUser(user)
-
             apiService?.setJWTToken(token.accessToken)
 
             if let vuid = api.vuid {
                 streamingService?.setVUID(vuid)
             }
 
-            Task {
-                try? await streamingService?.registerPRM()
-            }
-
-            let deviceOk = await api.verifyDevice()
-            if !deviceOk { /* Flow allows new devices after login */ }
+            Task { try? await streamingService?.registerPRM() }
 
             isLoading = false
             return true
@@ -144,8 +116,6 @@ class AuthManager: ObservableObject {
                 errorMessage = "Usuario o contraseña incorrectos."
             case .forbidden:
                 errorMessage = "Tu cuenta no tiene acceso a Flow."
-            case .decodingError:
-                errorMessage = "Login exitoso pero hubo un error procesando la respuesta."
             case .serverError(let code):
                 errorMessage = "Error del servidor de Flow (HTTP \(code))."
             default:
@@ -156,9 +126,9 @@ class AuthManager: ObservableObject {
         } catch {
             let nsError = error as NSError
             if nsError.domain == NSURLErrorDomain {
-                errorMessage = "Error de conexión. Verificá tu internet. (\(nsError.code))"
+                errorMessage = "Error de conexión (\(nsError.code))"
             } else {
-                errorMessage = "Error inesperado: \(error.localizedDescription)"
+                errorMessage = "Error: \(error.localizedDescription)"
             }
             isLoading = false
             return false
