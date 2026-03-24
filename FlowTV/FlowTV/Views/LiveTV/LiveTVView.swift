@@ -56,13 +56,14 @@ struct LiveTVView: View {
                         spacing: 16
                     ) {
                         ForEach(filteredChannels) { channel in
-                            ChannelListCard(channel: channel)
-                                .focusable()
-                                .focused($focusedChannelId, equals: channel.id)
-                                .onTapGesture {
-                                    selectedChannel = channel
-                                    showPlayer = true
-                                }
+                            Button {
+                                selectedChannel = channel
+                                showPlayer = true
+                            } label: {
+                                ChannelListCard(channel: channel)
+                            }
+                            .buttonStyle(.plain)
+                            .focused($focusedChannelId, equals: channel.id)
                         }
                     }
                     .padding(36)
