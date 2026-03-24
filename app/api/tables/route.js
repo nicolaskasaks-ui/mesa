@@ -20,7 +20,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("tables")
-    .select("*, waitlist(guest_name, party_size)")
+    .select("*, waitlist(guest_name, party_size, allergies)")
     .order("id");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
