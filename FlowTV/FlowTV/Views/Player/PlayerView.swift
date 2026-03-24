@@ -225,7 +225,18 @@ struct PlayerView: View {
         errorMessage = nil
         isBuffering = true
 
-        // Path 1: Resolve stream via StreamingService (real playback)
+        // Path 1: Direct URL available — use it immediately
+        if let urlString = streamURL, let url = URL(string: urlString) {
+            let item = AVPlayerItem(url: url)
+            let avPlayer = AVPlayer(playerItem: item)
+            player = avPlayer
+            isBuffering = false
+            avPlayer.play()
+            observePlayback(avPlayer)
+            return
+        }
+
+        // Path 2: Resolve stream via StreamingService (real API playback)
         if let contentId, let contentType {
             Task {
                 do {
@@ -247,16 +258,9 @@ struct PlayerView: View {
             return
         }
 
-        // Path 2: Direct URL (for pre-resolved or mock streams)
-        guard let urlString = streamURL, let url = URL(string: urlString) else {
-            isBuffering = true
-            Task {
-                try? await Task.sleep(nanoseconds: 2_500_000_000)
-                isBuffering = false
-                errorMessage = "Stream no disponible en modo demo.\nConectá tu cuenta Flow para ver contenido en vivo."
-            }
-            return
-        }
+        // No stream source available
+        isBuffering = false
+        errorMessage = "No hay stream disponible para este contenido."
 
         let item = AVPlayerItem(url: url)
         let avPlayer = AVPlayer(playerItem: item)

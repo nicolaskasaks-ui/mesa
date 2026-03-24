@@ -170,11 +170,8 @@ class FlowAPIService: ObservableObject {
 
             return (user, authToken)
         } catch {
-            // Development fallback: use mock data
-            let mockUser = MockData.user
-            let mockToken = MockData.authToken
-            self.jwtToken = mockToken.accessToken
-            return (mockUser, mockToken)
+            print("[FlowAPI] Login failed: \(error)")
+            throw error
         }
     }
 
