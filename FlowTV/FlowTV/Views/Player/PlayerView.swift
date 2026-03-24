@@ -261,13 +261,6 @@ struct PlayerView: View {
         // No stream source available
         isBuffering = false
         errorMessage = "No hay stream disponible para este contenido."
-
-        let item = AVPlayerItem(url: url)
-        let avPlayer = AVPlayer(playerItem: item)
-        player = avPlayer
-        isBuffering = false
-        avPlayer.play()
-        observePlayback(avPlayer)
     }
 
     private func observePlayback(_ avPlayer: AVPlayer) {
