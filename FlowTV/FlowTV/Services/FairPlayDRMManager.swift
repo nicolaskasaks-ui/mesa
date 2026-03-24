@@ -127,7 +127,7 @@ class FairPlayDRMManager: NSObject, AVContentKeySessionDelegate {
         request.setValue(FlowAPIService.baseURL, forHTTPHeaderField: "origin")
         request.setValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await FlowAPIService.flowSession.data(for: request)
         guard let http = response as? HTTPURLResponse,
               (200...299).contains(http.statusCode),
               !data.isEmpty else {
@@ -163,7 +163,7 @@ class FairPlayDRMManager: NSObject, AVContentKeySessionDelegate {
 
         request.httpBody = spc
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await FlowAPIService.flowSession.data(for: request)
         guard let http = response as? HTTPURLResponse,
               (200...299).contains(http.statusCode),
               !data.isEmpty else {

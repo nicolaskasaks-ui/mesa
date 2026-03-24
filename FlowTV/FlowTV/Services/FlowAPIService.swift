@@ -43,6 +43,17 @@ class FlowAPIService: ObservableObject {
     /// Exposes JWT for services that need it (e.g. StreamingService, FairPlay).
     var currentJWT: String? { jwtToken }
 
+    // Ephemeral session avoids HTTP/2 connection caching issues (-1005 errors)
+    nonisolated static let flowSession: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.httpAdditionalHeaders = [
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        ]
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 60
+        return URLSession(configuration: config)
+    }()
+
     // MARK: - Request ID Generation (matches Flow's x-request-id format)
 
     private func generateRequestId() -> String {
@@ -65,17 +76,12 @@ class FlowAPIService: ObservableObject {
 
         var request = URLRequest(url: url)
         request.httpMethod = method
-        request.timeoutInterval = 15
+        request.timeoutInterval = 30
 
-        // Content type
+        // Headers
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-        // Browser-like User-Agent (Flow drops connections without one)
-        request.setValue(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            forHTTPHeaderField: "User-Agent"
-        )
+        request.setValue("close", forHTTPHeaderField: "Connection")
 
         // Mandatory headers (as required by Flow's MandatoryHeadersFilter)
         request.setValue(Self.baseURL, forHTTPHeaderField: "referer")
@@ -91,34 +97,52 @@ class FlowAPIService: ObservableObject {
             request.httpBody = body
         }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        print("[FlowAPI] \(method) \(url.absoluteString)")
 
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw FlowAPIError.invalidResponse
-        }
-
-        switch httpResponse.statusCode {
-        case 200...299:
+        // Retry loop for -1005 (NSURLErrorNetworkConnectionLost)
+        var lastError: Error?
+        for attempt in 1...3 {
             do {
-                return try JSONDecoder.flowDecoder.decode(T.self, from: data)
+                let (data, response) = try await Self.flowSession.data(for: request)
+
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw FlowAPIError.invalidResponse
+                }
+
+                print("[FlowAPI] HTTP \(httpResponse.statusCode) for \(endpoint)")
+
+                switch httpResponse.statusCode {
+                case 200...299:
+                    do {
+                        return try JSONDecoder.flowDecoder.decode(T.self, from: data)
+                    } catch {
+                        let preview = String(data: data.prefix(500), encoding: .utf8) ?? "(binary)"
+                        print("[FlowAPI] Decoding \(T.self) failed: \(error)\nResponse: \(preview)")
+                        throw FlowAPIError.decodingError(error)
+                    }
+                case 401:
+                    throw FlowAPIError.unauthorized
+                case 403:
+                    throw FlowAPIError.forbidden
+                case 404:
+                    throw FlowAPIError.notFound
+                case 429:
+                    throw FlowAPIError.rateLimited
+                default:
+                    let preview = String(data: data.prefix(300), encoding: .utf8) ?? ""
+                    print("[FlowAPI] HTTP \(httpResponse.statusCode) for \(endpoint): \(preview)")
+                    throw FlowAPIError.serverError(httpResponse.statusCode)
+                }
+            } catch let error as NSError where error.code == -1005 && attempt < 3 {
+                print("[FlowAPI] Connection lost (-1005), retry \(attempt)/3...")
+                lastError = error
+                try await Task.sleep(nanoseconds: UInt64(attempt) * 1_000_000_000)
+                continue
             } catch {
-                let preview = String(data: data.prefix(500), encoding: .utf8) ?? "(binary)"
-                print("[FlowAPI] Decoding \(T.self) failed: \(error)\nResponse: \(preview)")
-                throw FlowAPIError.decodingError(error)
+                throw error
             }
-        case 401:
-            throw FlowAPIError.unauthorized
-        case 403:
-            throw FlowAPIError.forbidden
-        case 404:
-            throw FlowAPIError.notFound
-        case 429:
-            throw FlowAPIError.rateLimited
-        default:
-            let preview = String(data: data.prefix(300), encoding: .utf8) ?? ""
-            print("[FlowAPI] HTTP \(httpResponse.statusCode) for \(endpoint): \(preview)")
-            throw FlowAPIError.serverError(httpResponse.statusCode)
         }
+        throw lastError ?? FlowAPIError.invalidResponse
     }
 
     // MARK: - Authentication (Real Flow login)
