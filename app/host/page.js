@@ -92,6 +92,7 @@ export default function HostDashboard() {
   const [draggingEntry, setDraggingEntry] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
   const [hostToast, setHostToast] = useState(null);
+  const [allergyConfirm, setAllergyConfirm] = useState(null); // { entry, table, allergies }
   const longPressTimer = useRef(null);
   const prevQueueRef = useRef([]);
 
@@ -224,11 +225,7 @@ export default function HostDashboard() {
     const targetTable = table || picker?.table;
     const allergies = entry.customers?.allergies || entry.allergies || [];
     if (allergies.length > 0) {
-      const allergyList = allergies.join(", ").toUpperCase();
-      const tableLabel = targetTable ? ` en mesa ${targetTable.id}` : "";
-      if (confirm(`⚠️ ALERGIAS — Comunicar al mesero:\n\n${entry.guest_name} tiene: ${allergyList}\n\nSentar${tableLabel}?`)) {
-        doSeat(entry, targetTable);
-      }
+      setAllergyConfirm({ entry, table: targetTable, allergies });
     } else {
       doSeat(entry, targetTable);
     }
@@ -350,6 +347,57 @@ export default function HostDashboard() {
 
   return (
     <div style={{ minHeight: "100dvh", fontFamily: f.sans, color: T.text }}>
+
+      {/* ── ALLERGY CONFIRM MODAL ── */}
+      {allergyConfirm && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setAllergyConfirm(null); }}>
+          <div style={{
+            background: T.card, borderRadius: "20px", padding: "28px 24px", width: "calc(100% - 48px)", maxWidth: "360px",
+            boxShadow: "0 12px 48px rgba(0,0,0,0.15)",
+          }}>
+            {/* Warning header */}
+            <div style={{ textAlign: "center", marginBottom: "20px" }}>
+              <div style={{ fontSize: "36px", marginBottom: "8px" }}>⚠️</div>
+              <div style={{ fontFamily: f.display, fontSize: "18px", fontWeight: "700", color: T.text }}>Alergias — Avisar al mesero</div>
+            </div>
+
+            {/* Guest info */}
+            <div style={{ textAlign: "center", marginBottom: "16px" }}>
+              <span style={{ fontFamily: f.display, fontSize: "16px", fontWeight: "700" }}>{allergyConfirm.entry.guest_name}</span>
+              <span style={{ fontSize: "14px", color: T.textMed, marginLeft: "8px" }}>{allergyConfirm.entry.party_size}p</span>
+              {allergyConfirm.table && <span style={{ fontSize: "14px", color: T.textMed, marginLeft: "8px" }}>→ Mesa {allergyConfirm.table.id}</span>}
+            </div>
+
+            {/* Allergy badges — big and prominent */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "center", marginBottom: "24px" }}>
+              {allergyConfirm.allergies.map(a => (
+                <span key={a} style={{
+                  fontSize: "14px", fontWeight: "700", padding: "8px 16px", borderRadius: "10px",
+                  background: "#C93B3B", color: "#fff", textTransform: "uppercase", letterSpacing: "0.04em",
+                }}>⚠ {a}</span>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button onClick={() => setAllergyConfirm(null)} style={{
+                flex: 1, padding: "14px", borderRadius: "12px", background: T.bgPage,
+                color: T.textMed, border: `1px solid ${T.border}`, fontSize: "14px",
+                fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
+              }}>Cancelar</button>
+              <button onClick={() => {
+                doSeat(allergyConfirm.entry, allergyConfirm.table);
+                setAllergyConfirm(null);
+              }} style={{
+                flex: 1, padding: "14px", borderRadius: "12px", background: T.accent,
+                color: "#fff", border: "none", fontSize: "14px",
+                fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
+              }}>Sentar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── UNDO TABLE (long-press) ── */}
       {undoTable && (
