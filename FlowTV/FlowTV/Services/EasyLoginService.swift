@@ -128,23 +128,31 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
             return
         }
 
-        let method = json["method"] as? String ?? json["sendType"] as? String ?? ""
+        let method = json["method"] as? String ?? ""
+        let sendType = json["sendType"] as? String ?? ""
         let msgData = json["data"]
 
-        print("[EasyLogin] Received method: \(method)")
+        print("[EasyLogin] Received sendType: \(sendType), method: \(method)")
 
         switch method {
         case "code":
-            // Server says OUTPUT/code with empty data — request a code with INPUT
-            print("[EasyLogin] Server ready, requesting code...")
-            let requestMsg: [String: Any] = [
-                "sendType": "INPUT",
-                "method": "code",
-                "data": ""
-            ]
-            sendJSON(requestMsg)
-            DispatchQueue.main.async {
-                self.state = .waitingForCode
+            // Server sends code phase — check if data contains the code directly
+            if let dataStr = msgData as? String, !dataStr.isEmpty {
+                print("[EasyLogin] Got code in data string: \(dataStr)")
+                DispatchQueue.main.async {
+                    self.state = .showingCode(dataStr)
+                }
+            } else if let dataDict = msgData as? [String: Any], let code = dataDict["code"] as? String {
+                print("[EasyLogin] Got code in data dict: \(code)")
+                DispatchQueue.main.async {
+                    self.state = .showingCode(code)
+                }
+            } else {
+                // No code yet, just wait — server should send "start" next
+                print("[EasyLogin] Code phase, no data yet. Waiting for start...")
+                DispatchQueue.main.async {
+                    self.state = .waitingForCode
+                }
             }
 
         case "error":
