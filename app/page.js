@@ -6,26 +6,19 @@ import MenuOverlay from "../components/MenuOverlay";
 
 // ── UI ──
 const Card = ({ children, style, className = "" }) => (
-  <div className={`card-enter glass ${className}`} style={{ borderRadius: T.radius, boxShadow: T.shadow, padding: "28px", ...style }}>{children}</div>
+  <div className={`card-enter ${className}`} style={{ background: T.card, borderRadius: T.radius, border: `1px solid ${T.cardBorder}`, boxShadow: T.shadow, padding: "28px", ...style }}>{children}</div>
 );
 
 const Btn = ({ children, onClick, variant = "primary", disabled, style }) => {
-  const cls = {
-    primary: "glass-btn-dark",
-    outline: "glass-btn",
-    ghost: "",
-    success: "glass-accent",
-    danger: "glass-danger",
-  }[variant] || "";
   const s = {
-    primary: { color: "#fff" },
-    outline: { color: T.text },
+    primary: { background: T.accent, color: "#fff", border: "none", boxShadow: "0 2px 12px rgba(26,26,26,0.15)" },
+    outline: { background: "transparent", color: T.text, border: `1.5px solid ${T.border}` },
     ghost: { background: "transparent", color: T.textMed, border: "none" },
-    success: { color: T.success, fontWeight: "700" },
-    danger: { color: T.danger },
+    success: { background: T.success, color: "#fff", border: "none", boxShadow: "0 2px 12px rgba(45,122,79,0.25)" },
+    danger: { background: "transparent", color: T.danger, border: `1.5px solid ${T.danger}40` },
   }[variant];
   return (
-    <button className={cls} onClick={onClick} disabled={disabled} style={{
+    <button onClick={onClick} disabled={disabled} style={{
       width: "100%", padding: "17px", borderRadius: T.radiusSm || "14px", fontSize: "15px", fontWeight: "700",
       fontFamily: f.sans, cursor: disabled ? "default" : "pointer",
       opacity: disabled ? 0.4 : 1, letterSpacing: "0.01em", ...s, ...style,
@@ -269,13 +262,9 @@ export default function MeantimeCustomer() {
   };
 
   const inputStyle = {
-    width: "100%", padding: "14px 16px", borderRadius: "12px",
+    width: "100%", padding: "14px 16px", borderRadius: "12px", border: `1.5px solid ${T.border}`,
     fontSize: "16px", fontFamily: f.sans, outline: "none", boxSizing: "border-box",
-    background: "rgba(255,255,255,0.5)", backdropFilter: "saturate(150%) blur(10px)",
-    WebkitBackdropFilter: "saturate(150%) blur(10px)",
-    border: "1.5px solid rgba(255,255,255,0.4)",
-    boxShadow: "inset 0 1px 3px rgba(0,0,0,0.04)",
-    color: T.text, transition: "border 0.2s, box-shadow 0.2s",
+    background: T.bg, color: T.text, transition: "border 0.2s",
   };
   const page = { minHeight: "100dvh", padding: "56px 20px 40px", fontFamily: f.sans };
 
@@ -291,7 +280,7 @@ export default function MeantimeCustomer() {
           {returning ? "Un toque y estas en la fila." : "Anotate y te avisamos al celular cuando este lista."}
         </div>
       </Card>
-      <div className="glass-gold" style={{ marginTop: "16px", padding: "18px 20px", borderRadius: T.radius, textAlign: "center" }}>
+      <div style={{ marginTop: "16px", padding: "18px 20px", borderRadius: T.radius, background: T.goldLight, border: `1px solid ${T.gold}30`, textAlign: "center" }}>
         <div style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "12px", fontWeight: "700", color: T.gold, letterSpacing: "0.1em", textTransform: "uppercase" }}>2x1 en barra</div>
         <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Stella Artois, copa de vino o vermut — al registrarte.</div>
       </div>
@@ -324,9 +313,10 @@ export default function MeantimeCustomer() {
         <label style={{ fontSize: "12px", fontWeight: "700", color: T.textLight, display: "block", marginBottom: "8px", letterSpacing: "0.08em", textTransform: "uppercase" }}>Cuantos son</label>
         <div style={{ display: "flex", gap: "6px" }}>
           {[1,2,3,4,5,6].map(n => (
-            <button key={n} className={party === n ? "glass-btn-dark" : "glass-btn"} onClick={() => setParty(n)} style={{
+            <button key={n} onClick={() => setParty(n)} style={{
               flex: 1, padding: "14px 0", borderRadius: "12px", fontSize: "16px", fontWeight: "600",
-              color: party === n ? "#fff" : T.text, cursor: "pointer", fontFamily: f.sans,
+              background: party === n ? T.accent : "transparent", color: party === n ? "#fff" : T.text,
+              border: party === n ? "none" : `1.5px solid ${T.border}`, cursor: "pointer", fontFamily: f.sans,
             }}>{n}{n === 6 ? "+" : ""}</button>
           ))}
         </div>
@@ -352,9 +342,10 @@ export default function MeantimeCustomer() {
           {ALLERGY_OPTIONS.map(a => {
             const sel = allergies.includes(a.id);
             return (
-              <button key={a.id} className={sel ? "glass-btn-dark" : "glass-pill"} onClick={() => setAllergies(sel ? allergies.filter(x=>x!==a.id) : [...allergies, a.id])} style={{
+              <button key={a.id} onClick={() => setAllergies(sel ? allergies.filter(x=>x!==a.id) : [...allergies, a.id])} style={{
                 padding: "10px 16px", borderRadius: "20px", fontSize: "13px", fontWeight: "500",
-                color: sel ? "#fff" : T.textMed, cursor: "pointer", fontFamily: f.sans,
+                background: sel ? T.accent : "transparent", color: sel ? "#fff" : T.textMed,
+                border: sel ? "none" : `1.5px solid ${T.border}`, cursor: "pointer", fontFamily: f.sans,
               }}>{a.label}</button>
             );
           })}
@@ -503,7 +494,7 @@ export default function MeantimeCustomer() {
 
       {/* 2x1 bar */}
       {!atBar && (
-        <Card style={{ marginTop: "14px", background: "rgba(184,148,62,0.1)", backdropFilter: "saturate(150%) blur(14px)", WebkitBackdropFilter: "saturate(150%) blur(14px)", border: "1px solid rgba(184,148,62,0.18)" }}>
+        <Card style={{ marginTop: "14px", background: T.goldLight, border: `1px solid ${T.gold}25` }}>
           <div style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "12px", fontWeight: "700", color: T.gold, letterSpacing: "0.1em", textTransform: "uppercase" }}>2x1 en barra</div>
           <div style={{ fontSize: "13px", color: T.textMed, marginTop: "6px" }}>Stella Artois, copa de vino o vermut.</div>
           <button onClick={() => setAtBar(true)} style={{
@@ -514,7 +505,7 @@ export default function MeantimeCustomer() {
         </Card>
       )}
       {atBar && !barRedeemed && (
-        <Card style={{ marginTop: "14px", background: "rgba(184,148,62,0.1)", backdropFilter: "saturate(150%) blur(14px)", WebkitBackdropFilter: "saturate(150%) blur(14px)", border: "1px solid rgba(184,148,62,0.18)", textAlign: "center" }}>
+        <Card style={{ marginTop: "14px", background: T.goldLight, border: `1px solid ${T.gold}25`, textAlign: "center" }}>
           <div style={{ fontSize: "14px", fontWeight: "700", color: T.gold, marginBottom: "14px" }}>Elegi tu 2x1</div>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             {["Stella Artois Caña", "Copa de vino de la casa", "Vermut & Aperitivo"].map(item => (
@@ -576,7 +567,7 @@ export default function MeantimeCustomer() {
       )}
 
       {/* OpenTable */}
-      <div className="glass" style={{ marginTop: "24px", padding: "24px", borderRadius: T.radius, textAlign: "center" }}>
+      <div style={{ marginTop: "24px", padding: "24px", borderRadius: T.radius, background: T.accentSoft, textAlign: "center", border: `1px solid ${T.cardBorder}` }}>
         <div style={{ fontSize: "14px", fontWeight: "700", color: T.text }}>No queres esperar la proxima?</div>
         <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Reserva tu mesa con anticipacion.</div>
         <a href={RESTAURANT.otLink} target="_blank" rel="noopener noreferrer" style={{

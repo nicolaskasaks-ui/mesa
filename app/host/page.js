@@ -4,10 +4,10 @@ import { supabase } from "../../lib/supabase";
 import { T, f } from "../../lib/tokens";
 
 const S = {
-  libre:        { label: "Libre",     color: "#fff", bg: "rgba(45,122,79,0.75)", border: "rgba(45,122,79,0.3)", glass: true },
-  sentado:      { label: "Sentado",   color: "#fff", bg: "rgba(26,26,26,0.65)", border: "rgba(255,255,255,0.08)", glass: true },
-  postre:       { label: "Postre",    color: "#fff", bg: "rgba(212,148,42,0.75)", border: "rgba(212,148,42,0.3)", glass: true },
-  pidio_cuenta: { label: "Cuenta",    color: "#fff", bg: "rgba(201,59,59,0.75)", border: "rgba(201,59,59,0.3)", glass: true },
+  libre:        { label: "Libre",     color: "#fff", bg: "#2D7A4F", border: "#246B42" },
+  sentado:      { label: "Sentado",   color: "#fff", bg: "#1A1A1A", border: "#333" },
+  postre:       { label: "Postre",    color: "#fff", bg: "#D4942A", border: "#B87E20" },
+  pidio_cuenta: { label: "Cuenta",    color: "#fff", bg: "#C93B3B", border: "#A83030" },
 };
 const STATUS_FLOW = ["libre", "sentado", "postre", "pidio_cuenta"];
 
@@ -486,7 +486,7 @@ export default function HostDashboard() {
       )}
 
       {/* ── STICKY HEADER ── */}
-      <div className="glass" style={{ position: "sticky", top: 0, zIndex: 100, padding: "16px 20px" }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 100, padding: "16px 20px", background: T.card, borderBottom: `1px solid ${T.cardBorder}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: "1400px", margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <img src="/logo-dark.png" alt="Chui" style={{ height: "28px", objectFit: "contain" }} />
@@ -525,7 +525,7 @@ export default function HostDashboard() {
 
           {/* ══════════ LEFT COLUMN: QUEUE / FILA ══════════ */}
           <div className="host-col-queue">
-            <div className="glass" style={{ borderRadius: T.radius, boxShadow: T.shadow, overflow: "hidden" }}>
+            <div style={{ background: T.card, borderRadius: T.radius, border: `1px solid ${T.cardBorder}`, boxShadow: T.shadow, overflow: "hidden" }}>
               {/* Queue header */}
               <div style={{ padding: "16px", borderBottom: `1px solid ${T.cardBorder}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
@@ -747,7 +747,7 @@ export default function HostDashboard() {
 
           {/* ══════════ RIGHT COLUMN: TABLES / MESAS ══════════ */}
           <div className="host-col-tables">
-            <div className="glass" style={{ borderRadius: T.radius, boxShadow: T.shadow, overflow: "hidden" }}>
+            <div style={{ background: T.card, borderRadius: T.radius, border: `1px solid ${T.cardBorder}`, boxShadow: T.shadow, overflow: "hidden" }}>
               {/* Tables header */}
               <div style={{ padding: "16px", borderBottom: `1px solid ${T.cardBorder}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontSize: "14px", fontWeight: "700", color: T.text, fontFamily: f.display }}>
@@ -850,11 +850,8 @@ export default function HostDashboard() {
                         style={{
                           padding: isSeated ? "10px 8px" : "14px 8px 12px",
                           borderRadius: T.radius,
-                          border: isDropHover && canDrop ? `3px solid ${T.gold}` : isDropHover ? `3px dashed rgba(201,59,59,0.5)` : `1px solid ${cfg.border}`,
-                          background: isDropHover && canDrop ? "rgba(184,148,62,0.2)" : cfg.bg,
-                          backdropFilter: "saturate(180%) blur(16px)",
-                          WebkitBackdropFilter: "saturate(180%) blur(16px)",
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.15)",
+                          border: isDropHover && canDrop ? `3px solid ${T.gold}` : isDropHover ? `3px dashed ${T.danger}` : "none",
+                          background: isDropHover && canDrop ? T.goldLight : cfg.bg,
                           cursor: draggingEntry ? (canDrop ? "copy" : "not-allowed") : "pointer",
                           textAlign: "center",
                           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
