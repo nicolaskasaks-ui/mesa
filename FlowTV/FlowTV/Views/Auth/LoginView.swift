@@ -4,6 +4,7 @@ struct LoginView: View {
     @EnvironmentObject var authManager: AuthManager
     @State private var email = ""
     @State private var password = ""
+    @State private var showPassword = false
     @FocusState private var focusedField: LoginField?
 
     enum LoginField: Hashable {
@@ -82,13 +83,36 @@ struct LoginView: View {
                         .background(Color.white.opacity(0.08))
                         .cornerRadius(16)
 
-                    SecureField("Contraseña", text: $password)
-                        .focused($focusedField, equals: .password)
-                        .padding(20)
-                        .background(Color.white.opacity(0.08))
-                        .cornerRadius(16)
+                    HStack(spacing: 12) {
+                        if showPassword {
+                            TextField("Contraseña", text: $password)
+                                .focused($focusedField, equals: .password)
+                                .autocorrectionDisabled()
+                                .padding(20)
+                                .background(Color.white.opacity(0.08))
+                                .cornerRadius(16)
+                        } else {
+                            SecureField("Contraseña", text: $password)
+                                .focused($focusedField, equals: .password)
+                                .padding(20)
+                                .background(Color.white.opacity(0.08))
+                                .cornerRadius(16)
+                        }
+
+                        Button {
+                            showPassword.toggle()
+                        } label: {
+                            Image(systemName: showPassword ? "eye.slash" : "eye")
+                                .font(.title3)
+                                .foregroundColor(Color.white.opacity(0.5))
+                                .frame(width: 66, height: 66)
+                                .background(Color.white.opacity(0.08))
+                                .cornerRadius(16)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .frame(width: 540)
+                .frame(width: 620)
 
                 // Login button
                 Button(action: {
@@ -127,6 +151,16 @@ struct LoginView: View {
             }
         }
         .onAppear {
+            // In DEBUG, load credentials from Xcode scheme environment variables
+            // Set FLOW_EMAIL and FLOW_PASSWORD in: Product > Scheme > Edit Scheme > Run > Arguments > Environment Variables
+            #if DEBUG
+            if email.isEmpty, let envEmail = ProcessInfo.processInfo.environment["FLOW_EMAIL"] {
+                email = envEmail
+            }
+            if password.isEmpty, let envPass = ProcessInfo.processInfo.environment["FLOW_PASSWORD"] {
+                password = envPass
+            }
+            #endif
             focusedField = .email
         }
     }
