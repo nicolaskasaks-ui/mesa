@@ -6,7 +6,7 @@ import MenuOverlay from "../components/MenuOverlay";
 
 // ── UI ──
 const Card = ({ children, style, className = "" }) => (
-  <div className={`card-enter ${className}`} style={{ background: T.card, borderRadius: T.radius, border: `1px solid ${T.cardBorder}`, boxShadow: T.shadow, padding: "28px", ...style }}>{children}</div>
+  <div className={`card-enter glass ${className}`} style={{ borderRadius: T.radius, boxShadow: T.shadow, padding: "28px", ...style }}>{children}</div>
 );
 
 const Btn = ({ children, onClick, variant = "primary", disabled, style }) => {
@@ -266,7 +266,7 @@ export default function MeantimeCustomer() {
     fontSize: "16px", fontFamily: f.sans, outline: "none", boxSizing: "border-box",
     background: T.bg, color: T.text, transition: "border 0.2s",
   };
-  const page = { minHeight: "100dvh", background: T.bgPage, padding: "56px 20px 40px", fontFamily: f.sans };
+  const page = { minHeight: "100dvh", padding: "56px 20px 40px", fontFamily: f.sans };
 
   // ── WELCOME ──
   if (view === "welcome") return (

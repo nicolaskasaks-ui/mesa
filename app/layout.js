@@ -25,7 +25,7 @@ export default function RootLayout({ children }) {
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <style dangerouslySetInnerHTML={{ __html: `
           * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-          body { margin: 0; padding: 0; background: #FAFAF8; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+          body { margin: 0; padding: 0; background: #F0EDE8; background-image: radial-gradient(ellipse at 20% 0%, rgba(45,122,79,0.08) 0%, transparent 60%), radial-gradient(ellipse at 80% 100%, rgba(184,148,62,0.06) 0%, transparent 50%); background-attachment: fixed; min-height: 100dvh; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
           input, select, button { font-family: 'Nunito', sans-serif; }
           ::selection { background: #2D7A4F20; }
           @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
@@ -40,6 +40,9 @@ export default function RootLayout({ children }) {
           button { transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s ease, box-shadow 0.2s ease; }
           button:active { transform: scale(0.97) !important; }
           .glass-overlay { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+          .glass { background: rgba(255,255,255,0.55); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border: 1px solid rgba(255,255,255,0.35); }
+          .glass-dark { background: rgba(26,26,26,0.65); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px); border: 1px solid rgba(255,255,255,0.08); }
+          .glass-accent { background: rgba(45,122,79,0.12); backdrop-filter: saturate(150%) blur(16px); -webkit-backdrop-filter: saturate(150%) blur(16px); border: 1px solid rgba(45,122,79,0.15); }
           .card-enter { animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
           .card-enter-delay-1 { animation-delay: 0.05s; }
           .card-enter-delay-2 { animation-delay: 0.1s; }

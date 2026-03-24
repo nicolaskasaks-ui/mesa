@@ -313,7 +313,7 @@ export default function HostDashboard() {
   );
 
   return (
-    <div style={{ minHeight: "100dvh", background: T.bgPage, fontFamily: f.sans, color: T.text }}>
+    <div style={{ minHeight: "100dvh", fontFamily: f.sans, color: T.text }}>
 
       {/* ── UNDO TABLE (long-press) ── */}
       {undoTable && (
@@ -486,7 +486,7 @@ export default function HostDashboard() {
       )}
 
       {/* ── STICKY HEADER ── */}
-      <div style={{ position: "sticky", top: 0, zIndex: 100, padding: "16px 20px", background: T.card, borderBottom: `1px solid ${T.cardBorder}` }}>
+      <div className="glass" style={{ position: "sticky", top: 0, zIndex: 100, padding: "16px 20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: "1400px", margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <img src="/logo-dark.png" alt="Chui" style={{ height: "28px", objectFit: "contain" }} />
@@ -525,7 +525,7 @@ export default function HostDashboard() {
 
           {/* ══════════ LEFT COLUMN: QUEUE / FILA ══════════ */}
           <div className="host-col-queue">
-            <div style={{ background: T.card, borderRadius: T.radius, border: `1px solid ${T.cardBorder}`, boxShadow: T.shadow, overflow: "hidden" }}>
+            <div className="glass" style={{ borderRadius: T.radius, boxShadow: T.shadow, overflow: "hidden" }}>
               {/* Queue header */}
               <div style={{ padding: "16px", borderBottom: `1px solid ${T.cardBorder}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
@@ -748,7 +748,7 @@ export default function HostDashboard() {
 
           {/* ══════════ RIGHT COLUMN: TABLES / MESAS ══════════ */}
           <div className="host-col-tables">
-            <div style={{ background: T.card, borderRadius: T.radius, border: `1px solid ${T.cardBorder}`, boxShadow: T.shadow, overflow: "hidden" }}>
+            <div className="glass" style={{ borderRadius: T.radius, boxShadow: T.shadow, overflow: "hidden" }}>
               {/* Tables header */}
               <div style={{ padding: "16px", borderBottom: `1px solid ${T.cardBorder}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ fontSize: "14px", fontWeight: "700", color: T.text, fontFamily: f.display }}>
