@@ -11,6 +11,7 @@ struct FlowTVApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(authManager)
+                .environmentObject(authManager.easyLogin)
                 .environmentObject(flowAPI)
                 .environmentObject(streamingService)
                 .environmentObject(favoritesManager)

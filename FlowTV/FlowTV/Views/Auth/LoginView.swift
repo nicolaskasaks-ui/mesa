@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LoginView: View {
     @EnvironmentObject var authManager: AuthManager
+    @EnvironmentObject var easyLogin: EasyLoginService
     @FocusState private var focusedButton: LoginButton?
 
     enum LoginButton: Hashable {
@@ -68,7 +69,7 @@ struct LoginView: View {
             authManager.startEasyLogin()
         }
         .onDisappear {
-            authManager.easyLogin.disconnect()
+            easyLogin.disconnect()
         }
     }
 
@@ -76,7 +77,7 @@ struct LoginView: View {
 
     @ViewBuilder
     private var easyLoginContent: some View {
-        switch authManager.easyLogin.state {
+        switch easyLogin.state {
         case .idle, .connecting, .waitingForCode:
             VStack(spacing: 20) {
                 ProgressView()
