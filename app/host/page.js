@@ -204,15 +204,23 @@ export default function HostDashboard() {
     }
 
     const next = STATUS_FLOW[(STATUS_FLOW.indexOf(table.status) + 1) % STATUS_FLOW.length];
+
+    // pidio_cuenta → libre: confirm before releasing
+    if (next === "libre") {
+      setUndoTable({ ...table, _confirmLiberar: true });
+      return;
+    }
+
     await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: table.id, status: next }) });
 
-    // Libre or pidio_cuenta → show picker (mesa is becoming available)
-    if (next === "libre" || next === "pidio_cuenta") {
+    // pidio_cuenta → show picker
+    if (next === "pidio_cuenta") {
       const candidates = getCandidates(queue, table.capacity);
       if (candidates.length > 0) {
         setPicker({ table: { ...table, status: next }, candidates });
       }
     }
+    fetchAll();
   };
 
   const doNotify = async (entry) => {
@@ -473,8 +481,22 @@ export default function HostDashboard() {
                 color: T.textMed, border: `1px solid ${T.border}`, fontSize: "14px",
                 fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
               }}>Cancelar</button>
-              <button onClick={() => undoSeat(undoTable)} style={{
-                flex: 1, padding: "14px", borderRadius: "12px", background: S.pidio_cuenta.bg,
+              <button onClick={async () => {
+                if (undoTable._confirmLiberar) {
+                  // Normal cycle: pidio_cuenta → libre
+                  await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: undoTable.id, status: "libre" }) });
+                  setUndoTable(null);
+                  // Show picker if candidates
+                  const candidates = getCandidates(queue, undoTable.capacity);
+                  if (candidates.length > 0) {
+                    setPicker({ table: { ...undoTable, status: "libre" }, candidates });
+                  }
+                  fetchAll();
+                } else {
+                  undoSeat(undoTable);
+                }
+              }} style={{
+                flex: 1, padding: "14px", borderRadius: "12px", background: S.libre.bg,
                 color: "#fff", border: "none", fontSize: "14px",
                 fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
               }}>Liberar</button>
