@@ -196,12 +196,10 @@ export default function HostDashboard() {
   };
 
   const cycleTable = async (table) => {
-    // Libre → show picker if candidates, else ask source
+    // Libre → always show picker (with candidates + walk-in/OT options)
     if (table.status === "libre") {
       const candidates = getCandidates(queue, table.capacity);
-      if (candidates.length > 0) { setPicker({ table, candidates }); return; }
-      // No candidates — ask source
-      setSourcePrompt({ table });
+      setPicker({ table, candidates });
       return;
     }
 
@@ -621,7 +619,21 @@ export default function HostDashboard() {
                 );
               })}
             </div>
-            <button onClick={() => setPicker(null)} style={{ width: "100%", padding: "14px", marginTop: "14px", borderRadius: "12px", background: "transparent", color: T.textLight, border: "none", fontSize: "13px", cursor: "pointer", fontFamily: f.sans }}>No sentar a nadie</button>
+            {/* Walk-in / OpenTable options */}
+            <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: `1px solid ${T.cardBorder}` }}>
+              <div style={{ fontSize: "11px", color: T.textLight, fontWeight: "600", letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: "10px" }}>Sin fila</div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button onClick={() => { seatTableAs(picker.table, "walkin"); setPicker(null); }} style={{
+                  flex: 1, padding: "14px", borderRadius: "12px", background: T.accent, color: "#fff",
+                  border: "none", fontSize: "14px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans,
+                }}>Walk-in</button>
+                <button onClick={() => { seatTableAs(picker.table, "opentable"); setPicker(null); }} style={{
+                  flex: 1, padding: "14px", borderRadius: "12px", background: S.pidio_cuenta.bg, color: "#fff",
+                  border: "none", fontSize: "14px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans,
+                }}>OpenTable</button>
+              </div>
+            </div>
+            <button onClick={() => setPicker(null)} style={{ width: "100%", padding: "12px", marginTop: "10px", borderRadius: "12px", background: "transparent", color: T.textLight, border: "none", fontSize: "13px", cursor: "pointer", fontFamily: f.sans }}>Cancelar</button>
           </div>
         </div>
       )}
