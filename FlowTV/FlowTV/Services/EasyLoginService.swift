@@ -195,7 +195,9 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
         webSocketTask: URLSessionWebSocketTask,
         didOpenWithProtocol protocol: String?
     ) {
-        print("[EasyLogin] WebSocket connected")
+        print("[EasyLogin] WebSocket connected, requesting code...")
+        // Send code request immediately after connection
+        sendOutputRequest()
     }
 
     func urlSession(
