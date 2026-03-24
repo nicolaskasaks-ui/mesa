@@ -208,19 +208,30 @@ export default function HostDashboard() {
   };
 
   const notifyFromPicker = async (entry) => { await doNotify(entry); setPicker(null); fetchAll(); };
-  const seatDirect = async (entry, table) => {
-    const targetTable = table || picker?.table;
-    // Mark waitlist entry as seated
+  const doSeat = async (entry, targetTable) => {
     try {
       await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "seated" }) });
     } catch {}
-    // Link waitlist entry to the table
     if (targetTable) {
       try {
         await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: targetTable.id, status: "sentado", waitlist_id: entry.id }) });
       } catch {}
     }
     setPicker(null); fetchAll();
+  };
+
+  const seatDirect = (entry, table) => {
+    const targetTable = table || picker?.table;
+    const allergies = entry.customers?.allergies || entry.allergies || [];
+    if (allergies.length > 0) {
+      const allergyList = allergies.join(", ").toUpperCase();
+      const tableLabel = targetTable ? ` en mesa ${targetTable.id}` : "";
+      if (confirm(`⚠️ ALERGIAS — Comunicar al mesero:\n\n${entry.guest_name} tiene: ${allergyList}\n\nSentar${tableLabel}?`)) {
+        doSeat(entry, targetTable);
+      }
+    } else {
+      doSeat(entry, targetTable);
+    }
   };
   const undoSeat = async (table) => {
     // Revert table to libre and revert waitlist entry to waiting
@@ -669,6 +680,15 @@ export default function HostDashboard() {
                                 }}>
                                   {graceExpired ? "VENCIDO" : expired ? `+${Math.floor((elapsed - 600) / 60)}:${String((elapsed - 600) % 60).padStart(2, "0")} gracia` : `${mins}:${secs.toString().padStart(2, "0")}`}
                                 </span>
+                                {entry.activity === "confirmado" && entry.distance_m != null && entry.distance_m > 0 && (
+                                  <span style={{
+                                    fontSize: "11px", fontWeight: "700", padding: "4px 10px", borderRadius: "6px",
+                                    fontFamily: "'Futura', 'Outfit', sans-serif",
+                                    background: "#2D7A4F", color: "#fff",
+                                  }}>
+                                    🏃 ~{Math.max(1, Math.ceil(entry.distance_m / 80))}min
+                                  </span>
+                                )}
                               </>
                             );
                           })() : (
