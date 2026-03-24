@@ -580,7 +580,7 @@ export default function HostDashboard() {
                               const wBg = waitMin >= 45 ? "#C93B3B" : waitMin >= 31 ? "#D4942A" : waitMin >= 15 ? "#E8A735" : "#2D7A4F";
                               return (
                                 <span style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "10px", fontWeight: "700", padding: "3px 8px", borderRadius: "4px", background: wBg, color: "#fff" }}>
-                                  {ago(entry.joined_at)}
+                                  ⏱{ago(entry.joined_at)}
                                 </span>
                               );
                             })()}
