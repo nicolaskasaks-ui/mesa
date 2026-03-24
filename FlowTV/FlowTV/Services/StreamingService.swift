@@ -63,7 +63,7 @@ class StreamingService: ObservableObject {
         ]
         request.httpBody = try JSONEncoder().encode(body)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await FlowAPIService.flowSession.data(for: request)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
             throw StreamError.prmRegistrationFailed(code)
@@ -123,7 +123,7 @@ class StreamingService: ObservableObject {
         request.setValue(FlowAPIService.baseURL, forHTTPHeaderField: "origin")
         request.setValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await FlowAPIService.flowSession.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw StreamError.invalidResponse
         }
@@ -176,7 +176,7 @@ class StreamingService: ObservableObject {
         request.setValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
         request.httpBody = "{}".data(using: .utf8)
 
-        let (_, response) = try await URLSession.shared.data(for: request)
+        let (_, response) = try await FlowAPIService.flowSession.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw StreamError.invalidResponse
         }
