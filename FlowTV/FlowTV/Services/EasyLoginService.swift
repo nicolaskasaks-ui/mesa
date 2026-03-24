@@ -136,23 +136,23 @@ class EasyLoginService: NSObject, ObservableObject, URLSessionWebSocketDelegate 
 
         switch method {
         case "code":
-            // Server sends code phase — check if data contains the code directly
-            if let dataStr = msgData as? String, !dataStr.isEmpty {
-                print("[EasyLogin] Got code in data string: \(dataStr)")
-                DispatchQueue.main.async {
-                    self.state = .showingCode(dataStr)
-                }
-            } else if let dataDict = msgData as? [String: Any], let code = dataDict["code"] as? String {
-                print("[EasyLogin] Got code in data dict: \(code)")
-                DispatchQueue.main.async {
-                    self.state = .showingCode(code)
-                }
-            } else {
-                // No code yet, just wait — server should send "start" next
-                print("[EasyLogin] Code phase, no data yet. Waiting for start...")
-                DispatchQueue.main.async {
-                    self.state = .waitingForCode
-                }
+            // Server ready — generate code + session and register via "start"
+            let code = Self.generateCode()
+            let session = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+            self.sessionID = session
+            let startMsg: [String: Any] = [
+                "method": "start",
+                "data": [
+                    "sessionID": session,
+                    "code": code,
+                    "SDK": true,
+                    "sfat": false
+                ] as [String: Any]
+            ]
+            sendJSON(startMsg)
+            print("[EasyLogin] Registered code: \(code), session: \(session)")
+            DispatchQueue.main.async {
+                self.state = .showingCode(code)
             }
 
         case "error":
