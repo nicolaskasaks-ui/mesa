@@ -217,6 +217,132 @@ class FlowAPIService: ObservableObject {
         self.jwtToken = token
     }
 
+    // MARK: - OTP Authentication (New Flow auth-daima endpoints)
+    // Step 1: Send OTP code to user's email/phone
+    // Step 2: Validate OTP code and get JWT
+    // Step 3: Exchange JWT for Flow access token
+
+    private static let authDaimaBaseURL = "https://authdaima.dev.app.flow.com.ar"
+    private static let authSDKBaseURL = "https://authsdk.app.flow.com.ar"
+    private static let smartTVOrigin = "https://fenix-smarttv.dev.app.flow.com.ar"
+
+    /// Builds a URLRequest with the headers required by the new auth-daima / auth-sdk endpoints.
+    private func makeOTPRequest(url: URL, body: Data?) -> URLRequest {
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 30
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            forHTTPHeaderField: "User-Agent"
+        )
+        request.setValue(Self.smartTVOrigin, forHTTPHeaderField: "origin")
+        request.setValue("\(Self.smartTVOrigin)/", forHTTPHeaderField: "referer")
+        if let body { request.httpBody = body }
+        return request
+    }
+
+    /// Step 1 – Send an OTP code to the user's email / phone number.
+    /// Returns the opaque `otpCredentials` string needed for validation.
+    func sendOTPCode(accountId: String) async throws -> String {
+        let payload = OTPSendCodeRequest(
+            accountId: accountId,
+            deviceType: "SmartTV",
+            deviceName: "FlowTV",
+            company: "flow"
+        )
+        let body = try JSONEncoder().encode(payload)
+
+        guard let url = URL(string: "\(Self.authDaimaBaseURL)/auth-daima/v1/provision/sendCode") else {
+            throw FlowAPIError.invalidURL
+        }
+
+        let request = makeOTPRequest(url: url, body: body)
+        print("[FlowAPI] POST \(url.absoluteString)")
+
+        let (data, response) = try await Self.flowSession.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw FlowAPIError.invalidResponse }
+        print("[FlowAPI] HTTP \(http.statusCode) for sendCode")
+
+        guard (200...299).contains(http.statusCode) else {
+            let preview = String(data: data.prefix(300), encoding: .utf8) ?? ""
+            print("[FlowAPI] sendCode error: \(preview)")
+            if http.statusCode == 401 { throw FlowAPIError.unauthorized }
+            throw FlowAPIError.serverError(http.statusCode)
+        }
+
+        let decoded = try JSONDecoder.flowDecoder.decode(OTPSendCodeResponse.self, from: data)
+        guard let credentials = decoded.otpCredentials, !credentials.isEmpty else {
+            throw FlowAPIError.invalidResponse
+        }
+        return credentials
+    }
+
+    /// Step 2 – Validate the OTP code the user entered.
+    /// Returns a JWT session token.
+    func validateOTPCode(accountId: String, code: String, otpCredentials: String) async throws -> String {
+        let payload = OTPValidateCodeRequest(
+            otpCredentials: otpCredentials,
+            code: code,
+            accountId: accountId,
+            deviceType: "SmartTV",
+            company: "flow"
+        )
+        let body = try JSONEncoder().encode(payload)
+
+        guard let url = URL(string: "\(Self.authDaimaBaseURL)/auth-daima/v1/provision/validateCode") else {
+            throw FlowAPIError.invalidURL
+        }
+
+        let request = makeOTPRequest(url: url, body: body)
+        print("[FlowAPI] POST \(url.absoluteString)")
+
+        let (data, response) = try await Self.flowSession.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw FlowAPIError.invalidResponse }
+        print("[FlowAPI] HTTP \(http.statusCode) for validateCode")
+
+        guard (200...299).contains(http.statusCode) else {
+            let preview = String(data: data.prefix(300), encoding: .utf8) ?? ""
+            print("[FlowAPI] validateCode error: \(preview)")
+            if http.statusCode == 401 { throw FlowAPIError.unauthorized }
+            throw FlowAPIError.serverError(http.statusCode)
+        }
+
+        let decoded = try JSONDecoder.flowDecoder.decode(OTPValidateCodeResponse.self, from: data)
+        guard let token = decoded.effectiveToken, !token.isEmpty else {
+            throw FlowAPIError.invalidResponse
+        }
+        return token
+    }
+
+    /// Step 3 – Exchange the auth-daima JWT for a Flow access token (content APIs).
+    func fetchFlowAccessToken(bearerToken: String) async throws -> String {
+        guard let url = URL(string: "\(Self.authSDKBaseURL)/auth-sdk/v1/flowaccesstoken") else {
+            throw FlowAPIError.invalidURL
+        }
+
+        var request = makeOTPRequest(url: url, body: nil)
+        request.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+        print("[FlowAPI] POST \(url.absoluteString)")
+
+        let (data, response) = try await Self.flowSession.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw FlowAPIError.invalidResponse }
+        print("[FlowAPI] HTTP \(http.statusCode) for flowaccesstoken")
+
+        guard (200...299).contains(http.statusCode) else {
+            let preview = String(data: data.prefix(300), encoding: .utf8) ?? ""
+            print("[FlowAPI] flowaccesstoken error: \(preview)")
+            if http.statusCode == 401 { throw FlowAPIError.unauthorized }
+            throw FlowAPIError.serverError(http.statusCode)
+        }
+
+        let decoded = try JSONDecoder.flowDecoder.decode(FlowAccessTokenResponse.self, from: data)
+        guard let accessToken = decoded.effectiveToken, !accessToken.isEmpty else {
+            throw FlowAPIError.invalidResponse
+        }
+        return accessToken
+    }
+
     // MARK: - Cache Token
     // GET /auth/v2/cachetoken
 
@@ -646,6 +772,43 @@ struct FlowDynamicResponse: Decodable {
             )
         } ?? []
     }
+}
+
+// MARK: - OTP Request / Response Models
+
+struct OTPSendCodeRequest: Encodable {
+    let accountId: String
+    let deviceType: String
+    let deviceName: String
+    let company: String
+}
+
+struct OTPSendCodeResponse: Decodable {
+    let otpCredentials: String?
+}
+
+struct OTPValidateCodeRequest: Encodable {
+    let otpCredentials: String
+    let code: String
+    let accountId: String
+    let deviceType: String
+    let company: String
+}
+
+struct OTPValidateCodeResponse: Decodable {
+    let token: String?
+    let jwt: String?
+    let accessToken: String?
+
+    var effectiveToken: String? { token ?? jwt ?? accessToken }
+}
+
+struct FlowAccessTokenResponse: Decodable {
+    let token: String?
+    let accessToken: String?
+    let flowAccessToken: String?
+
+    var effectiveToken: String? { flowAccessToken ?? accessToken ?? token }
 }
 
 // MARK: - Supporting Types

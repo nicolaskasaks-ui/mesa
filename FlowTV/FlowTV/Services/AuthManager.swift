@@ -1,12 +1,22 @@
 import Foundation
 import SwiftUI
 
+enum OTPStep {
+    case enterEmail
+    case enterCode
+    case verifying
+}
+
 @MainActor
 class AuthManager: ObservableObject {
     @Published var isAuthenticated = false
     @Published var currentUser: FlowUser?
     @Published var isLoading = false
     @Published var errorMessage: String?
+
+    // OTP login state
+    @Published var otpStep: OTPStep = .enterEmail
+    @Published var otpCredentials: String?
 
     private let tokenKey = "com.flowtv.authtoken"
     private let userKey = "com.flowtv.user"
@@ -85,6 +95,140 @@ class AuthManager: ObservableObject {
             isLoading = false
             return false
         }
+    }
+
+    // MARK: - OTP Login Flow (New auth-daima endpoints)
+
+    /// Step 1: Send OTP code to the user's email/phone.
+    func sendCode(email: String) async {
+        isLoading = true
+        errorMessage = nil
+
+        let api = apiService ?? FlowAPIService()
+
+        do {
+            let credentials = try await api.sendOTPCode(accountId: email)
+            self.otpCredentials = credentials
+            self.otpStep = .enterCode
+        } catch let error as FlowAPIError {
+            switch error {
+            case .unauthorized:
+                errorMessage = "Cuenta no encontrada. Verificá tu email o número de línea."
+            case .serverError(let code):
+                errorMessage = "Error del servidor (\(code)). Intentá más tarde."
+            default:
+                errorMessage = "No se pudo enviar el código. Intentá de nuevo."
+            }
+        } catch {
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain {
+                errorMessage = "Error de conexión. Verificá tu internet. (\(nsError.code))"
+            } else {
+                errorMessage = "Error inesperado: \(error.localizedDescription)"
+            }
+            print("[AuthManager] sendCode error: \(error)")
+        }
+
+        isLoading = false
+    }
+
+    /// Step 2: Validate the OTP code and complete login.
+    func validateCode(email: String, code: String) async {
+        guard let credentials = otpCredentials else {
+            errorMessage = "Credenciales OTP no disponibles. Volvé a enviar el código."
+            otpStep = .enterEmail
+            return
+        }
+
+        isLoading = true
+        errorMessage = nil
+        otpStep = .verifying
+
+        let api = apiService ?? FlowAPIService()
+
+        do {
+            // Step 2: Validate OTP and get session JWT
+            let sessionToken = try await api.validateOTPCode(
+                accountId: email,
+                code: code,
+                otpCredentials: credentials
+            )
+
+            // Step 3: Exchange session JWT for Flow access token
+            var flowToken = sessionToken
+            do {
+                let accessToken = try await api.fetchFlowAccessToken(bearerToken: sessionToken)
+                flowToken = accessToken
+            } catch {
+                // If the access token exchange fails, try using the session token directly
+                print("[AuthManager] flowAccessToken exchange failed, using session token: \(error)")
+            }
+
+            // Store the JWT and mark authenticated
+            api.setJWTToken(flowToken)
+            apiService?.setJWTToken(flowToken)
+
+            let user = FlowUser(
+                id: email,
+                email: email,
+                displayName: email,
+                avatarURL: nil,
+                plan: FlowPlan(name: "Flow", tier: .estandar, hasHD: true, has4K: false, maxDevices: 3),
+                maxStreams: 3,
+                activeStreams: 0
+            )
+
+            let authToken = AuthToken(
+                accessToken: flowToken,
+                refreshToken: "",
+                expiresAt: Date().addingTimeInterval(43200)
+            )
+
+            self.currentUser = user
+            self.authToken = authToken
+            self.isAuthenticated = true
+
+            saveToken(authToken)
+            saveUser(user)
+
+            // Pass VUID to streaming service for DRM
+            if let vuid = api.vuid {
+                streamingService?.setVUID(vuid)
+            }
+
+            // Register PRM token in background (needed for playback)
+            Task {
+                try? await streamingService?.registerPRM()
+            }
+        } catch let error as FlowAPIError {
+            otpStep = .enterCode
+            switch error {
+            case .unauthorized:
+                errorMessage = "Código incorrecto o expirado. Intentá de nuevo."
+            case .serverError(let code):
+                errorMessage = "Error del servidor (\(code)). Intentá más tarde."
+            default:
+                errorMessage = "No se pudo verificar el código. Intentá de nuevo."
+            }
+        } catch {
+            otpStep = .enterCode
+            let nsError = error as NSError
+            if nsError.domain == NSURLErrorDomain {
+                errorMessage = "Error de conexión. Verificá tu internet. (\(nsError.code))"
+            } else {
+                errorMessage = "Error inesperado: \(error.localizedDescription)"
+            }
+            print("[AuthManager] validateCode error: \(error)")
+        }
+
+        isLoading = false
+    }
+
+    /// Reset OTP flow back to email entry.
+    func resetOTPFlow() {
+        otpStep = .enterEmail
+        otpCredentials = nil
+        errorMessage = nil
     }
 
     // MARK: - Demo Mode (skip login, use mock data)
