@@ -266,7 +266,7 @@ export default function MeantimeCustomer() {
     fontSize: "16px", fontFamily: f.sans, outline: "none", boxSizing: "border-box",
     background: T.bg, color: T.text, transition: "border 0.2s",
   };
-  const page = { minHeight: "100dvh", padding: "56px 20px 40px", fontFamily: f.sans };
+  const page = { minHeight: "100dvh", background: T.bgPage, padding: "56px 20px 40px", fontFamily: f.sans };
 
   // ── WELCOME ──
   if (view === "welcome") return (
