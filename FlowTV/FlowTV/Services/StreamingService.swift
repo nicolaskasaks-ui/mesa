@@ -187,13 +187,11 @@ class StreamingService: ObservableObject {
 
     /// Resolves a channel or VOD item into a playable AVPlayerItem with DRM configured.
     func preparePlayback(id: String, type: StreamContentType) async throws -> PlaybackSession {
-        // 1. Check concurrency
+        // 1. Check concurrency (non-blocking — log warning but continue)
         do {
             try await checkConcurrency()
-        } catch StreamError.concurrencyLimitReached {
-            throw StreamError.concurrencyLimitReached
         } catch {
-            // Non-fatal: continue even if concurrency check fails
+            print("[StreamingService] Concurrency check failed: \(error.localizedDescription). Continuing anyway.")
         }
 
         // 2. Resolve stream
