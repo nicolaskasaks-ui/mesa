@@ -89,6 +89,8 @@ export default function HostDashboard() {
   const [seatedToday, setSeatedToday] = useState(0);
   const [undoTable, setUndoTable] = useState(null);
   const [profileEntry, setProfileEntry] = useState(null);
+  const [draggingEntry, setDraggingEntry] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null);
   const longPressTimer = useRef(null);
 
   // Check if already authed from session + set host title
@@ -569,10 +571,20 @@ export default function HostDashboard() {
                     const pred = predictions[entry.id];
 
                     return (
-                      <div key={entry.id} style={{
+                      <div key={entry.id}
+                        draggable
+                        onDragStart={(e) => {
+                          setDraggingEntry(entry);
+                          e.dataTransfer.effectAllowed = "move";
+                          e.dataTransfer.setData("text/plain", entry.id);
+                        }}
+                        onDragEnd={() => { setDraggingEntry(null); setDropTarget(null); }}
+                        style={{
                         padding: "14px 16px",
                         borderBottom: i < queue.length - 1 ? `1px solid ${T.cardBorder}` : "none",
                         borderLeft: isNotified ? `3px solid ${S.pidio_cuenta.bg}` : isExtended ? `3px solid ${S.sentado.bg}` : `3px solid transparent`,
+                        cursor: "grab", opacity: draggingEntry?.id === entry.id ? 0.4 : 1,
+                        transition: "opacity 0.2s",
                       }}>
                         {/* Row 1: name + location + time */}
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -808,26 +820,48 @@ export default function HostDashboard() {
                     const seatedMin = table.seated_at ? Math.floor((Date.now() - new Date(table.seated_at).getTime()) / 60000) : 0;
                     const alertColor = isSeated && seatedMin >= 180 ? S.pidio_cuenta.bg : isSeated && seatedMin >= 120 ? S.postre.bg : null;
 
+                    const isDropHover = dropTarget === table.id && draggingEntry;
+                    const canDrop = table.status === "libre" && draggingEntry && table.capacity >= draggingEntry.party_size;
+
                     return (
                       <button key={table.id}
                         onClick={() => cycleTable(table)}
                         onTouchStart={() => handleLongPressStart(table)}
                         onTouchEnd={handleLongPressEnd}
                         onTouchCancel={handleLongPressEnd}
-                        onMouseDown={() => handleLongPressStart(table)}
+                        onMouseDown={() => { if (!draggingEntry) handleLongPressStart(table); }}
                         onMouseUp={handleLongPressEnd}
-                        onMouseLeave={handleLongPressEnd}
+                        onMouseLeave={() => { handleLongPressEnd(); setDropTarget(null); }}
                         onContextMenu={(e) => e.preventDefault()}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = canDrop ? "move" : "none";
+                          setDropTarget(table.id);
+                        }}
+                        onDragLeave={() => setDropTarget(null)}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setDropTarget(null);
+                          if (draggingEntry && table.status === "libre") {
+                            seatDirect(draggingEntry, table);
+                          }
+                          setDraggingEntry(null);
+                        }}
                         aria-label={`Mesa ${table.id} - ${cfg.label} - ${table.capacity} personas${guestName ? ` - ${guestName}` : ""}${time ? ` - ${time}` : ""}`}
                         style={{
                           padding: isSeated ? "10px 8px" : "14px 8px 12px",
-                          borderRadius: T.radius, border: "none",
-                          background: cfg.bg, cursor: "pointer", textAlign: "center",
+                          borderRadius: T.radius,
+                          border: isDropHover && canDrop ? `3px solid ${T.gold}` : isDropHover ? `3px dashed ${T.danger}` : "3px solid transparent",
+                          background: isDropHover && canDrop ? T.goldLight : cfg.bg,
+                          cursor: draggingEntry ? (canDrop ? "copy" : "not-allowed") : "pointer",
+                          textAlign: "center",
                           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                           minHeight: isSeated ? "72px" : "100px",
                           WebkitTouchCallout: "none", userSelect: "none",
                           opacity: isSeated ? 0.85 : 1,
                           position: "relative",
+                          transition: "border 0.15s, background 0.15s, transform 0.15s",
+                          transform: isDropHover && canDrop ? "scale(1.05)" : "scale(1)",
                         }}>
                         {isMeantime && (
                           <div style={{ position: "absolute", top: "6px", right: "6px", fontSize: "8px", fontWeight: "800", padding: "2px 4px", borderRadius: "3px", background: T.gold, color: "#fff", letterSpacing: "0.05em" }}>M</div>
