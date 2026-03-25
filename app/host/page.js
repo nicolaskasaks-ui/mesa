@@ -91,6 +91,9 @@ export default function HostDashboard() {
   const [profileEntry, setProfileEntry] = useState(null);
   const [waitEstimates, setWaitEstimates] = useState({});
   const [sourceModal, setSourceModal] = useState(null);
+  const [manualForm, setManualForm] = useState(null); // { table } — manual Meantime entry
+  const [manualName, setManualName] = useState("");
+  const [manualParty, setManualParty] = useState(2);
   const longPressTimer = useRef(null);
 
   // Check if already authed from session + set host title
@@ -166,6 +169,19 @@ export default function HostDashboard() {
       await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: table.id, status: "sentado" }) });
     }
     setSourceModal(null);
+    fetchAll();
+  };
+
+  const seatManual = async () => {
+    if (!manualForm || !manualName.trim()) return;
+    const res = await window.fetch("/api/waitlist", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guest_name: manualName.trim(), party_size: manualParty, source: "host" }) });
+    const entry = await res.json();
+    if (entry.id) {
+      await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "seated" }) });
+      await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: manualForm.table.id, status: "sentado", waitlist_id: entry.id }) });
+    }
+    setManualForm(null); setManualName(""); setManualParty(2);
     fetchAll();
   };
 
@@ -357,10 +373,62 @@ export default function HostDashboard() {
                 <span style={{ width: "12px", height: "12px", borderRadius: "50%", background: T.danger }} />
                 OpenTable
               </button>
+              <button onClick={() => { setManualForm({ table: sourceModal.table }); setSourceModal(null); }} style={{
+                padding: "16px", borderRadius: "14px", background: T.accent, color: "#fff",
+                border: "none", fontSize: "15px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+              }}>
+                <span style={{ width: "12px", height: "12px", borderRadius: "50%", background: T.gold }} />
+                Meantime (anotar cliente)
+              </button>
               <button onClick={() => setSourceModal(null)} style={{
                 padding: "14px", borderRadius: "14px", background: T.bgPage, color: T.textMed,
                 border: `1px solid ${T.border}`, fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
               }}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MANUAL ENTRY FORM (Meantime via host) ── */}
+      {manualForm && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 260, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setManualForm(null); setManualName(""); } }}>
+          <div className="modal-enter" style={{ background: T.card, borderRadius: "20px", padding: "28px 24px", width: "calc(100% - 48px)", maxWidth: "340px", boxShadow: T.shadowLg }}>
+            <div style={{ textAlign: "center", marginBottom: "20px" }}>
+              <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "700", color: T.text }}>Mesa {manualForm.table.id}</div>
+              <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Anotar cliente manualmente</div>
+            </div>
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ fontSize: "11px", fontWeight: "700", color: T.textLight, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "6px" }}>Nombre</label>
+              <input value={manualName} onChange={e => setManualName(e.target.value)} placeholder="Nombre del cliente"
+                autoFocus
+                style={{ width: "100%", padding: "14px 16px", borderRadius: "12px", border: `1.5px solid ${T.border}`, fontSize: "16px", fontFamily: f.sans, outline: "none", boxSizing: "border-box", background: T.bg, color: T.text }}
+                onKeyDown={e => { if (e.key === "Enter" && manualName.trim()) seatManual(); }}
+              />
+            </div>
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{ fontSize: "11px", fontWeight: "700", color: T.textLight, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "6px" }}>Personas</label>
+              <div style={{ display: "flex", gap: "6px" }}>
+                {[1,2,3,4,5,6].map(n => (
+                  <button key={n} onClick={() => setManualParty(n)} style={{
+                    flex: 1, padding: "12px 0", borderRadius: "10px", fontSize: "15px", fontWeight: "600",
+                    background: manualParty === n ? T.accent : "transparent", color: manualParty === n ? "#fff" : T.text,
+                    border: manualParty === n ? "none" : `1.5px solid ${T.border}`, cursor: "pointer", fontFamily: f.sans,
+                  }}>{n}{n === 6 ? "+" : ""}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button onClick={() => { setManualForm(null); setManualName(""); }} style={{
+                flex: 1, padding: "14px", borderRadius: "12px", background: T.bgPage, color: T.textMed,
+                border: `1px solid ${T.border}`, fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
+              }}>Cancelar</button>
+              <button onClick={seatManual} disabled={!manualName.trim()} style={{
+                flex: 1, padding: "14px", borderRadius: "12px", background: manualName.trim() ? T.gold : T.border,
+                color: "#fff", border: "none", fontSize: "14px", fontWeight: "700", cursor: manualName.trim() ? "pointer" : "default",
+                fontFamily: f.sans, opacity: manualName.trim() ? 1 : 0.5,
+              }}>Sentar</button>
             </div>
           </div>
         </div>
