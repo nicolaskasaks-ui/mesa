@@ -846,7 +846,7 @@ export default function HostDashboard() {
                           onContextMenu={(e) => e.preventDefault()}
                           style={{
                             display: "flex", alignItems: "center", justifyContent: "space-between",
-                            padding: "10px 14px", borderRadius: "12px", background: T.accent, border: "none",
+                            padding: "10px 14px", borderRadius: "12px", background: cfg.bg, border: "none",
                             cursor: "pointer", WebkitTouchCallout: "none", userSelect: "none",
                           }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>

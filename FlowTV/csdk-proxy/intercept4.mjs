@@ -59,42 +59,79 @@ page.on('response', async (res) => {
 // and inject the flowaccesstoken message as if the mobile app sent it
 await page.addInitScript((token) => {
   const OrigWS = window.WebSocket;
+
   window.WebSocket = function(url, protocols) {
     console.log('[INJECT] WebSocket created:', url);
-    const ws = new OrigWS(url, protocols);
+    const ws = protocols ? new OrigWS(url, protocols) : new OrigWS(url);
 
     if (url.includes('easylogin')) {
-      console.log('[INJECT] EasyLogin WS detected! Will inject token on open');
+      console.log('[INJECT] EasyLogin WS detected!');
 
-      const origOnOpen = ws.onopen;
-      const origAddEventListener = ws.addEventListener.bind(ws);
+      // Capture the onmessage handler when the app sets it
+      let capturedHandler = null;
+      const origDescriptor = Object.getOwnPropertyDescriptor(WebSocket.prototype, 'onmessage') ||
+                             Object.getOwnPropertyDescriptor(OrigWS.prototype, 'onmessage');
 
-      // Wait for the WS to open, then after a short delay inject the token
+      Object.defineProperty(ws, 'onmessage', {
+        get() { return capturedHandler; },
+        set(handler) {
+          console.log('[INJECT] onmessage handler captured!');
+          capturedHandler = handler;
+
+          // Also set it on the real WS so normal messages work
+          if (origDescriptor && origDescriptor.set) {
+            origDescriptor.set.call(ws, handler);
+          }
+        }
+      });
+
+      // Also intercept addEventListener for 'message'
+      const origAddEvent = ws.addEventListener.bind(ws);
+      ws.addEventListener = function(type, handler, options) {
+        if (type === 'message') {
+          console.log('[INJECT] addEventListener("message") captured!');
+          capturedHandler = capturedHandler || handler;
+        }
+        return origAddEvent(type, handler, options);
+      };
+
+      // When WS opens, wait and inject the token
       ws.addEventListener('open', () => {
-        console.log('[INJECT] EasyLogin WS opened, injecting token in 2s...');
+        console.log('[INJECT] WS opened, injecting token in 3s...');
         setTimeout(() => {
-          // Create a fake MessageEvent with the flowaccesstoken
           const fakeMsg = JSON.stringify({
             method: "flowaccesstoken",
             data: { flowaccesstoken: token }
           });
-          console.log('[INJECT] Dispatching flowaccesstoken message');
 
-          // Dispatch a MessageEvent on the WebSocket
+          console.log('[INJECT] Calling onmessage handler directly...');
           const event = new MessageEvent('message', { data: fakeMsg });
-          ws.dispatchEvent(event);
-        }, 2000);
+
+          if (capturedHandler) {
+            // Call onmessage directly
+            if (typeof capturedHandler === 'function') {
+              capturedHandler(event);
+            } else if (capturedHandler.handleEvent) {
+              capturedHandler.handleEvent(event);
+            }
+            console.log('[INJECT] Handler called successfully!');
+          } else {
+            console.log('[INJECT] WARNING: no handler captured, dispatching event');
+            ws.dispatchEvent(event);
+          }
+        }, 3000);
       });
     }
 
     return ws;
   };
-  // Copy static properties
-  window.WebSocket.CONNECTING = OrigWS.CONNECTING;
-  window.WebSocket.OPEN = OrigWS.OPEN;
-  window.WebSocket.CLOSING = OrigWS.CLOSING;
-  window.WebSocket.CLOSED = OrigWS.CLOSED;
-  window.WebSocket.prototype = OrigWS.prototype;
+
+  window.WebSocket.CONNECTING = 0;
+  window.WebSocket.OPEN = 1;
+  window.WebSocket.CLOSING = 2;
+  window.WebSocket.CLOSED = 3;
+  Object.setPrototypeOf(window.WebSocket, OrigWS);
+  Object.setPrototypeOf(window.WebSocket.prototype, OrigWS.prototype);
 }, TOKEN);
 
 console.error('Loading SmartTV app with WS interception...');
