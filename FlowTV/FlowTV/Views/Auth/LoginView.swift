@@ -6,8 +6,13 @@ struct LoginView: View {
     @FocusState private var focusedButton: LoginButton?
 
     enum LoginButton: Hashable {
-        case retry, demo
+        case retry, demo, otp
     }
+
+    @State private var showOTPFlow = false
+    @State private var otpCode = ""
+    @State private var otpSent = false
+    @State private var otpEmail = "nico.kskff@gmail.com"
 
     var body: some View {
         ZStack {
@@ -198,22 +203,102 @@ struct LoginView: View {
     // MARK: - Demo Button
 
     private var demoButton: some View {
-        Button(action: {
-            authManager.loginAsDemo()
-        }) {
-            Text("Entrar sin cuenta (Demo)")
-                .font(.callout.weight(.medium))
-                .padding(.horizontal, 32)
-                .padding(.vertical, 14)
-                .background(Color.white.opacity(0.08))
-                .foregroundColor(Color.white.opacity(0.5))
-                .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                )
+        VStack(spacing: 16) {
+            Button(action: {
+                showOTPFlow = true
+            }) {
+                Text("Entrar con código por email")
+                    .font(.callout.weight(.medium))
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 14)
+                    .background(Color(red: 0.0, green: 0.8, blue: 0.7).opacity(0.15))
+                    .foregroundColor(Color(red: 0.0, green: 0.8, blue: 0.7))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color(red: 0.0, green: 0.8, blue: 0.7).opacity(0.3), lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+            .focused($focusedButton, equals: .otp)
+
+            Button(action: {
+                authManager.loginAsDemo()
+            }) {
+                Text("Entrar sin cuenta (Demo)")
+                    .font(.callout.weight(.medium))
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 14)
+                    .background(Color.white.opacity(0.08))
+                    .foregroundColor(Color.white.opacity(0.5))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+            .focused($focusedButton, equals: .demo)
         }
-        .buttonStyle(.plain)
-        .focused($focusedButton, equals: .demo)
+        .sheet(isPresented: $showOTPFlow) {
+            otpFlowView
+        }
+    }
+
+    // MARK: - OTP Flow
+
+    private var otpFlowView: some View {
+        VStack(spacing: 30) {
+            Text(otpSent ? "Ingresá el código" : "Login por email")
+                .font(.title2.bold())
+                .foregroundColor(.white)
+
+            if !otpSent {
+                Text("Te enviamos un código de 6 dígitos a tu email.")
+                    .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
+
+                TextField("Email", text: $otpEmail)
+                    .textFieldStyle(.automatic)
+                    .frame(maxWidth: 400)
+
+                Button("Enviar código") {
+                    Task {
+                        let ok = await authManager.sendOTPCode(email: otpEmail)
+                        if ok { otpSent = true }
+                    }
+                }
+                .disabled(authManager.isLoading)
+            } else {
+                Text("Revisá \(otpEmail)")
+                    .foregroundColor(.gray)
+
+                TextField("Código de 6 dígitos", text: $otpCode)
+                    .textFieldStyle(.automatic)
+                    .frame(maxWidth: 300)
+                    .keyboardType(.numberPad)
+
+                Button("Validar") {
+                    Task {
+                        let ok = await authManager.validateOTPCode(code: otpCode)
+                        if ok { showOTPFlow = false }
+                    }
+                }
+                .disabled(otpCode.count < 6 || authManager.isLoading)
+            }
+
+            if authManager.isLoading {
+                ProgressView()
+            }
+
+            if let error = authManager.errorMessage {
+                Text(error)
+                    .foregroundColor(.red)
+                    .font(.caption)
+            }
+        }
+        .padding(60)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black.opacity(0.95))
     }
 }

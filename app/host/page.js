@@ -89,7 +89,8 @@ export default function HostDashboard() {
   const [seatedToday, setSeatedToday] = useState(0);
   const [undoTable, setUndoTable] = useState(null);
   const [profileEntry, setProfileEntry] = useState(null);
-  const [waitEstimates, setWaitEstimates] = useState({}); // { entryId: { estimated_minutes, confidence, range } }
+  const [waitEstimates, setWaitEstimates] = useState({});
+  const [sourceModal, setSourceModal] = useState(null);
   const longPressTimer = useRef(null);
 
   // Check if already authed from session + set host title
@@ -101,17 +102,18 @@ export default function HostDashboard() {
   }, []);
 
   const fetchAll = async () => {
-    if (!supabase) return;
-    const [t, q] = await Promise.all([
-      supabase.from("tables").select("*, waitlist(guest_name, party_size)").order("id"),
-      supabase.from("waitlist")
-        .select("*, customers(id, name, phone, allergies, visit_count, trust_level, no_show_count, last_visit)")
-        .in("status", ["waiting", "notified", "extended"])
-        .order("joined_at", { ascending: true }),
+    try {
+    const [tablesRes, queueRes] = await Promise.all([
+      fetch("/api/tables").then(r => r.json()),
+      fetch("/api/waitlist").then(r => r.json()),
     ]);
-    if (t.data) setTables(t.data);
-    if (q.data) setQueue(q.data);
+    if (Array.isArray(tablesRes)) setTables(tablesRes);
+    else if (tablesRes && !tablesRes.error) setTables(tablesRes);
+    if (Array.isArray(queueRes)) setQueue(queueRes);
+    else if (queueRes && !queueRes.error) setQueue(queueRes);
+    } catch (e) { console.error("fetchAll:", e); }
     // Count seated today
+    if (!supabase) return;
     const today = new Date().toISOString().slice(0, 10);
     const { count } = await supabase.from("waitlist")
       .select("id", { count: "exact", head: true })
@@ -132,22 +134,39 @@ export default function HostDashboard() {
   }, []);
 
   const cycleTable = async (table) => {
-    // Libre → show picker if candidates, else cycle
+    // Libre → show picker if candidates, else ask source (Walk-in/OpenTable)
     if (table.status === "libre") {
       const candidates = getCandidates(queue, table.capacity);
       if (candidates.length > 0) { setPicker({ table, candidates }); return; }
+      // No candidates — ask Walk-in or OpenTable
+      setSourceModal({ table });
+      return;
+    }
+
+    // If about to become libre, ask for confirmation
+    if (table.status === "pidio_cuenta") {
+      setUndoTable(table); // reuse undo modal as "liberar mesa?"
+      return;
     }
 
     const next = STATUS_FLOW[(STATUS_FLOW.indexOf(table.status) + 1) % STATUS_FLOW.length];
     await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: table.id, status: next }) });
+    fetchAll();
+  };
 
-    // Libre or pidio_cuenta → show picker (mesa is becoming available)
-    if (next === "libre" || next === "pidio_cuenta") {
-      const candidates = getCandidates(queue, table.capacity);
-      if (candidates.length > 0) {
-        setPicker({ table: { ...table, status: next }, candidates });
-      }
+  const seatFromSource = async (table, source) => {
+    // Create a waitlist entry for tracking + seat
+    const res = await window.fetch("/api/waitlist", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guest_name: source === "opentable" ? "OpenTable" : "Walk-in", party_size: table.capacity, source }) });
+    const entry = await res.json();
+    if (entry.id) {
+      await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "seated" }) });
+      await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: table.id, status: "sentado", waitlist_id: entry.id }) });
+    } else {
+      await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: table.id, status: "sentado" }) });
     }
+    setSourceModal(null);
+    fetchAll();
   };
 
   const doNotify = async (entry) => {
@@ -313,6 +332,39 @@ export default function HostDashboard() {
 
   return (
     <div style={{ minHeight: "100dvh", background: T.bgPage, fontFamily: f.sans, color: T.text }}>
+
+      {/* ── SOURCE MODAL (Walk-in / OpenTable) ── */}
+      {sourceModal && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 260, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setSourceModal(null); }}>
+          <div className="modal-enter" style={{ background: T.card, borderRadius: "20px", padding: "28px 24px", width: "calc(100% - 48px)", maxWidth: "340px", boxShadow: T.shadowLg, textAlign: "center" }}>
+            <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "700", color: T.text }}>Mesa {sourceModal.table.id}</div>
+            <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px", marginBottom: "20px" }}>{sourceModal.table.capacity}p · Libre</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <button onClick={() => seatFromSource(sourceModal.table, "walkin")} style={{
+                padding: "16px", borderRadius: "14px", background: T.accent, color: "#fff",
+                border: "none", fontSize: "15px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+              }}>
+                <span style={{ width: "12px", height: "12px", borderRadius: "50%", background: T.success }} />
+                Walk-in
+              </button>
+              <button onClick={() => seatFromSource(sourceModal.table, "opentable")} style={{
+                padding: "16px", borderRadius: "14px", background: T.accent, color: "#fff",
+                border: "none", fontSize: "15px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
+              }}>
+                <span style={{ width: "12px", height: "12px", borderRadius: "50%", background: T.danger }} />
+                OpenTable
+              </button>
+              <button onClick={() => setSourceModal(null)} style={{
+                padding: "14px", borderRadius: "14px", background: T.bgPage, color: T.textMed,
+                border: `1px solid ${T.border}`, fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
+              }}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── UNDO TABLE (long-press) ── */}
       {undoTable && (
@@ -781,6 +833,10 @@ export default function HostDashboard() {
                     {recentlySeated.map(table => {
                       const cfg = S[table.status] || S.sentado;
                       const guestName = table.waitlist?.guest_name;
+                      const source = table.waitlist?.source;
+                      const sourceColor = source === "opentable" ? T.danger : source === "walkin" ? T.success : source === "qr" || source === "whatsapp" || source === "whatsapp_bot" ? T.gold : cfg.color;
+                      const sourceLabel = source === "opentable" ? "OT" : source === "walkin" ? "WI" : source === "qr" || source === "whatsapp" || source === "whatsapp_bot" || source === "kiosk" ? "M" : "";
+                      const allergies = table.waitlist?.customers?.allergies;
                       const mins = Math.floor((Date.now() - new Date(table.seated_at).getTime()) / 60000);
                       const timeStr = mins < 1 ? "ahora" : mins < 60 ? `${mins}m` : `${Math.floor(mins/60)}h${mins%60}m`;
                       return (
@@ -790,15 +846,23 @@ export default function HostDashboard() {
                           onContextMenu={(e) => e.preventDefault()}
                           style={{
                             display: "flex", alignItems: "center", justifyContent: "space-between",
-                            padding: "10px 14px", borderRadius: "12px", background: cfg.bg, border: "none",
+                            padding: "10px 14px", borderRadius: "12px", background: T.accent, border: "none",
                             cursor: "pointer", WebkitTouchCallout: "none", userSelect: "none",
                           }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                            <div style={{ fontFamily: f.display, fontSize: "16px", fontWeight: "800", color: cfg.color }}>{table.id}</div>
-                            <div style={{ fontSize: "12px", color: cfg.color, opacity: 0.8 }}>{table.capacity}p · {cfg.label}</div>
-                            {guestName && <div style={{ fontSize: "12px", color: cfg.color, opacity: 0.9, fontWeight: "600" }}>{guestName}</div>}
+                            <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: sourceColor, flexShrink: 0 }} />
+                            <div style={{ fontFamily: f.display, fontSize: "16px", fontWeight: "800", color: "#fff" }}>{table.id}</div>
+                            <div style={{ fontSize: "12px", color: "#fff", opacity: 0.6 }}>{table.capacity}p</div>
+                            {guestName && <div style={{ fontSize: "12px", color: "#fff", opacity: 0.85, fontWeight: "600" }}>{guestName}</div>}
+                            {sourceLabel && <span style={{ fontSize: "9px", fontWeight: "700", padding: "2px 5px", borderRadius: "4px", background: sourceColor, color: "#fff", letterSpacing: "0.03em" }}>{sourceLabel}</span>}
+                            {allergies?.length > 0 && allergies.map(a => (
+                              <span key={a} style={{ fontSize: "9px", fontWeight: "700", padding: "2px 5px", borderRadius: "4px", background: T.danger, color: "#fff" }}>{a}</span>
+                            ))}
                           </div>
-                          <div style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "13px", fontWeight: "700", color: cfg.color, opacity: 0.9 }}>{timeStr}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <span style={{ fontSize: "10px", color: "#fff", opacity: 0.5 }}>{cfg.label}</span>
+                            <div style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "13px", fontWeight: "700", color: "#fff", opacity: 0.9 }}>{timeStr}</div>
+                          </div>
                         </button>
                       );
                     })}

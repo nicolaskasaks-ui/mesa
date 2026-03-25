@@ -14,7 +14,7 @@ class MinervaWebBridge: ObservableObject {
 
     /// The proxy server URL (runs on the host Mac)
     #if targetEnvironment(simulator)
-    private let proxyBaseURL = "http://localhost:8765"
+    private let proxyBaseURL = "http://localhost:8770"
     #else
     // On real Apple TV, the proxy would run on a server
     private let proxyBaseURL = "http://192.168.1.100:8765"

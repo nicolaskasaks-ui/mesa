@@ -34,121 +34,147 @@ app.listen(PORT, () => log(`[Proxy] http://localhost:${PORT}`));
   const page = await browser.newPage();
   await page.setUserAgent('Mozilla/5.0 (SMART-TV; Linux; Tizen 5.0) AppleWebKit/537.36');
 
-  // CRITICAL: Inject WebSocket interceptor BEFORE page loads
-  // This patches the WebSocket constructor to intercept EasyLogin connections
-  // and automatically send the token
+  // Hook WebSocket to intercept EasyLogin and auto-inject token
   await page.evaluateOnNewDocument((token) => {
     const OrigWS = window.WebSocket;
+    
     window.WebSocket = function(url, protocols) {
       const ws = protocols ? new OrigWS(url, protocols) : new OrigWS(url);
       
-      // If this is an EasyLogin WebSocket, auto-inject the token
       if (url.includes('easylogin')) {
-        console.log('[INJECT] Intercepted EasyLogin WebSocket:', url);
+        console.log('[INJECT] Intercepted EasyLogin WS:', url);
         
-        const origAddEventListener = ws.addEventListener.bind(ws);
-        const origOnMessage = Object.getOwnPropertyDescriptor(WebSocket.prototype, 'onmessage');
+        // Hook the onmessage setter to capture the handler
+        let realHandler = null;
+        const origOnmessage = Object.getOwnPropertyDescriptor(OrigWS.prototype, 'onmessage');
         
-        // After the WebSocket opens and gets the code, 
-        // wait a moment then send the flowaccesstoken message
-        ws.addEventListener('open', () => {
-          console.log('[INJECT] EasyLogin WebSocket opened');
-          
-          // Wait for the initial code message, then inject token
-          setTimeout(() => {
-            console.log('[INJECT] Injecting flowaccesstoken...');
+        Object.defineProperty(ws, 'onmessage', {
+          get: () => realHandler,
+          set: (handler) => {
+            console.log('[INJECT] onmessage handler registered!');
+            realHandler = handler;
             
-            // Create a fake MessageEvent with the token
-            const fakeMsg = JSON.stringify({
+            // Also set the real one
+            if (origOnmessage && origOnmessage.set) {
+              origOnmessage.set.call(ws, handler);
+            }
+          }
+        });
+        
+        // Also hook addEventListener
+        const origAddEventListener = ws.addEventListener.bind(ws);
+        const messageListeners = [];
+        ws.addEventListener = function(type, listener, options) {
+          if (type === 'message') {
+            messageListeners.push(listener);
+            console.log('[INJECT] addEventListener("message") registered');
+          }
+          return origAddEventListener(type, listener, options);
+        };
+        
+        // When the WS opens, wait for handlers to register, then inject
+        ws.addEventListener('open', () => {
+          console.log('[INJECT] EasyLogin WS opened, waiting for handlers...');
+          
+          setTimeout(() => {
+            console.log('[INJECT] Injecting flowaccesstoken to all handlers...');
+            
+            const fakeData = JSON.stringify({
               method: 'flowaccesstoken',
               data: { flowaccesstoken: token }
             });
             
-            // Dispatch to all listeners
-            const event = new MessageEvent('message', { data: fakeMsg });
-            ws.dispatchEvent(event);
+            const fakeEvent = { data: fakeData, type: 'message', target: ws };
             
-            console.log('[INJECT] Token injected!');
-          }, 3000);
+            // Call onmessage handler if set
+            if (realHandler) {
+              console.log('[INJECT] Calling onmessage handler');
+              try { realHandler(fakeEvent); } catch(e) { console.log('[INJECT] onmessage error:', e); }
+            }
+            
+            // Call all addEventListener handlers  
+            messageListeners.forEach((listener, i) => {
+              console.log(`[INJECT] Calling addEventListener handler ${i}`);
+              try { listener(fakeEvent); } catch(e) { console.log(`[INJECT] listener ${i} error:`, e); }
+            });
+            
+            // Also try dispatchEvent
+            try {
+              ws.dispatchEvent(new MessageEvent('message', { data: fakeData }));
+              console.log('[INJECT] dispatchEvent done');
+            } catch(e) {}
+            
+            console.log('[INJECT] All injection attempts complete');
+          }, 5000); // Wait 5s for handlers to register
         });
       }
       
       return ws;
     };
-    window.WebSocket.prototype = OrigWS.prototype;
-    window.WebSocket.CONNECTING = OrigWS.CONNECTING;
-    window.WebSocket.OPEN = OrigWS.OPEN;
-    window.WebSocket.CLOSING = OrigWS.CLOSING;
-    window.WebSocket.CLOSED = OrigWS.CLOSED;
+    // Copy static properties
+    Object.setPrototypeOf(window.WebSocket, OrigWS);
+    Object.defineProperty(window.WebSocket, 'prototype', { value: OrigWS.prototype });
+    window.WebSocket.CONNECTING = 0;
+    window.WebSocket.OPEN = 1;
+    window.WebSocket.CLOSING = 2;
+    window.WebSocket.CLOSED = 3;
   }, TOKEN);
 
-  // Capture console logs from the page
   page.on('console', msg => {
     const text = msg.text();
-    if (text.includes('INJECT') || text.includes('CSDK') || text.includes('login') || 
-        text.includes('channel') || text.includes('error') || text.includes('Error')) {
-      log(`[PAGE] ${text}`);
+    if (text.includes('INJECT') || text.includes('error') || text.includes('Error') ||
+        text.includes('login') || text.includes('channel') || text.includes('session') ||
+        text.includes('SDK') || text.includes('sdk') || text.includes('provision')) {
+      log(`[PAGE] ${text.substring(0, 200)}`);
     }
   });
 
-  // Capture API responses  
   page.on('response', async response => {
     const url = response.url();
     const status = response.status();
     if (/\.(js|css|png|jpg|svg|woff|ico|gif|ttf|map)(\?|$)/.test(url)) return;
     if (url.startsWith('data:')) return;
-
+    
     try {
       const text = await response.text();
       if (!text || text.length < 10) return;
       let data;
       try { data = JSON.parse(text); } catch { return; }
 
-      // Channels
       if (data.channels || (Array.isArray(data) && data[0]?.channelNumber)) {
         const items = data.channels || data;
         if (Array.isArray(items) && items.length > 0) {
           capturedData.channels = items;
-          log(`>>> ${items.length} CHANNELS CAPTURED! <<<`);
+          log(`>>> ${items.length} CHANNELS! <<<`);
           fs.writeFileSync('/tmp/flow_channels.json', JSON.stringify(items, null, 2));
         }
       }
 
-      // Session token
       if (data.tokens?.session || data.token) {
         const tok = data.tokens?.session || data.token;
         if (tok && tok.length > 50) {
           capturedData.sessionToken = tok;
-          log(`>>> SESSION TOKEN (${tok.length} chars) <<<`);
+          log(`>>> SESSION TOKEN <<<`);
           fs.writeFileSync('/tmp/flow_session_token.txt', tok);
         }
       }
 
-      // Log interesting responses
-      if (url.includes('channel') || url.includes('epg') || url.includes('login') ||
-          url.includes('provision') || url.includes('session') || url.includes('content')) {
+      if (status >= 400 || url.includes('channel') || url.includes('epg') || 
+          url.includes('login') || url.includes('provision') || url.includes('session')) {
         log(`[API] ${status} ${url.substring(0, 120)} (${text.length}b)`);
       }
     } catch {}
   });
 
-  log('[Auto] Navigating to SmartTV app...');
+  log('[Auto] Loading SmartTV...');
   await page.goto(SMARTTV_URL, { waitUntil: 'networkidle0', timeout: 60000 }).catch(e => log(`[Nav] ${e.message}`));
-  
-  log('[Auto] Page loaded. WebSocket interceptor active. Waiting for CSDK...');
+  log('[Auto] Loaded. Waiting for injection...');
 
-  // Monitor for 90 seconds
-  for (let i = 0; i < 45; i++) {
+  for (let i = 0; i < 60; i++) {
     await new Promise(r => setTimeout(r, 2000));
-    const pageUrl = page.url();
-    
-    if (i % 5 === 0) log(`[Check ${i}] URL: ${pageUrl}, channels: ${capturedData.channels.length}`);
-    
-    if (capturedData.channels.length > 0) {
-      log('[Auto] SUCCESS!');
-      break;
-    }
+    if (i % 5 === 0) log(`[Check ${i}] ${page.url()}, ch: ${capturedData.channels.length}`);
+    if (capturedData.channels.length > 0) { log('[SUCCESS]'); break; }
   }
 
-  log(`[Auto] Done. Channels: ${capturedData.channels.length}, Session: ${!!capturedData.sessionToken}`);
+  log(`[Final] ${capturedData.channels.length} channels`);
 })().catch(e => log(`[FATAL] ${e.message}`));

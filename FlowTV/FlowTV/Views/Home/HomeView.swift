@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject var flowAPI: FlowAPIService
+    @EnvironmentObject var csdkBridge: CSDKBridge
     @State private var showPlayer = false
     @State private var playerTitle = ""
     @State private var playerSubtitle: String?
@@ -33,8 +34,17 @@ struct HomeView: View {
                         }
                     }
 
-                    // Live TV quick access
-                    if !flowAPI.channels.isEmpty {
+                    // Live TV quick access — prefer real CSDK channels
+                    if csdkBridge.isReady && !csdkBridge.channels.isEmpty {
+                        ShelfRow(title: "TV en Vivo") {
+                            ForEach(csdkBridge.channels.prefix(20)) { csdkCh in
+                                let channel = csdkCh.toChannel()
+                                LiveChannelPill(channel: channel) {
+                                    playChannel(channel)
+                                }
+                            }
+                        }
+                    } else if !flowAPI.channels.isEmpty {
                         ShelfRow(title: "TV en Vivo") {
                             ForEach(flowAPI.channels.prefix(15)) { channel in
                                 LiveChannelPill(channel: channel) {
@@ -42,6 +52,18 @@ struct HomeView: View {
                                 }
                             }
                         }
+                    }
+
+                    // CSDK status indicator (shown while loading)
+                    if csdkBridge.isLoading {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                            Text("CSDK: \(csdkBridge.statusMessage)")
+                                .font(.caption)
+                                .foregroundColor(.white.opacity(0.4))
+                        }
+                        .padding(.horizontal, 90)
                     }
 
                     // VOD categories as shelves

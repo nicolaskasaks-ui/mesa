@@ -2,16 +2,26 @@ import SwiftUI
 
 struct LiveTVView: View {
     @EnvironmentObject var flowAPI: FlowAPIService
+    @EnvironmentObject var csdkBridge: CSDKBridge
     @State private var selectedCategory: ChannelCategory = .todos
     @State private var selectedChannel: Channel?
     @State private var showPlayer = false
     @FocusState private var focusedChannelId: String?
 
-    var filteredChannels: [Channel] {
-        if selectedCategory == .todos {
-            return flowAPI.channels.sorted { $0.number < $1.number }
+    /// Use CSDK channels when available, fall back to FlowAPI channels.
+    private var allChannels: [Channel] {
+        if csdkBridge.isReady && !csdkBridge.channels.isEmpty {
+            return csdkBridge.channels.map { $0.toChannel() }
         }
         return flowAPI.channels
+    }
+
+    var filteredChannels: [Channel] {
+        let source = allChannels
+        if selectedCategory == .todos {
+            return source.sorted { $0.number < $1.number }
+        }
+        return source
             .filter { $0.category == selectedCategory }
             .sorted { $0.number < $1.number }
     }
@@ -91,8 +101,9 @@ struct LiveTVView: View {
     }
 
     private func channelCount(_ category: ChannelCategory) -> Int {
-        if category == .todos { return flowAPI.channels.count }
-        return flowAPI.channels.filter { $0.category == category }.count
+        let source = allChannels
+        if category == .todos { return source.count }
+        return source.filter { $0.category == category }.count
     }
 
     private func categoryIcon(_ category: ChannelCategory) -> String {
