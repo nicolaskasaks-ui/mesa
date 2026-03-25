@@ -904,47 +904,59 @@ export default function HostDashboard() {
                       // Estimated duration based on party size: 2p=60min, 4p=75min, 6p=90min
                       const capacity = table.waitlist?.party_size || table.capacity || 2;
                       const estDuration = capacity <= 2 ? 60 : capacity <= 4 ? 75 : 90;
-                      const progress = Math.min(1, mins / estDuration);
+                      const maxTime = Math.max(estDuration * 1.5, mins); // scale extends if overtime
+                      const progress = mins / maxTime; // how far along the full bar
+                      const estMark = estDuration / maxTime; // where the estimated marker sits
                       const overTime = mins > estDuration;
-                      // Progress bar color: green < 60%, amber 60-85%, red > 85% or overtime
-                      const barColor = overTime ? T.danger : progress > 0.85 ? S.pidio_cuenta.bg : progress > 0.6 ? S.postre.bg : T.success;
+                      const ratio = mins / estDuration;
+                      // Color: green < 60%, amber 60-85%, red > 85%
+                      const barColor = ratio > 0.85 ? T.danger : ratio > 0.6 ? S.postre.bg : T.success;
                       return (
-                        <button key={table.id} onClick={() => cycleTable(table)}
-                          onTouchStart={() => handleLongPressStart(table)} onTouchEnd={handleLongPressEnd} onTouchCancel={handleLongPressEnd}
-                          onMouseDown={() => handleLongPressStart(table)} onMouseUp={handleLongPressEnd} onMouseLeave={handleLongPressEnd}
-                          onContextMenu={(e) => e.preventDefault()}
-                          style={{
-                            position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between",
-                            borderRadius: "12px", overflow: "hidden",
-                            border: "none", cursor: "pointer", WebkitTouchCallout: "none", userSelect: "none", width: "100%",
-                            background: T.accent,
-                          }}>
-                          {/* Progress bar background */}
-                          <div style={{
-                            position: "absolute", left: 0, top: 0, bottom: 0,
-                            width: `${Math.max(2, progress * 100)}%`,
-                            background: barColor, opacity: 0.25,
-                            transition: "width 5s linear, background 1s ease",
-                            borderRadius: "12px 0 0 12px",
-                          }} />
-                          {/* Content on top */}
-                          <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "center", gap: "8px", padding: "10px 12px", zIndex: 1 }}>
-                            <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: sourceColor, flexShrink: 0 }} />
-                            <div style={{ fontFamily: f.display, fontSize: "15px", fontWeight: "800", color: "#fff" }}>{table.id}</div>
-                            <div style={{ fontSize: "11px", color: "#fff", opacity: 0.5 }}>{capacity}p</div>
-                            {guestName && <div style={{ fontSize: "11px", color: "#fff", opacity: 0.85, fontWeight: "600", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }}>{guestName}</div>}
-                            {sourceLabel && <span style={{ fontSize: "8px", fontWeight: "700", padding: "2px 4px", borderRadius: "3px", background: sourceColor, color: "#fff" }}>{sourceLabel}</span>}
-                            {allergies?.length > 0 && allergies.map(a => (
-                              <span key={a} style={{ fontSize: "8px", fontWeight: "700", padding: "2px 4px", borderRadius: "3px", background: T.danger, color: "#fff" }}>{a}</span>
-                            ))}
-                          </div>
-                          <div style={{ position: "relative", display: "flex", alignItems: "center", gap: "8px", padding: "10px 14px", zIndex: 1, flexShrink: 0 }}>
-                            <span style={{ fontSize: "10px", color: "#fff", opacity: 0.5 }}>{cfg.label}</span>
-                            <div style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "13px", fontWeight: "700", color: overTime ? T.danger : "#fff" }}>
-                              {timeStr}{overTime ? " !" : ""}
+                        <div key={table.id} style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+                          <button onClick={() => cycleTable(table)}
+                            onTouchStart={() => handleLongPressStart(table)} onTouchEnd={handleLongPressEnd} onTouchCancel={handleLongPressEnd}
+                            onMouseDown={() => handleLongPressStart(table)} onMouseUp={handleLongPressEnd} onMouseLeave={handleLongPressEnd}
+                            onContextMenu={(e) => e.preventDefault()}
+                            style={{
+                              display: "flex", alignItems: "center", justifyContent: "space-between",
+                              borderRadius: "12px 12px 0 0", overflow: "hidden",
+                              border: "none", cursor: "pointer", WebkitTouchCallout: "none", userSelect: "none", width: "100%",
+                              background: T.accent, padding: "10px 12px",
+                            }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: sourceColor, flexShrink: 0 }} />
+                              <div style={{ fontFamily: f.display, fontSize: "15px", fontWeight: "800", color: "#fff" }}>{table.id}</div>
+                              <div style={{ fontSize: "11px", color: "#fff", opacity: 0.5 }}>{capacity}p</div>
+                              {guestName && <div style={{ fontSize: "11px", color: "#fff", opacity: 0.85, fontWeight: "600", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }}>{guestName}</div>}
+                              {sourceLabel && <span style={{ fontSize: "8px", fontWeight: "700", padding: "2px 4px", borderRadius: "3px", background: sourceColor, color: "#fff" }}>{sourceLabel}</span>}
+                              {allergies?.length > 0 && allergies.map(a => (
+                                <span key={a} style={{ fontSize: "8px", fontWeight: "700", padding: "2px 4px", borderRadius: "3px", background: T.danger, color: "#fff" }}>{a}</span>
+                              ))}
                             </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+                              <span style={{ fontSize: "10px", color: "#fff", opacity: 0.5 }}>{cfg.label}</span>
+                              <div style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "13px", fontWeight: "700", color: overTime ? T.danger : "#fff" }}>
+                                {timeStr}{overTime ? " !" : ""}
+                              </div>
+                            </div>
+                          </button>
+                          {/* Thin progress line at bottom */}
+                          <div style={{ position: "relative", height: "3px", background: "#333", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
+                            {/* Elapsed time bar */}
+                            <div style={{
+                              position: "absolute", left: 0, top: 0, bottom: 0,
+                              width: `${progress * 100}%`,
+                              background: barColor,
+                              transition: "width 5s linear, background 1s ease",
+                            }} />
+                            {/* ML estimated duration marker — white tick */}
+                            <div style={{
+                              position: "absolute", top: "-1px", bottom: "-1px", width: "2px",
+                              left: `${estMark * 100}%`,
+                              background: "#fff", opacity: 0.8, borderRadius: "1px",
+                            }} />
                           </div>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
