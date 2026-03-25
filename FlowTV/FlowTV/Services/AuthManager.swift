@@ -120,15 +120,9 @@ class AuthManager: ObservableObject {
         authLog.info("[Auth] Starting CSDKBridge (WKWebView)...")
         CSDKBridge.shared.start(with: token)
 
-        // Configure and start FlowM11Service with hardcoded content API tokens
+        // Configure and start FlowM11Service
         authLog.info("[Auth] Configuring FlowM11Service...")
-        FlowM11Service.shared.configure(
-            packages: "bklkOggBGAMi8AQHvOYwzNjodNmrcuKRRhc8wLC+8nzasrXznA6BwqNElWRC43noPxa0oker/OZc7PN+RDWbqNL0p3q0WEt7R2+wp/qZOr37/ZiamWZDX0A0aufMJY04TiCNiQuV/wJ4oikyzESxb1hgWkPdebHioZ8f08Djz4IKEPNLu8ySlXbnZi0hkiDwMtrWL2XM1oO4/ppzt3Yw33hBM0g2yrjBYZaLg1sObThiAlbEQkBb3qxS2w5WHnOUx9GEqK5v83vvT+gdVMAct61XhMxsg6SVILF+Xje4uW/2d3jDwt9jKoXsQVrVOocLqTEFvb77jFoKrmqoYB39QifbCMEcXa7K3EEtZXxZ9y/x/jM3SV4dhyvUcMmlHP7wFtWzCTVljIAQTnhm7VwqU9pfan3ga0oOFuRrDRh4R7nLwuHXvCA8EvBlI9s9Ki+T5zq9dZMbq06PrMX6PoYBQkkbdYStPztVzKENxEddws+EttPThpzNsSg8VuaJuHHgIt5aZViNaSm+JpBuoq3ImV5oXutLYrBjtGPxY/fJS0tZ+A0PDFhVuxNvegEhfLXzyLTgtonXsBKD/FMTQPdQAjAsA2IHYCg3gzDjiT8Z6dRlrdZji8jZbELhSkT0wVIcmuoQfQSe90aVlshHttkof0m9c/0uhNJ67y/z0zBW/i80Ds23bpOSu1LcrLCIu/eCSTbP5YFv2uTpoQzCLnBeBkoalxBKPGXhXlMZvr4Yl27MMUnV/YIWji72EkSOOO5D8tdIXsSNmlSJg60JaFEe66gBDAwTp6YqAoGMfkI5/BnkvVy/ozIgB3/U9MrSGX7miwX8nNPhYLq5LVg=",
-            services: "bklkOggBIkBNcXMmCGwXl7LIiwJAfoykrfQs3O/ZN1zXHHdoA1X88fJxAgLzKDWpZVxhR95StuzytBfg1FzpIOFejZ8V7cnj",
-            region: "bklkOggBImCQp3+kUWjJrhVDoBFSFSWjzSVpxbnS96ChubJcYAr+ijxovCNqP1KU/DmaJp5YruVFyus0Zae3inNQSlIpHGBYQpVNGRezdSfN+AeXg2kQOO6WLXL5fU83IoAEJzOP+YY=",
-            deviceId: "d9d0e40a0769acf32b67f81adbd1e37a",
-            profileId: "flow:999900002715839:P"
-        )
+        configureM11Service()
         await FlowM11Service.shared.fetchChannels()
 
         Task {
@@ -300,9 +294,8 @@ class AuthManager: ObservableObject {
 
     private func configureM11Service() {
         FlowM11Service.shared.configure(
-            packages: "bklkOggBGAMi8AQHvOYwzNjodNmrcuKRRhc8wLC+8nzasrXznA6BwqNElWRC43noPxa0oker/OZc7PN+RDWbqNL0p3q0WEt7R2+wp/qZOr37/ZiamWZDX0A0aufMJY04TiCNiQuV/wJ4oikyzESxb1hgWkPdebHioZ8f08Djz4IKEPNLu8ySlXbnZi0hkiDwMtrWL2XM1oO4/ppzt3Yw33hBM0g2yrjBYZaLg1sObThiAlbEQkBb3qxS2w5WHnOUx9GEqK5v83vvT+gdVMAct61XhMxsg6SVILF+Xje4uW/2d3jDwt9jKoXsQVrVOocLqTEFvb77jFoKrmqoYB39QifbCMEcXa7K3EEtZXxZ9y/x/jM3SV4dhyvUcMmlHP7wFtWzCTVljIAQTnhm7VwqU9pfan3ga0oOFuRrDRh4R7nLwuHXvCA8EvBlI9s9Ki+T5zq9dZMbq06PrMX6PoYBQkkbdYStPztVzKENxEddws+EttPThpzNsSg8VuaJuHHgIt5aZViNaSm+JpBuoq3ImV5oXutLYrBjtGPxY/fJS0tZ+A0PDFhVuxNvegEhfLXzyLTgtonXsBKD/FMTQPdQAjAsA2IHYCg3gzDjiT8Z6dRlrdZji8jZbELhSkT0wVIcmuoQfQSe90aVlshHttkof0m9c/0uhNJ67y/z0zBW/i80Ds23bpOSu1LcrLCIu/eCSTbP5YFv2uTpoQzCLnBeBkoalxBKPGXhXlMZvr4Yl27MMUnV/YIWji72EkSOOO5D8tdIXsSNmlSJg60JaFEe66gBDAwTp6YqAoGMfkI5/BnkvVy/ozIgB3/U9MrSGX7miwX8nNPhYLq5LVg=",
-            services: "bklkOggBIkBNcXMmCGwXl7LIiwJAfoykrfQs3O/ZN1zXHHdoA1X88fJxAgLzKDWpZVxhR95StuzytBfg1FzpIOFejZ8V7cnj",
-            region: "bklkOggBImCQp3+kUWjJrhVDoBFSFSWjzSVpxbnS96ChubJcYAr+ijxovCNqP1KU/DmaJp5YruVFyus0Zae3inNQSlIpHGBYQpVNGRezdSfN+AeXg2kQOO6WLXL5fU83IoAEJzOP+YY=",
+            userDeviceToken: "bklkOggBIoABsDUskYo+FVbYmdd1d4iQjIyP4LSIkO4TErDqGaaP7uZm3Nhymnpck7r0j65gjhOtmDuKwqPCbczXuHOs9vY0N0kRulXd5QcNPh3/riCkURrIYOZoes8Pyqap5qmmmPS3cv+AmuRh04aZnP19uZxihT8Nhfn2mhsmbgvfgANS/6w=",
+            casId: "676dda401fe236763b8c0b5c505edf28",
             deviceId: "d9d0e40a0769acf32b67f81adbd1e37a",
             profileId: "flow:999900002715839:P"
         )

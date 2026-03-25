@@ -205,8 +205,13 @@ export default function HostDashboard() {
 
   const notifyFromPicker = async (entry) => { await doNotify(entry); setPicker(null); fetchAll(); };
   const seatDirect = async (entry) => {
-    await doNotify(entry);
-    try { await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "seated" }) }); } catch {}
+    // Seat waitlist entry
+    await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "seated" }) });
+    // Find best table and occupy it
+    const free = tables.filter(t => t.status === "libre" && t.capacity >= entry.party_size).sort((a,b) => a.capacity - b.capacity);
+    if (free[0]) {
+      await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: free[0].id, status: "sentado", waitlist_id: entry.id }) });
+    }
     setPicker(null); fetchAll();
   };
   const undoSeat = async (table) => {
@@ -910,7 +915,14 @@ export default function HostDashboard() {
                               fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
                             }}>Deshacer</button>
                           )}
-                          <button onClick={() => setStatus(entry.id, "seated")} style={{
+                          <button onClick={async () => {
+                            const free = tables.filter(t => t.status === "libre" && t.capacity >= entry.party_size).sort((a,b) => a.capacity - b.capacity);
+                            await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "seated" }) });
+                            if (free[0]) {
+                              await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: free[0].id, status: "sentado", waitlist_id: entry.id }) });
+                            }
+                            fetchAll();
+                          }} style={{
                             flex: 1, padding: "11px", borderRadius: "10px", background: T.accent,
                             color: "#fff", border: "none",
                             fontSize: "13px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
