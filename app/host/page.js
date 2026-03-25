@@ -1004,11 +1004,11 @@ export default function HostDashboard() {
                         <div key={table.id} style={{ display: "flex", alignItems: "stretch", gap: "0", width: "100%" }}>
                           {/* Status circle — outside the bar, changes color with state */}
                           <div style={{
-                            width: "18px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                            width: "24px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
                           }}>
                             <div style={{
-                              width: "14px", height: "14px", borderRadius: "50%", background: cfg.bg,
-                              border: `2px solid ${cfg.bg}`, boxShadow: `0 0 0 1px ${T.cardBorder}`,
+                              width: "18px", height: "18px", borderRadius: "50%", background: cfg.bg,
+                              border: `3px solid ${cfg.bg}`, boxShadow: `0 0 0 2px #fff, 0 0 8px ${cfg.bg}80`,
                             }} />
                           </div>
                           <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
