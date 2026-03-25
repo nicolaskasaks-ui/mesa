@@ -1007,7 +1007,6 @@ export default function HostDashboard() {
                               background: T.accent, padding: "10px 12px",
                             }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: sourceColor, flexShrink: 0 }} />
                               <div style={{ fontFamily: f.display, fontSize: "15px", fontWeight: "800", color: "#fff" }}>{table.id}</div>
                               <div style={{ fontSize: "11px", color: "#fff", opacity: 0.5 }}>{capacity}p</div>
                               {guestName && <div style={{ fontSize: "11px", color: "#fff", opacity: 0.85, fontWeight: "600", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }}>{guestName}</div>}
