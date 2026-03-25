@@ -637,8 +637,8 @@ export default function HostDashboard() {
           .host-columns { display: flex; flex-direction: column; gap: 16px; }
           @media (min-width: 768px) {
             .host-columns { flex-direction: row; align-items: flex-start; }
-            .host-col-queue { width: 40%; flex-shrink: 0; }
-            .host-col-tables { width: 60%; flex-shrink: 0; }
+            .host-col-queue { width: 33%; flex-shrink: 0; }
+            .host-col-tables { width: 67%; flex-shrink: 0; }
           }
         `}</style>
         <div className="host-columns">
