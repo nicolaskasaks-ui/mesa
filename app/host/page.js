@@ -280,9 +280,16 @@ export default function HostDashboard() {
   const predictions = predictTable(tables, queue);
 
   // Recently seated (< 2h) shown at top with prominent timer
+  // All occupied tables shown in the seated list (sorted: newest first)
   const recentlySeated = tables
-    .filter(t => t.status !== "libre" && t.seated_at && (Date.now() - new Date(t.seated_at).getTime()) < 2 * 60 * 60 * 1000)
-    .sort((a, b) => new Date(b.seated_at) - new Date(a.seated_at));
+    .filter(t => t.status !== "libre")
+    .sort((a, b) => {
+      // Sort by status priority (cuenta first = closest to freeing), then by seated_at desc
+      const pri = { pidio_cuenta: 0, postre: 1, sentado: 2 };
+      const pa = pri[a.status] ?? 3, pb = pri[b.status] ?? 3;
+      if (pa !== pb) return pa - pb;
+      return new Date(b.seated_at || 0) - new Date(a.seated_at || 0);
+    });
   const recentIds = new Set(recentlySeated.map(t => t.id));
 
   // Rest: libre > postre > cuenta > sentado (excluding recently seated)
@@ -901,7 +908,7 @@ export default function HostDashboard() {
               {recentlySeated.length > 0 && (
                 <div style={{ padding: "12px 16px", borderBottom: `1px solid ${T.cardBorder}` }}>
                   <div style={{ fontSize: "11px", fontWeight: "700", color: T.textLight, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "10px" }}>
-                    Recién sentados ({recentlySeated.length})
+                    Sentados ({recentlySeated.length})
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                     {recentlySeated.map(table => {
