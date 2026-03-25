@@ -212,13 +212,18 @@ export default function HostDashboard() {
 
   const notifyFromPicker = async (entry) => { await doNotify(entry); setPicker(null); fetchAll(); };
   const seatDirect = async (entry) => {
+    // Find best table first
+    const free = tables.filter(t => t.status === "libre" && t.capacity >= entry.party_size).sort((a,b) => a.capacity - b.capacity);
+    if (!free[0]) {
+      // No free table — try any free table regardless of capacity
+      const anyFree = tables.filter(t => t.status === "libre").sort((a,b) => b.capacity - a.capacity);
+      if (!anyFree[0]) { alert("No hay mesas libres"); return; }
+      free[0] = anyFree[0];
+    }
     // Seat waitlist entry
     await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "seated" }) });
-    // Find best table and occupy it
-    const free = tables.filter(t => t.status === "libre" && t.capacity >= entry.party_size).sort((a,b) => a.capacity - b.capacity);
-    if (free[0]) {
-      await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: free[0].id, status: "sentado", waitlist_id: entry.id }) });
-    }
+    // Occupy the table with waitlist link
+    await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: free[0].id, status: "sentado", waitlist_id: entry.id }) });
     setPicker(null); fetchAll();
   };
   const undoSeat = async (table) => {
@@ -663,10 +668,14 @@ export default function HostDashboard() {
                       {isExact && <span style={{ fontSize: "10px", fontWeight: "600", padding: "2px 6px", borderRadius: "4px", background: S.libre.bg, color: S.libre.color }}>Match exacto</span>}
                       {c?.allergies?.map(a => <span key={a} style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: S.pidio_cuenta.bg, color: S.pidio_cuenta.color }}>{a}</span>)}
                     </div>
-                    <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
-                      <button onClick={() => notifyFromPicker(entry)} style={{ flex: 1, padding: "12px", borderRadius: "10px", background: T.accent, color: "#fff", border: "none", fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans }}>Avisar</button>
-                      <button onClick={() => seatDirect(entry)} style={{ flex: 1, padding: "12px", borderRadius: "10px", background: T.bgPage, color: T.textMed, border: `1px solid ${T.border}`, fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans }}>Sentar directo</button>
-                    </div>
+                    <button onClick={async () => {
+                      // Seat directly on this table
+                      await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "seated" }) });
+                      await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: picker.table.id, status: "sentado", waitlist_id: entry.id }) });
+                      setPicker(null); fetchAll();
+                    }} style={{ width: "100%", padding: "14px", marginTop: "12px", borderRadius: "10px", background: T.gold, color: "#fff", border: "none", fontSize: "14px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans }}>
+                      Sentar en mesa {picker.table.id}
+                    </button>
                   </div>
                 );
               })}
