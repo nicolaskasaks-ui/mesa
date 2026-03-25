@@ -1055,8 +1055,8 @@ export default function HostDashboard() {
                               boxShadow: "0 0 4px rgba(255,255,255,0.8)",
                             }} />
                           </div>
-                          </div>{/* close flex:1 column */}
-                        </div>{/* close row with circle */}
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
