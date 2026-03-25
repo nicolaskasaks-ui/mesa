@@ -91,6 +91,10 @@ export default function HostDashboard() {
   const [profileEntry, setProfileEntry] = useState(null);
   const [waitEstimates, setWaitEstimates] = useState({});
   const [sourceModal, setSourceModal] = useState(null);
+  const [seatSource, setSeatSource] = useState(null); // "walkin" | "opentable" — then ask name
+  const [seatTable, setSeatTable] = useState(null);
+  const [seatName, setSeatName] = useState("");
+  const [seatParty, setSeatParty] = useState(0);
   const [manualForm, setManualForm] = useState(null);
   const [manualName, setManualName] = useState("");
   const [manualPhone, setManualPhone] = useState("");
@@ -158,18 +162,20 @@ export default function HostDashboard() {
     fetchAll();
   };
 
-  const seatFromSource = async (table, source) => {
-    // Create a waitlist entry for tracking + seat
+  const confirmSeatWithName = async () => {
+    if (!seatTable || !seatSource) return;
+    const name = seatName.trim() || (seatSource === "opentable" ? "OpenTable" : "Walk-in");
+    const party = seatParty || seatTable.capacity;
     const res = await window.fetch("/api/waitlist", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ guest_name: source === "opentable" ? "OpenTable" : "Walk-in", party_size: table.capacity, source }) });
+      body: JSON.stringify({ guest_name: name, party_size: party, source: seatSource }) });
     const entry = await res.json();
     if (entry.id) {
       await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "seated" }) });
-      await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: table.id, status: "sentado", waitlist_id: entry.id }) });
+      await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: seatTable.id, status: "sentado", waitlist_id: entry.id }) });
     } else {
-      await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: table.id, status: "sentado" }) });
+      await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: seatTable.id, status: "sentado" }) });
     }
-    setSourceModal(null);
+    setSeatSource(null); setSeatTable(null); setSeatName(""); setSeatParty(0);
     fetchAll();
   };
 
@@ -363,7 +369,7 @@ export default function HostDashboard() {
             <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "700", color: T.text }}>Mesa {sourceModal.table.id}</div>
             <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px", marginBottom: "20px" }}>{sourceModal.table.capacity}p · Libre</div>
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <button onClick={() => seatFromSource(sourceModal.table, "walkin")} style={{
+              <button onClick={() => { setSeatSource("walkin"); setSeatTable(sourceModal.table); setSourceModal(null); }} style={{
                 padding: "16px", borderRadius: "14px", background: T.accent, color: "#fff",
                 border: "none", fontSize: "15px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans,
                 display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
@@ -371,7 +377,7 @@ export default function HostDashboard() {
                 <span style={{ width: "12px", height: "12px", borderRadius: "50%", background: T.success }} />
                 Walk-in
               </button>
-              <button onClick={() => seatFromSource(sourceModal.table, "opentable")} style={{
+              <button onClick={() => { setSeatSource("opentable"); setSeatTable(sourceModal.table); setSourceModal(null); }} style={{
                 padding: "16px", borderRadius: "14px", background: T.accent, color: "#fff",
                 border: "none", fontSize: "15px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans,
                 display: "flex", alignItems: "center", justifyContent: "center", gap: "10px",
@@ -383,6 +389,54 @@ export default function HostDashboard() {
                 padding: "14px", borderRadius: "14px", background: T.bgPage, color: T.textMed,
                 border: `1px solid ${T.border}`, fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
               }}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── SEAT NAME FORM (Walk-in / OpenTable → ask name + party) ── */}
+      {seatSource && seatTable && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 265, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setSeatSource(null); setSeatTable(null); setSeatName(""); } }}>
+          <div className="modal-enter" style={{ background: T.card, borderRadius: "20px", padding: "28px 24px", width: "calc(100% - 48px)", maxWidth: "340px", boxShadow: T.shadowLg }}>
+            <div style={{ textAlign: "center", marginBottom: "20px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                <span style={{ width: "12px", height: "12px", borderRadius: "50%", background: seatSource === "opentable" ? T.danger : T.success }} />
+                <span style={{ fontFamily: f.display, fontSize: "18px", fontWeight: "700", color: T.text }}>{seatSource === "opentable" ? "OpenTable" : "Walk-in"}</span>
+              </div>
+              <div style={{ fontSize: "13px", color: T.textMed, marginTop: "4px" }}>Mesa {seatTable.id} · {seatTable.capacity}p</div>
+            </div>
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ fontSize: "11px", fontWeight: "700", color: T.textLight, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "6px" }}>Nombre</label>
+              <input value={seatName} onChange={e => setSeatName(e.target.value)} placeholder="Nombre de la reserva"
+                autoFocus
+                style={{ width: "100%", padding: "14px 16px", borderRadius: "12px", border: `1.5px solid ${T.border}`, fontSize: "16px", fontFamily: f.sans, outline: "none", boxSizing: "border-box", background: T.bg, color: T.text }}
+                onKeyDown={e => { if (e.key === "Enter") confirmSeatWithName(); }}
+              />
+            </div>
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{ fontSize: "11px", fontWeight: "700", color: T.textLight, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "6px" }}>Personas</label>
+              <div style={{ display: "flex", gap: "6px" }}>
+                {[1,2,3,4,5,6].map(n => (
+                  <button key={n} onClick={() => setSeatParty(n)} style={{
+                    flex: 1, padding: "12px 0", borderRadius: "10px", fontSize: "15px", fontWeight: "600",
+                    background: (seatParty || seatTable.capacity) === n ? T.accent : "transparent",
+                    color: (seatParty || seatTable.capacity) === n ? "#fff" : T.text,
+                    border: (seatParty || seatTable.capacity) === n ? "none" : `1.5px solid ${T.border}`, cursor: "pointer", fontFamily: f.sans,
+                  }}>{n}{n === 6 ? "+" : ""}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button onClick={() => { setSeatSource(null); setSeatTable(null); setSeatName(""); }} style={{
+                flex: 1, padding: "14px", borderRadius: "12px", background: T.bgPage, color: T.textMed,
+                border: `1px solid ${T.border}`, fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
+              }}>Cancelar</button>
+              <button onClick={confirmSeatWithName} style={{
+                flex: 1, padding: "14px", borderRadius: "12px",
+                background: seatSource === "opentable" ? T.danger : T.success,
+                color: "#fff", border: "none", fontSize: "14px", fontWeight: "700", cursor: "pointer", fontFamily: f.sans,
+              }}>Sentar</button>
             </div>
           </div>
         </div>
