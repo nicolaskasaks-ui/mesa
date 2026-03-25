@@ -845,23 +845,24 @@ export default function HostDashboard() {
                           onMouseDown={() => handleLongPressStart(table)} onMouseUp={handleLongPressEnd} onMouseLeave={handleLongPressEnd}
                           onContextMenu={(e) => e.preventDefault()}
                           style={{
-                            display: "flex", alignItems: "center", justifyContent: "space-between",
-                            padding: "10px 14px", borderRadius: "12px", background: cfg.bg, border: "none",
-                            cursor: "pointer", WebkitTouchCallout: "none", userSelect: "none",
+                            display: "flex", alignItems: "center", borderRadius: "12px", overflow: "hidden",
+                            border: "none", cursor: "pointer", WebkitTouchCallout: "none", userSelect: "none", width: "100%",
                           }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                          {/* Left half — always black with guest info */}
+                          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "8px", padding: "10px 12px", background: T.accent }}>
                             <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: sourceColor, flexShrink: 0 }} />
-                            <div style={{ fontFamily: f.display, fontSize: "16px", fontWeight: "800", color: "#fff" }}>{table.id}</div>
-                            <div style={{ fontSize: "12px", color: "#fff", opacity: 0.6 }}>{table.capacity}p</div>
-                            {guestName && <div style={{ fontSize: "12px", color: "#fff", opacity: 0.85, fontWeight: "600" }}>{guestName}</div>}
-                            {sourceLabel && <span style={{ fontSize: "9px", fontWeight: "700", padding: "2px 5px", borderRadius: "4px", background: sourceColor, color: "#fff", letterSpacing: "0.03em" }}>{sourceLabel}</span>}
+                            <div style={{ fontFamily: f.display, fontSize: "15px", fontWeight: "800", color: "#fff" }}>{table.id}</div>
+                            <div style={{ fontSize: "11px", color: "#fff", opacity: 0.5 }}>{table.capacity}p</div>
+                            {guestName && <div style={{ fontSize: "11px", color: "#fff", opacity: 0.85, fontWeight: "600", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }}>{guestName}</div>}
+                            {sourceLabel && <span style={{ fontSize: "8px", fontWeight: "700", padding: "2px 4px", borderRadius: "3px", background: sourceColor, color: "#fff" }}>{sourceLabel}</span>}
                             {allergies?.length > 0 && allergies.map(a => (
-                              <span key={a} style={{ fontSize: "9px", fontWeight: "700", padding: "2px 5px", borderRadius: "4px", background: T.danger, color: "#fff" }}>{a}</span>
+                              <span key={a} style={{ fontSize: "8px", fontWeight: "700", padding: "2px 4px", borderRadius: "3px", background: T.danger, color: "#fff" }}>{a}</span>
                             ))}
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            <span style={{ fontSize: "10px", color: "#fff", opacity: 0.5 }}>{cfg.label}</span>
-                            <div style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "13px", fontWeight: "700", color: "#fff", opacity: 0.9 }}>{timeStr}</div>
+                          {/* Right half — changes color by status */}
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 14px", background: cfg.bg, flexShrink: 0 }}>
+                            <span style={{ fontSize: "11px", color: "#fff", fontWeight: "600" }}>{cfg.label}</span>
+                            <div style={{ fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "13px", fontWeight: "700", color: "#fff" }}>{timeStr}</div>
                           </div>
                         </button>
                       );
