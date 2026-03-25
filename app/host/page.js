@@ -940,8 +940,8 @@ export default function HostDashboard() {
                               </div>
                             </div>
                           </button>
-                          {/* Thin progress line at bottom */}
-                          <div style={{ position: "relative", height: "3px", background: "#333", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
+                          {/* Progress bar at bottom */}
+                          <div style={{ position: "relative", height: "6px", background: "#2a2a2a", borderRadius: "0 0 12px 12px", overflow: "hidden" }}>
                             {/* Elapsed time bar */}
                             <div style={{
                               position: "absolute", left: 0, top: 0, bottom: 0,
@@ -949,11 +949,12 @@ export default function HostDashboard() {
                               background: barColor,
                               transition: "width 5s linear, background 1s ease",
                             }} />
-                            {/* ML estimated duration marker — white tick */}
+                            {/* ML estimated duration marker — bright white tick */}
                             <div style={{
-                              position: "absolute", top: "-1px", bottom: "-1px", width: "2px",
-                              left: `${estMark * 100}%`,
-                              background: "#fff", opacity: 0.8, borderRadius: "1px",
+                              position: "absolute", top: "-2px", bottom: "-2px", width: "3px",
+                              left: `calc(${estMark * 100}% - 1px)`,
+                              background: "#fff", borderRadius: "2px",
+                              boxShadow: "0 0 4px rgba(255,255,255,0.8)",
                             }} />
                           </div>
                         </div>
