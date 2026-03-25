@@ -3,6 +3,12 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import { T, f } from "../../lib/tokens";
 
+const CC = [
+  { code: "+54", label: "AR +54" }, { code: "+52", label: "MX +52" }, { code: "+34", label: "ES +34" },
+  { code: "+55", label: "BR +55" }, { code: "+1", label: "US +1" }, { code: "+56", label: "CL +56" },
+  { code: "+57", label: "CO +57" }, { code: "+598", label: "UY +598" }, { code: "+44", label: "UK +44" },
+  { code: "+33", label: "FR +33" }, { code: "+49", label: "DE +49" }, { code: "+39", label: "IT +39" },
+];
 const S = {
   libre:        { label: "Libre",     color: "#fff", bg: "#2D7A4F", border: "#246B42" },
   sentado:      { label: "Sentado",   color: "#fff", bg: "#1A1A1A", border: "#333" },
@@ -98,6 +104,7 @@ export default function HostDashboard() {
   const [manualForm, setManualForm] = useState(null);
   const [manualName, setManualName] = useState("");
   const [manualPhone, setManualPhone] = useState("");
+  const [manualCC, setManualCC] = useState("+54");
   const [manualParty, setManualParty] = useState(2);
   const longPressTimer = useRef(null);
 
@@ -175,12 +182,12 @@ export default function HostDashboard() {
 
   const addToQueue = async () => {
     if (!manualName.trim()) return;
-    const phone = manualPhone.trim() ? `+54${manualPhone.trim().replace(/^0+/,"")}` : null;
+    const phone = manualPhone.trim() ? `${manualCC}${manualPhone.trim().replace(/^0+/,"")}` : null;
     const res = await window.fetch("/api/waitlist", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ guest_name: manualName.trim(), party_size: manualParty, phone, source: "host" }) });
     const entry = await res.json();
     if (entry.error) { alert(entry.error); return; }
-    setManualForm(null); setManualName(""); setManualPhone(""); setManualParty(2);
+    setManualForm(null); setManualName(""); setManualPhone(""); setManualCC("+54"); setManualParty(2);
     fetchAll();
   };
 
@@ -461,7 +468,10 @@ export default function HostDashboard() {
             <div style={{ marginBottom: "16px" }}>
               <label style={{ fontSize: "11px", fontWeight: "700", color: T.textLight, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "6px" }}>WhatsApp <span style={{ fontWeight: "400", textTransform: "none", letterSpacing: "0" }}>(para avisarle)</span></label>
               <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                <span style={{ fontSize: "14px", color: T.textLight, fontWeight: "600", flexShrink: 0 }}>+54</span>
+                <select value={manualCC} onChange={e => setManualCC(e.target.value)} style={{
+                  padding: "14px 6px", borderRadius: "12px", border: `1.5px solid ${T.border}`,
+                  fontSize: "13px", fontFamily: f.sans, background: T.bg, outline: "none", width: "95px", color: T.text,
+                }}>{CC.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}</select>
                 <input value={manualPhone} onChange={e => setManualPhone(e.target.value.replace(/[^\d]/g, ""))} placeholder="11 2345 6789"
                   type="tel" inputMode="numeric"
                   style={{ flex: 1, padding: "14px 16px", borderRadius: "12px", border: `1.5px solid ${T.border}`, fontSize: "16px", fontFamily: f.sans, outline: "none", boxSizing: "border-box", background: T.bg, color: T.text }}

@@ -104,36 +104,29 @@ class FlowM11Service: ObservableObject {
     }
 
     func fetchChannels() async {
-        // Auto-refresh tokens if needed
+        // Use hardcoded tokens from Chrome session (known working)
         if packagesToken.isEmpty {
-            // Try session refresh first
-            if !userDeviceToken.isEmpty {
-                _ = await refreshSession()
-            }
-            // If still empty, use hardcoded known-working tokens
-            if packagesToken.isEmpty {
-                m11Log.info("[M11] Using hardcoded tokens")
-                self.packagesToken = "bklkOggBGAMi8AQHvOYwzNjodNmrcuKRRhc8wLC+8nzasrXznA6BwqNElWRC43noPxa0oker/OZc7PN+RDWbqNL0p3q0WEt7R2+wp/qZOr37/ZiamWZDX0A0aufMJY04TiCNiQuV/wJ4oikyzESxb1hgWkPdebHioZ8f08Djz4IKEPNLu8ySlXbnZi0hkiDwMtrWL2XM1oO4/ppzt3Yw33hBM0g2yrjBYZaLg1sObThiAlbEQkBb3qxS2w5WHnOUx9GEqK5v83vvT+gdVMAct61XhMxsg6SVILF+Xje4uW/2d3jDwt9jKoXsQVrVOocLqTEFvb77jFoKrmqoYB39QifbCMEcXa7K3EEtZXxZ9y/x/jM3SV4dhyvUcMmlHP7wFtWzCTVljIAQTnhm7VwqU9pfan3ga0oOFuRrDRh4R7nLwuHXvCA8EvBlI9s9Ki+T5zq9dZMbq06PrMX6PoYBQkkbdYStPztVzKENxEddws+EttPThpzNsSg8VuaJuHHgIt5aZViNaSm+JpBuoq3ImV5oXutLYrBjtGPxY/fJS0tZ+A0PDFhVuxNvegEhfLXzyLTgtonXsBKD/FMTQPdQAjAsA2IHYCg3gzDjiT8Z6dRlrdZji8jZbELhSkT0wVIcmuoQfQSe90aVlshHttkof0m9c/0uhNJ67y/z0zBW/i80Ds23bpOSu1LcrLCIu/eCSTbP5YFv2uTpoQzCLnBeBkoalxBKPGXhXlMZvr4Yl27MMUnV/YIWji72EkSOOO5D8tdIXsSNmlSJg60JaFEe66gBDAwTp6YqAoGMfkI5/BnkvVy/ozIgB3/U9MrSGX7miwX8nNPhYLq5LVg="
-                self.servicesToken = "bklkOggBIkBNcXMmCGwXl7LIiwJAfoykrfQs3O/ZN1zXHHdoA1X88fJxAgLzKDWpZVxhR95StuzytBfg1FzpIOFejZ8V7cnj"
-                self.regionToken = "bklkOggBImCQp3+kUWjJrhVDoBFSFSWjzSVpxbnS96ChubJcYAr+ijxovCNqP1KU/DmaJp5YruVFyus0Zae3inNQSlIpHGBYQpVNGRezdSfN+AeXg2kQOO6WLXL5fU83IoAEJzOP+YY="
-            }
+            m11Log.info("[M11] Using Chrome session tokens")
+            self.packagesToken = "bklkOggBGAMi8AQHvOYwzNjodNmrcuKRRhc8wLC+8nzasrXznA6BwqNElWRC43noPxa0oker/OZc7PN+RDWbqNL0p3q0WEt7R2+wp/qZOr37/ZiamWZDX0A0aufMJY04TiCNiQuV/wJ4oikyzESxb1hgWkPdebHioZ8f08Djz4IKEPNLu8ySlXbnZi0hkiDwMtrWL2XM1oO4/ppzt3Yw33hBM0g2yrjBYZaLg1sObThiAlbEQkBb3qxS2w5WHnOUx9GEqK5v83vvT+gdVMAct61XhMxsg6SVILF+Xje4uW/2d3jDwt9jKoXsQVrVOocLqTEFvb77jFoKrmqoYB39QifbCMEcXa7K3EEtZXxZ9y/x/jM3SV4dhyvUcMmlHP7wFtWzCTVljIAQTnhm7VwqU9pfan3ga0oOFuRrDRh4R7nLwuHXvCA8EvBlI9s9Ki+T5zq9dZMbq06PrMX6PoYBQkkbdYStPztVzKENxEddws+EttPThpzNsSg8VuaJuHHgIt5aZViNaSm+JpBuoq3ImV5oXutLYrBjtGPxY/fJS0tZ+A0PDFhVuxNvegEhfLXzyLTgtonXsBKD/FMTQPdQAjAsA2IHYCg3gzDjiT8Z6dRlrdZji8jZbELhSkT0wVIcmuoQfQSe90aVlshHttkof0m9c/0uhNJ67y/z0zBW/i80Ds23bpOSu1LcrLCIu/eCSTbP5YFv2uTpoQzCLnBeBkoalxBKPGXhXlMZvr4Yl27MMUnV/YIWji72EkSOOO5D8tdIXsSNmlSJg60JaFEe66gBDAwTp6YqAoGMfkI5/BnkvVy/ozIgB3/U9MrSGX7miwX8nNPhYLq5LVg="
+            self.servicesToken = "bklkOggBIkBNcXMmCGwXl7LIiwJAfoykrfQs3O/ZN1zXHHdoA1X88fJxAgLzKDWpZVxhR95StuzytBfg1FzpIOFejZ8V7cnj"
+            self.regionToken = "bklkOggBImCQp3+kUWjJrhVDoBFSFSWjzSVpxbnS96ChubJcYAr+ijxovCNqP1KU/DmaJp5YruVFyus0Zae3inNQSlIpHGBYQpVNGRezdSfN+AeXg2kQOO6WLXL5fU83IoAEJzOP+YY="
         }
         
         statusMessage = "Cargando canales..."
         m11Log.info("[M11] Fetching channels...")
-        
-        var components = URLComponents(string: "\(baseURL)/Channel")!
-        components.queryItems = [
-            URLQueryItem(name: "adult", value: "false"),
-            URLQueryItem(name: "page", value: "0"),
-            URLQueryItem(name: "size", value: "500"),
-            URLQueryItem(name: "images", value: "CH_LOGO"),
-            URLQueryItem(name: "packages", value: packagesToken),
-            URLQueryItem(name: "services", value: servicesToken),
-            URLQueryItem(name: "region", value: regionToken)
-        ]
-        
-        guard let url = components.url else { return }
+
+        // Manually encode tokens - URLComponents double-encodes + and / chars
+        let encodedPkg = packagesToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)?.replacingOccurrences(of: "+", with: "%2B").replacingOccurrences(of: "/", with: "%2F") ?? ""
+        let encodedSvc = servicesToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)?.replacingOccurrences(of: "+", with: "%2B").replacingOccurrences(of: "/", with: "%2F") ?? ""
+        let encodedReg = regionToken.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)?.replacingOccurrences(of: "+", with: "%2B").replacingOccurrences(of: "/", with: "%2F") ?? ""
+
+        let urlString = "\(baseURL)/Channel?adult=false&page=0&size=500&images=CH_LOGO&packages=\(encodedPkg)&services=\(encodedSvc)&region=\(encodedReg)"
+
+        guard let url = URL(string: urlString) else {
+            m11Log.info("[M11] Invalid URL")
+            return
+        }
+        m11Log.info("[M11] URL length: \(urlString.count)")
         
         var request = URLRequest(url: url)
         request.setValue("https://portal.app.flow.com.ar", forHTTPHeaderField: "Origin")
