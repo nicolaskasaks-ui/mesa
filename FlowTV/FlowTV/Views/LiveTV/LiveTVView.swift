@@ -3,13 +3,17 @@ import SwiftUI
 struct LiveTVView: View {
     @EnvironmentObject var flowAPI: FlowAPIService
     @EnvironmentObject var csdkBridge: CSDKBridge
+    @EnvironmentObject var m11Service: FlowM11Service
     @State private var selectedCategory: ChannelCategory = .todos
     @State private var selectedChannel: Channel?
     @State private var showPlayer = false
     @FocusState private var focusedChannelId: String?
 
-    /// Use CSDK channels when available, fall back to FlowAPI channels.
+    /// Use M11 channels when available, then CSDK, then FlowAPI.
     private var allChannels: [Channel] {
+        if m11Service.isReady && !m11Service.channels.isEmpty {
+            return m11Service.channels
+        }
         if csdkBridge.isReady && !csdkBridge.channels.isEmpty {
             return csdkBridge.channels.map { $0.toChannel() }
         }

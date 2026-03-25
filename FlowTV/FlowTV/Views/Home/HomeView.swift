@@ -3,6 +3,7 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var flowAPI: FlowAPIService
     @EnvironmentObject var csdkBridge: CSDKBridge
+    @EnvironmentObject var m11Service: FlowM11Service
     @State private var showPlayer = false
     @State private var playerTitle = ""
     @State private var playerSubtitle: String?
@@ -34,8 +35,16 @@ struct HomeView: View {
                         }
                     }
 
-                    // Live TV quick access — prefer real CSDK channels
-                    if csdkBridge.isReady && !csdkBridge.channels.isEmpty {
+                    // Live TV quick access — prefer M11 real channels, then CSDK, then FlowAPI
+                    if m11Service.isReady && !m11Service.channels.isEmpty {
+                        ShelfRow(title: "TV en Vivo") {
+                            ForEach(m11Service.channels.prefix(20)) { channel in
+                                LiveChannelPill(channel: channel) {
+                                    playChannel(channel)
+                                }
+                            }
+                        }
+                    } else if csdkBridge.isReady && !csdkBridge.channels.isEmpty {
                         ShelfRow(title: "TV en Vivo") {
                             ForEach(csdkBridge.channels.prefix(20)) { csdkCh in
                                 let channel = csdkCh.toChannel()

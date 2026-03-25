@@ -17,6 +17,7 @@
 		F100000008 /* FlowAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000008; };
 		768D28EC116B485DA775EE2D /* MinervaWebBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9531902EBA6428DB05184B3 /* MinervaWebBridge.swift */; };
 		CSDK000002000002 /* CSDKBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = CSDK000001000001 /* CSDKBridge.swift */; };
+		M11S000002000002 /* FlowM11Service.swift in Sources */ = {isa = PBXBuildFile; fileRef = M11S000001000001 /* FlowM11Service.swift */; };
 		F100000009 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000009; };
 		F10000000A /* MockData.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000A; };
 		F10000000B /* StreamingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000B; };
@@ -45,6 +46,7 @@
 		F200000008 /* FlowAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowAPIService.swift; sourceTree = "<group>"; };
 		F9531902EBA6428DB05184B3 /* MinervaWebBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MinervaWebBridge.swift; sourceTree = "<group>"; };
 		CSDK000001000001 /* CSDKBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSDKBridge.swift; sourceTree = "<group>"; };
+		M11S000001000001 /* FlowM11Service.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowM11Service.swift; sourceTree = "<group>"; };
 		F200000009 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
 		F20000000A /* MockData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockData.swift; sourceTree = "<group>"; };
 		F20000000B /* StreamingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingService.swift; sourceTree = "<group>"; };
@@ -137,6 +139,7 @@
 				F200000018 /* EasyLoginService.swift */,
 				F9531902EBA6428DB05184B3 /* MinervaWebBridge.swift */,
 				CSDK000001000001 /* CSDKBridge.swift */,
+				M11S000001000001 /* FlowM11Service.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -303,6 +306,7 @@
 				F100000017 /* EasyLoginService.swift in Sources */,
 				768D28EC116B485DA775EE2D /* MinervaWebBridge.swift in Sources */,
 				CSDK000002000002 /* CSDKBridge.swift in Sources */,
+				M11S000002000002 /* FlowM11Service.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

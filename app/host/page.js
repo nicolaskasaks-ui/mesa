@@ -286,15 +286,15 @@ export default function HostDashboard() {
   const predictions = predictTable(tables, queue);
 
   // Recently seated (< 2h) shown at top with prominent timer
-  // All occupied tables shown in the seated list (sorted: newest first)
+  // All occupied tables: cuenta first, then postre, then sentado. Within each: longest first (most urgent)
   const recentlySeated = tables
     .filter(t => t.status !== "libre")
     .sort((a, b) => {
-      // Sort by status priority (cuenta first = closest to freeing), then by seated_at desc
       const pri = { pidio_cuenta: 0, postre: 1, sentado: 2 };
       const pa = pri[a.status] ?? 3, pb = pri[b.status] ?? 3;
       if (pa !== pb) return pa - pb;
-      return new Date(b.seated_at || 0) - new Date(a.seated_at || 0);
+      // Longest seated first (oldest seated_at = most time elapsed = most urgent)
+      return new Date(a.seated_at || 0) - new Date(b.seated_at || 0);
     });
   const recentIds = new Set(recentlySeated.map(t => t.id));
 
