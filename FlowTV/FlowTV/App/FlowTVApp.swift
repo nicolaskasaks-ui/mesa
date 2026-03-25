@@ -35,7 +35,7 @@ struct FlowTVApp: App {
                     // Skip login - go directly to content
                     authManager.loginAsDemo()
                     Task {
-                        await FlowM11Service.shared.fetchChannels()
+                        await FlowM11Service.shared.initializeAndLoad()
                     }
                 }
                 .preferredColorScheme(.dark)

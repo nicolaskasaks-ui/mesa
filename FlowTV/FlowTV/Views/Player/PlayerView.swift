@@ -225,7 +225,7 @@ struct PlayerView: View {
         errorMessage = nil
         isBuffering = true
 
-        // Path 1: Direct URL available — use it immediately
+        // Path 1: Direct URL available — use it immediately (including proxy HLS URLs)
         if let urlString = streamURL, let url = URL(string: urlString) {
             let item = AVPlayerItem(url: url)
             let avPlayer = AVPlayer(playerItem: item)
@@ -236,30 +236,59 @@ struct PlayerView: View {
             return
         }
 
-        // Path 2: Resolve stream via StreamingService (real API playback)
+        // Path 2: Try stream proxy if configured
+        if let contentId {
+            let m11 = FlowM11Service.shared
+            if m11.proxyHost != nil {
+                Task {
+                    if let proxyURL = await m11.resolveProxyStream(for: contentId),
+                       let url = URL(string: proxyURL) {
+                        let item = AVPlayerItem(url: url)
+                        let avPlayer = AVPlayer(playerItem: item)
+                        self.player = avPlayer
+                        self.isBuffering = false
+                        avPlayer.play()
+                        observePlayback(avPlayer)
+                        return
+                    }
+                    // Proxy failed, fall through to StreamingService
+                    await tryStreamingServiceOrFallback()
+                }
+                return
+            }
+        }
+
+        // Path 3: Resolve stream via StreamingService (real API playback)
         if let contentId, let contentType {
             Task {
-                do {
-                    let session = try await streamingService.preparePlayback(
-                        id: contentId,
-                        type: contentType
-                    )
-                    self.playbackSession = session
-                    let avPlayer = AVPlayer(playerItem: session.playerItem)
-                    self.player = avPlayer
-                    self.isBuffering = false
-                    avPlayer.play()
-                    observePlayback(avPlayer)
-                } catch {
-                    // Fallback to Apple test stream
-                    playFallbackStream()
-                }
+                await tryStreamingServiceOrFallback()
             }
             return
         }
 
         // No stream source — use fallback
         playFallbackStream()
+    }
+
+    private func tryStreamingServiceOrFallback() async {
+        if let contentId, let contentType {
+            do {
+                let session = try await streamingService.preparePlayback(
+                    id: contentId,
+                    type: contentType
+                )
+                self.playbackSession = session
+                let avPlayer = AVPlayer(playerItem: session.playerItem)
+                self.player = avPlayer
+                self.isBuffering = false
+                avPlayer.play()
+                observePlayback(avPlayer)
+            } catch {
+                playFallbackStream()
+            }
+        } else {
+            playFallbackStream()
+        }
     }
 
     private func playFallbackStream() {
