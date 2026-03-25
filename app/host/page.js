@@ -164,17 +164,11 @@ export default function HostDashboard() {
 
   const confirmSeatWithName = async () => {
     if (!seatTable || !seatSource) return;
-    const name = seatName.trim() || (seatSource === "opentable" ? "OpenTable" : "Walk-in");
+    const name = seatName.trim() || (seatSource === "opentable" ? "Reserva OT" : "Mesa directa");
     const party = seatParty || seatTable.capacity;
-    const res = await window.fetch("/api/waitlist", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ guest_name: name, party_size: party, source: seatSource }) });
-    const entry = await res.json();
-    if (entry.id) {
-      await window.fetch("/api/waitlist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: entry.id, status: "seated" }) });
-      await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: seatTable.id, status: "sentado", waitlist_id: entry.id }) });
-    } else {
-      await window.fetch("/api/tables", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: seatTable.id, status: "sentado" }) });
-    }
+    // Create entry directly as seated (skip the queue)
+    const res = await window.fetch("/api/waitlist/direct-seat", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guest_name: name, party_size: party, source: seatSource, table_id: seatTable.id }) });
     setSeatSource(null); setSeatTable(null); setSeatName(""); setSeatParty(0);
     fetchAll();
   };
