@@ -931,7 +931,17 @@ export default function HostDashboard() {
                       // Color: green < 60%, amber 60-85%, red > 85%
                       const barColor = ratio > 0.85 ? T.danger : ratio > 0.6 ? S.postre.bg : T.success;
                       return (
-                        <div key={table.id} style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+                        <div key={table.id} style={{ display: "flex", alignItems: "stretch", gap: "0", width: "100%" }}>
+                          {/* Status circle — outside the bar, changes color with state */}
+                          <div style={{
+                            width: "18px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                          }}>
+                            <div style={{
+                              width: "14px", height: "14px", borderRadius: "50%", background: cfg.bg,
+                              border: `2px solid ${cfg.bg}`, boxShadow: `0 0 0 1px ${T.cardBorder}`,
+                            }} />
+                          </div>
+                          <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                           <button onClick={() => cycleTable(table)}
                             onTouchStart={() => handleLongPressStart(table)} onTouchEnd={handleLongPressEnd} onTouchCancel={handleLongPressEnd}
                             onMouseDown={() => handleLongPressStart(table)} onMouseUp={handleLongPressEnd} onMouseLeave={handleLongPressEnd}
@@ -943,7 +953,7 @@ export default function HostDashboard() {
                               background: T.accent, padding: "10px 12px",
                             }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                              <span style={{ width: "10px", height: "10px", borderRadius: "50%", background: sourceColor, flexShrink: 0 }} />
+                              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: sourceColor, flexShrink: 0 }} />
                               <div style={{ fontFamily: f.display, fontSize: "15px", fontWeight: "800", color: "#fff" }}>{table.id}</div>
                               <div style={{ fontSize: "11px", color: "#fff", opacity: 0.5 }}>{capacity}p</div>
                               {guestName && <div style={{ fontSize: "11px", color: "#fff", opacity: 0.85, fontWeight: "600", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "120px" }}>{guestName}</div>}
@@ -976,7 +986,8 @@ export default function HostDashboard() {
                               boxShadow: "0 0 4px rgba(255,255,255,0.8)",
                             }} />
                           </div>
-                        </div>
+                          </div>{/* close flex:1 column */}
+                        </div>{/* close row with circle */}
                       );
                     })}
                   </div>
