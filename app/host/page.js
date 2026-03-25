@@ -91,8 +91,9 @@ export default function HostDashboard() {
   const [profileEntry, setProfileEntry] = useState(null);
   const [waitEstimates, setWaitEstimates] = useState({});
   const [sourceModal, setSourceModal] = useState(null);
-  const [manualForm, setManualForm] = useState(null); // { table } — manual Meantime entry
+  const [manualForm, setManualForm] = useState(null);
   const [manualName, setManualName] = useState("");
+  const [manualPhone, setManualPhone] = useState("");
   const [manualParty, setManualParty] = useState(2);
   const longPressTimer = useRef(null);
 
@@ -174,11 +175,12 @@ export default function HostDashboard() {
 
   const addToQueue = async () => {
     if (!manualName.trim()) return;
+    const phone = manualPhone.trim() ? `+54${manualPhone.trim().replace(/^0+/,"")}` : null;
     const res = await window.fetch("/api/waitlist", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ guest_name: manualName.trim(), party_size: manualParty, source: "host" }) });
+      body: JSON.stringify({ guest_name: manualName.trim(), party_size: manualParty, phone, source: "host" }) });
     const entry = await res.json();
     if (entry.error) { alert(entry.error); return; }
-    setManualForm(null); setManualName(""); setManualParty(2);
+    setManualForm(null); setManualName(""); setManualPhone(""); setManualParty(2);
     fetchAll();
   };
 
@@ -382,7 +384,7 @@ export default function HostDashboard() {
       {/* ── MANUAL ENTRY FORM (add to queue via host) ── */}
       {manualForm && (
         <div style={{ position: "fixed", inset: 0, zIndex: 260, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}
-          onClick={(e) => { if (e.target === e.currentTarget) { setManualForm(null); setManualName(""); } }}>
+          onClick={(e) => { if (e.target === e.currentTarget) { setManualForm(null); setManualName(""); setManualPhone(""); } }}>
           <div className="modal-enter" style={{ background: T.card, borderRadius: "20px", padding: "28px 24px", width: "calc(100% - 48px)", maxWidth: "340px", boxShadow: T.shadowLg }}>
             <div style={{ textAlign: "center", marginBottom: "20px" }}>
               <div style={{ fontFamily: f.display, fontSize: "20px", fontWeight: "700", color: T.text }}>Agregar a la fila</div>
@@ -395,6 +397,16 @@ export default function HostDashboard() {
                 style={{ width: "100%", padding: "14px 16px", borderRadius: "12px", border: `1.5px solid ${T.border}`, fontSize: "16px", fontFamily: f.sans, outline: "none", boxSizing: "border-box", background: T.bg, color: T.text }}
                 onKeyDown={e => { if (e.key === "Enter" && manualName.trim()) addToQueue(); }}
               />
+            </div>
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ fontSize: "11px", fontWeight: "700", color: T.textLight, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "6px" }}>WhatsApp <span style={{ fontWeight: "400", textTransform: "none", letterSpacing: "0" }}>(para avisarle)</span></label>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <span style={{ fontSize: "14px", color: T.textLight, fontWeight: "600", flexShrink: 0 }}>+54</span>
+                <input value={manualPhone} onChange={e => setManualPhone(e.target.value.replace(/[^\d]/g, ""))} placeholder="11 2345 6789"
+                  type="tel" inputMode="numeric"
+                  style={{ flex: 1, padding: "14px 16px", borderRadius: "12px", border: `1.5px solid ${T.border}`, fontSize: "16px", fontFamily: f.sans, outline: "none", boxSizing: "border-box", background: T.bg, color: T.text }}
+                />
+              </div>
             </div>
             <div style={{ marginBottom: "20px" }}>
               <label style={{ fontSize: "11px", fontWeight: "700", color: T.textLight, textTransform: "uppercase", letterSpacing: "0.06em", display: "block", marginBottom: "6px" }}>Personas</label>
@@ -409,7 +421,7 @@ export default function HostDashboard() {
               </div>
             </div>
             <div style={{ display: "flex", gap: "10px" }}>
-              <button onClick={() => { setManualForm(null); setManualName(""); }} style={{
+              <button onClick={() => { setManualForm(null); setManualName(""); setManualPhone(""); }} style={{
                 flex: 1, padding: "14px", borderRadius: "12px", background: T.bgPage, color: T.textMed,
                 border: `1px solid ${T.border}`, fontSize: "14px", fontWeight: "600", cursor: "pointer", fontFamily: f.sans,
               }}>Cancelar</button>
