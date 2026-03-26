@@ -2,8 +2,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { T, f } from "../../lib/tokens";
+import { useTenant } from "../../lib/use-tenant";
 
-const BAR_PIN = "1250";
+const BAR_PIN_DEFAULT = "1250";
 const SESSION_KEY = "meantime_bar_auth";
 
 const PROMO_ITEMS = ["Cerveza tirada", "Copa de vino", "Vermut"];
@@ -26,9 +27,10 @@ function todayRange() {
 }
 
 // ── PIN Screen ──────────────────────────────────────
-function PinScreen({ onAuth }) {
+function PinScreen({ onAuth, tenantPin }) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
+  const BAR_PIN = tenantPin || BAR_PIN_DEFAULT;
 
   const submit = () => {
     if (pin === BAR_PIN) {
@@ -186,6 +188,7 @@ function AddConsumptionModal({ guest, onClose, onSave }) {
 
 // ── Main Bar Dashboard ──────────────────────────────
 export default function BarDashboard() {
+  const { tenant } = useTenant();
   const [authed, setAuthed] = useState(false);
   const [redemptions, setRedemptions] = useState([]);
   const [waitlistMap, setWaitlistMap] = useState({});
@@ -253,7 +256,7 @@ export default function BarDashboard() {
     fetchData();
   };
 
-  if (!authed) return <PinScreen onAuth={() => setAuthed(true)} />;
+  if (!authed) return <PinScreen onAuth={() => setAuthed(true)} tenantPin={tenant?.pin} />;
 
   // -- Compute stats --
   const promos = redemptions.filter(r => r.is_promo !== false && r.is_promo !== 0);

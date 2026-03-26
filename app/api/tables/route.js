@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { sendWhatsApp, msgTableReady } from "../../../lib/twilio";
 import { supabaseServer as supabase } from "../../../lib/supabase-server";
+import { resolveTenantFromRequest } from "../../../lib/api-tenant";
 
-export async function GET() {
+export async function GET(request) {
+  const { tenantId } = await resolveTenantFromRequest(request);
   // Auto-cleanup: tables occupied for 6+ hours → reset to libre (zombie tables)
   const zombieCutoff = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
   // Clean by seated_at
@@ -18,10 +20,12 @@ export async function GET() {
     .is("seated_at", null)
     .lt("updated_at", zombieCutoff);
 
-  const { data, error } = await supabase
+  let mainQuery = supabase
     .from("tables")
     .select("*, waitlist(guest_name, party_size, source, customers!waitlist_customer_id_fkey(allergies))")
     .order("id");
+  if (tenantId) mainQuery = mainQuery.eq("tenant_id", tenantId);
+  const { data, error } = await mainQuery;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
 }

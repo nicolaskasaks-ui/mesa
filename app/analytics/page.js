@@ -2,8 +2,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabase";
 import { T, f } from "../../lib/tokens";
+import { useTenant } from "../../lib/use-tenant";
 
-const PIN = "1250";
+const PIN_DEFAULT = "1250";
 const AUTH_KEY = "meantime_analytics_auth";
 const REFRESH_MS = 30000;
 
@@ -48,7 +49,8 @@ const pill = (bg, color) => ({
 });
 
 // ── PIN screen ───────────────────────────────────────
-function PinGate({ onAuth }) {
+function PinGate({ onAuth, tenantPin }) {
+  const PIN = tenantPin || PIN_DEFAULT;
   const [value, setValue] = useState("");
   const [error, setError] = useState(false);
 
@@ -121,6 +123,7 @@ function Metric({ label, value, sub, color }) {
 
 // ── main dashboard ───────────────────────────────────
 export default function AnalyticsDashboard() {
+  const { tenant } = useTenant();
   const [authed, setAuthed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [date, setDate] = useState(fmtDate(new Date()));
@@ -286,7 +289,7 @@ export default function AnalyticsDashboard() {
     return () => clearInterval(iv);
   }, [authed, fetchData]);
 
-  if (!authed) return <PinGate onAuth={() => setAuthed(true)} />;
+  if (!authed) return <PinGate onAuth={() => setAuthed(true)} tenantPin={tenant?.pin} />;
 
   const d = data;
 

@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { supabaseServer as supabase } from "../../../../lib/supabase-server";
+import { resolveTenantFromRequest, withTenantId } from "../../../../lib/api-tenant";
 
 // POST /api/integration/seat
 // External webhook to seat someone directly (from n8n, OpenTable email parser, etc.)
 // Body: { guest_name, party_size, source, table_id?, phone?, allergies? }
 // Auth: Bearer token check (simple shared secret)
 export async function POST(request) {
+  const { tenantId } = await resolveTenantFromRequest(request);
+
   // Simple auth via shared secret
   const auth = request.headers.get("authorization");
   const token = process.env.INTEGRATION_SECRET || "meantime-2025";
@@ -35,20 +38,20 @@ export async function POST(request) {
       ...(allergies?.length ? { allergies } : {}),
     }).eq("id", existing.id);
   } else {
-    const { data: newC } = await supabase.from("customers").insert({
+    const { data: newC } = await supabase.from("customers").insert(withTenantId({
       name: guest_name, phone: phone || null,
       allergies: allergies || [], visit_count: 1,
       last_visit: new Date().toISOString(),
-    }).select("id").single();
+    }, tenantId)).select("id").single();
     if (newC) customer_id = newC.id;
   }
 
   // Create waitlist entry as seated directly
-  const { data: entry, error: wErr } = await supabase.from("waitlist").insert({
+  const { data: entry, error: wErr } = await supabase.from("waitlist").insert(withTenantId({
     customer_id, guest_name, party_size,
     source, status: "seated",
     seated_at: new Date().toISOString(),
-  }).select().single();
+  }, tenantId)).select().single();
 
   if (wErr) return NextResponse.json({ error: wErr.message }, { status: 500 });
 

@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server";
 import { supabaseServer as supabase } from "../../../lib/supabase-server";
+import { resolveTenantFromRequest, withTenantId } from "../../../lib/api-tenant";
 
 // POST — register a bar redemption (promo 2x1 or paid consumption)
 export async function POST(request) {
+  const { tenantId } = await resolveTenantFromRequest(request);
   const { waitlist_id, customer_id, guest_name, item, is_promo, price } = await request.json();
 
-  const row = {
+  const row = withTenantId({
     waitlist_id,
     customer_id,
     guest_name,
     item: item || "2x1",
     redeemed_at: new Date().toISOString(),
-  };
+  }, tenantId);
 
   // Include is_promo and price if provided (graceful: columns may not exist yet)
   if (typeof is_promo === "boolean") row.is_promo = is_promo;
@@ -29,6 +31,7 @@ export async function POST(request) {
 
 // GET — list today's redemptions with optional date filter
 export async function GET(request) {
+  const { tenantId } = await resolveTenantFromRequest(request);
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date") || new Date().toISOString().slice(0, 10);
   const type = searchParams.get("type"); // "promo", "paid", or null for all
@@ -39,6 +42,7 @@ export async function GET(request) {
     .gte("redeemed_at", `${date}T00:00:00`)
     .lte("redeemed_at", `${date}T23:59:59`)
     .order("redeemed_at", { ascending: false });
+  if (tenantId) query = query.eq("tenant_id", tenantId);
 
   if (type === "promo") query = query.eq("is_promo", true);
   if (type === "paid") query = query.eq("is_promo", false);

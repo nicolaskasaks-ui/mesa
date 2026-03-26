@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer as supabase } from "../../../lib/supabase-server";
 import { sendWhatsApp, msgPositionUpdate, msgPostVisit, msgLevelUp, msgBirthday, msgStillWaiting } from "../../../lib/twilio";
+import { resolveTenantFromRequest, withTenantId } from "../../../lib/api-tenant";
 
 // ── Trust level thresholds ──
 const TRUST_THRESHOLDS = { 1: 1, 2: 3, 3: 5 }; // visits needed for each level
@@ -13,14 +14,17 @@ function computeTrust(visitCount, noShowCount) {
   return 0;
 }
 
-export async function GET() {
+export async function GET(request) {
+  const { tenantId } = await resolveTenantFromRequest(request);
+
   // Auto-expire: notified guests past 15 min (10 + 5 grace) → cancelled
   const expiryCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-  const { data: expired } = await supabase.from("waitlist")
+  let expireQuery = supabase.from("waitlist")
     .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
     .eq("status", "notified")
-    .lt("notified_at", expiryCutoff)
-    .select("customer_id");
+    .lt("notified_at", expiryCutoff);
+  if (tenantId) expireQuery = expireQuery.eq("tenant_id", tenantId);
+  const { data: expired } = await expireQuery.select("customer_id");
 
   // Trust downgrade for no-shows
   if (expired?.length) {
@@ -41,20 +45,23 @@ export async function GET() {
   const longWaitAutoCancel = new Date(Date.now() - 3.5 * 60 * 60 * 1000).toISOString();
 
   // Auto-cancel entries waiting 3.5h+ that haven't confirmed (extensions_used still 0 or null)
-  await supabase.from("waitlist")
+  let cancelQuery = supabase.from("waitlist")
     .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
     .eq("status", "waiting")
     .eq("extensions_used", 0)
     .lt("joined_at", longWaitAutoCancel);
+  if (tenantId) cancelQuery = cancelQuery.eq("tenant_id", tenantId);
+  await cancelQuery;
 
   // Send "still waiting?" to entries between 3h and 3.5h (only if not yet checked)
-  // We use extensions_used = 0 → not yet asked, set to -1 after asking
-  const { data: longWaiters } = await supabase.from("waitlist")
+  let longQuery = supabase.from("waitlist")
     .select("id, guest_name, customers!waitlist_customer_id_fkey(phone)")
     .eq("status", "waiting")
     .or("extensions_used.is.null,extensions_used.eq.0")
     .lt("joined_at", longWaitCutoff)
     .gte("joined_at", longWaitAutoCancel);
+  if (tenantId) longQuery = longQuery.eq("tenant_id", tenantId);
+  const { data: longWaiters } = await longQuery;
 
   if (longWaiters?.length) {
     for (const entry of longWaiters) {
@@ -73,16 +80,19 @@ export async function GET() {
     }
   }
 
-  const { data, error } = await supabase
+  let mainQuery = supabase
     .from("waitlist")
     .select("*, customers!waitlist_customer_id_fkey(name, phone, allergies, visit_count, trust_level, no_show_count)")
     .in("status", ["waiting", "notified", "extended"])
     .order("joined_at", { ascending: true });
+  if (tenantId) mainQuery = mainQuery.eq("tenant_id", tenantId);
+  const { data, error } = await mainQuery;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
 }
 
 export async function POST(request) {
+  const { tenantId } = await resolveTenantFromRequest(request);
   const body = await request.json();
   const { guest_name, party_size, allergies, phone, notes, source, referral_code } = body;
   let customer_id = null;
@@ -90,9 +100,11 @@ export async function POST(request) {
   let oldTrust = 0;
 
   if (guest_name) {
-    const { data: existing } = await supabase
+    let custQuery = supabase
       .from("customers").select("id, visit_count, trust_level, no_show_count")
-      .ilike("name", guest_name).limit(1).single();
+      .ilike("name", guest_name).limit(1);
+    if (tenantId) custQuery = custQuery.eq("tenant_id", tenantId);
+    const { data: existing } = await custQuery.single();
     if (existing) {
       customer_id = existing.id;
       oldTrust = existing.trust_level || 0;
@@ -107,12 +119,12 @@ export async function POST(request) {
       }).eq("id", existing.id);
     } else {
       isNew = true;
-      const { data: newC } = await supabase.from("customers").insert({
+      const { data: newC } = await supabase.from("customers").insert(withTenantId({
         name: guest_name, phone: phone || null,
         allergies: allergies || [], visit_count: 1,
         trust_level: 0, no_show_count: 0,
         last_visit: new Date().toISOString(),
-      }).select("id").single();
+      }, tenantId)).select("id").single();
       if (newC) customer_id = newC.id;
     }
   }
@@ -137,23 +149,25 @@ export async function POST(request) {
     if (referrer) referred_by = referrer.id;
   }
 
-  const { data, error } = await supabase.from("waitlist").insert({
+  const { data, error } = await supabase.from("waitlist").insert(withTenantId({
     customer_id, guest_name, party_size: party_size || 2,
     source: source || "qr", notes: notes || null, status: "waiting",
     ...(referred_by ? { referred_by } : {}),
-  }).select().single();
+  }, tenantId)).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ...data, isNew });
 }
 
 // DELETE — cancel all or old entries
 export async function DELETE(request) {
+  const { tenantId } = await resolveTenantFromRequest(request);
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get("mode") || "old";
 
   let query = supabase.from("waitlist")
     .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
     .in("status", ["waiting", "notified", "extended"]);
+  if (tenantId) query = query.eq("tenant_id", tenantId);
 
   if (mode === "old") {
     const cutoff = new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString();

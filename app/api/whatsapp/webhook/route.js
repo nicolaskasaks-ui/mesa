@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer as supabase } from "../../../../lib/supabase-server";
+import { getTenantById } from "../../../../lib/tenant";
+import { withTenantId } from "../../../../lib/api-tenant";
 import {
   sendWhatsApp,
   msgTextToJoinConfirm,
@@ -17,68 +19,93 @@ const XML_EMPTY = new NextResponse("<Response></Response>", {
 
 // ── helpers ──────────────────────────────────────────────────
 
+// Find customer by phone — returns customer + tenant_id
 async function findCustomerByPhone(cleanPhone) {
   const { data } = await supabase
     .from("customers")
-    .select("id, name, phone")
+    .select("id, name, phone, tenant_id")
     .or(`phone.ilike.%${cleanPhone.slice(-8)}%`)
     .limit(1)
     .single();
   return data;
 }
 
-async function findActiveEntry(customerId) {
-  const { data } = await supabase
+async function findActiveEntry(customerId, tenantId) {
+  let query = supabase
     .from("waitlist")
     .select("id, guest_name, status, joined_at")
     .eq("customer_id", customerId)
     .in("status", ["notified", "waiting", "extended"])
     .order("joined_at", { ascending: false })
-    .limit(1)
-    .single();
+    .limit(1);
+  if (tenantId) query = query.eq("tenant_id", tenantId);
+  const { data } = await query.single();
   return data;
 }
 
-async function getPositionAndTotal(entryId) {
-  const { data: allActive } = await supabase
+async function getPositionAndTotal(entryId, tenantId) {
+  let query = supabase
     .from("waitlist")
     .select("id")
     .in("status", ["waiting", "extended"])
     .order("joined_at", { ascending: true });
+  if (tenantId) query = query.eq("tenant_id", tenantId);
+  const { data: allActive } = await query;
   if (!allActive) return { position: 0, total: 0 };
   const idx = allActive.findIndex((e) => e.id === entryId);
   return { position: idx === -1 ? 0 : idx + 1, total: allActive.length };
 }
 
-async function estimateWaitMinutes(position) {
-  // Try to compute from recent seated entries
-  const { data: recent } = await supabase
+async function estimateWaitMinutes(position, tenantId) {
+  let query = supabase
     .from("waitlist")
     .select("joined_at, seated_at")
     .eq("status", "seated")
     .not("seated_at", "is", null)
     .order("seated_at", { ascending: false })
     .limit(20);
+  if (tenantId) query = query.eq("tenant_id", tenantId);
+  const { data: recent } = await query;
 
   if (recent?.length >= 3) {
     const waits = recent
       .map((r) => {
         const joined = new Date(r.joined_at).getTime();
         const seated = new Date(r.seated_at).getTime();
-        return (seated - joined) / 60000; // minutes
+        return (seated - joined) / 60000;
       })
-      .filter((m) => m > 0 && m < 300); // sanity cap at 5h
+      .filter((m) => m > 0 && m < 300);
 
     if (waits.length >= 3) {
       const avg = waits.reduce((a, b) => a + b, 0) / waits.length;
-      // avg is total wait; scale by position ratio
       const avgPerSlot = avg / Math.max(waits.length / 2, 1);
       return Math.round(position * Math.min(avgPerSlot, 30));
     }
   }
 
-  // Fallback: 15 min per position
   return position * 15;
+}
+
+// Resolve tenant from Twilio "To" number or from customer record
+async function resolveTenantFromWebhook(twilioTo, customer) {
+  // 1. If customer has tenant_id, use that
+  if (customer?.tenant_id) return customer.tenant_id;
+
+  // 2. Try to match the Twilio "To" number to a tenant
+  if (twilioTo && supabase) {
+    const cleanTo = twilioTo.replace("whatsapp:", "").replace(/\D/g, "");
+    const { data } = await supabase
+      .from("tenants")
+      .select("id")
+      .eq("twilio_phone_number", cleanTo)
+      .eq("status", "active")
+      .limit(1)
+      .single();
+    if (data) return data.id;
+  }
+
+  // 3. Default: first active tenant (Chuí)
+  return "a0000000-0000-0000-0000-000000000001";
 }
 
 // ── POST — Twilio webhook for incoming WhatsApp messages ────
@@ -87,6 +114,7 @@ export async function POST(request) {
   const formData = await request.formData();
   const body = formData.get("Body")?.toString().trim() || "";
   const from = formData.get("From")?.toString().replace("whatsapp:", "") || "";
+  const to = formData.get("To")?.toString() || "";
 
   if (!body || !from) return XML_EMPTY;
 
@@ -95,15 +123,18 @@ export async function POST(request) {
 
   // ── 1. Look up customer ──
   let customer = await findCustomerByPhone(cleanPhone);
+  const tenantId = await resolveTenantFromWebhook(to, customer);
+  const tenant = await getTenantById(tenantId);
+  const tName = tenant?.name || "el local";
+  const tAddress = tenant?.address || "";
 
   // ── 2. Text-to-join: "mesa", "fila", "esperar" ──
   const joinKeywords = ["mesa", "fila", "esperar"];
   if (joinKeywords.some((kw) => reply === kw)) {
-    // If no customer record, create one
     if (!customer) {
       const { data: newC } = await supabase
         .from("customers")
-        .insert({
+        .insert(withTenantId({
           name: `WhatsApp ${cleanPhone.slice(-4)}`,
           phone: cleanPhone,
           allergies: [],
@@ -111,18 +142,17 @@ export async function POST(request) {
           trust_level: 0,
           no_show_count: 0,
           last_visit: new Date().toISOString(),
-        })
-        .select("id, name, phone")
+        }, tenantId))
+        .select("id, name, phone, tenant_id")
         .single();
       customer = newC;
     }
 
     if (!customer) return XML_EMPTY;
 
-    // Check if already in line
-    const existing = await findActiveEntry(customer.id);
+    const existing = await findActiveEntry(customer.id, tenantId);
     if (existing) {
-      const { position, total } = await getPositionAndTotal(existing.id);
+      const { position, total } = await getPositionAndTotal(existing.id, tenantId);
       await sendWhatsApp({
         to: cleanPhone,
         guestName: existing.guest_name || customer.name,
@@ -134,21 +164,20 @@ export async function POST(request) {
       return XML_EMPTY;
     }
 
-    // Create new waitlist entry
     const { data: newEntry } = await supabase
       .from("waitlist")
-      .insert({
+      .insert(withTenantId({
         customer_id: customer.id,
         guest_name: customer.name,
         party_size: 2,
         source: "whatsapp",
         status: "waiting",
-      })
+      }, tenantId))
       .select("id")
       .single();
 
     if (newEntry) {
-      const { position } = await getPositionAndTotal(newEntry.id);
+      const { position } = await getPositionAndTotal(newEntry.id, tenantId);
       await sendWhatsApp({
         to: cleanPhone,
         guestName: customer.name,
@@ -164,9 +193,9 @@ export async function POST(request) {
   // ── For all other commands, we need a customer + active entry ──
   if (!customer) return XML_EMPTY;
 
-  const entry = await findActiveEntry(customer.id);
+  const entry = await findActiveEntry(customer.id, tenantId);
 
-  // ── 3. Position / "cuanto falta" query (works even without active entry for error msg) ──
+  // ── 3. Position / "cuanto falta" query ──
   if (
     reply.includes("cuanto falta") ||
     reply.includes("cuanto tiempo") ||
@@ -182,8 +211,8 @@ export async function POST(request) {
       });
       return XML_EMPTY;
     }
-    const { position, total } = await getPositionAndTotal(entry.id);
-    const estMin = await estimateWaitMinutes(position);
+    const { position, total } = await getPositionAndTotal(entry.id, tenantId);
+    const estMin = await estimateWaitMinutes(position, tenantId);
     await sendWhatsApp({
       to: cleanPhone,
       guestName: entry.guest_name,
@@ -270,7 +299,7 @@ export async function POST(request) {
       .eq("id", entry.id);
     responseMsg =
       entry.status === "notified"
-        ? `Genial ${entry.guest_name}! Te esperamos en Chui. Loyola 1250.`
+        ? `Genial ${entry.guest_name}! Te esperamos en ${tName}.${tAddress ? ` ${tAddress}.` : ""}`
         : `Perfecto ${entry.guest_name}, te mantenemos en la fila! Te avisamos apenas se libere tu mesa.`;
   }
   // ── 9. Cancel: 2 / cancel / no ──
@@ -279,7 +308,7 @@ export async function POST(request) {
       .from("waitlist")
       .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
       .eq("id", entry.id);
-    responseMsg = `Listo ${entry.guest_name}, cancelamos tu lugar. Esperamos verte pronto en Chui!`;
+    responseMsg = `Listo ${entry.guest_name}, cancelamos tu lugar. Esperamos verte pronto en ${tName}!`;
   }
   // ── 10. Skip / pass: 3 / paso / skip ──
   else if (

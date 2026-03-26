@@ -2,8 +2,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { T, f } from "../../lib/tokens";
+import { useTenant } from "../../lib/use-tenant";
 
-const PIN = "1250";
+const PIN_DEFAULT = "1250";
 const AUTH_KEY = "meantime_crm_auth";
 
 function ago(d) {
@@ -32,6 +33,8 @@ function trustBadge(level) {
 }
 
 export default function CRMPage() {
+  const { tenant } = useTenant();
+  const PIN = tenant?.pin || PIN_DEFAULT;
   const [authed, setAuthed] = useState(false);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState(false);

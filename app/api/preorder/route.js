@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { supabaseServer as supabase } from "../../../lib/supabase-server";
+import { resolveTenantFromRequest, withTenantId } from "../../../lib/api-tenant";
 
 // POST /api/preorder — Register a pre-order for a waiting guest
 export async function POST(request) {
+  const { tenantId } = await resolveTenantFromRequest(request);
   const { waitlist_id, customer_id, guest_name, items } = await request.json();
   // items is an array of { name, price, quantity }
 
@@ -10,7 +12,7 @@ export async function POST(request) {
     return NextResponse.json({ error: "waitlist_id and items required" }, { status: 400 });
   }
 
-  const records = items.map(item => ({
+  const records = items.map(item => withTenantId({
     waitlist_id,
     customer_id: customer_id || null,
     guest_name: guest_name || null,
@@ -18,7 +20,7 @@ export async function POST(request) {
     price: item.price || 0,
     quantity: item.quantity || 1,
     status: "pending",
-  }));
+  }, tenantId));
 
   const { data, error } = await supabase.from("preorders").insert(records).select();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -28,11 +30,13 @@ export async function POST(request) {
 // GET /api/preorder?waitlist_id=X — Get pre-orders for a waitlist entry
 // GET /api/preorder?status=pending — Get all pending pre-orders (for kitchen/bar)
 export async function GET(request) {
+  const { tenantId } = await resolveTenantFromRequest(request);
   const { searchParams } = new URL(request.url);
   const waitlistId = searchParams.get("waitlist_id");
   const status = searchParams.get("status");
 
   let query = supabase.from("preorders").select("*").order("created_at", { ascending: true });
+  if (tenantId) query = query.eq("tenant_id", tenantId);
 
   if (waitlistId) {
     query = query.eq("waitlist_id", waitlistId);

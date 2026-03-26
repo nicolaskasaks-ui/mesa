@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import { T, f } from "../../lib/tokens";
+import { useTenant } from "../../lib/use-tenant";
 
 const CC = [
   { code: "+54", label: "AR +54" }, { code: "+52", label: "MX +52" }, { code: "+34", label: "ES +34" },
@@ -80,9 +81,9 @@ function getCandidates(queue, capacity) {
     });
 }
 
-const HOST_PIN = "1250"; // Loyola 1250 — easy to remember for staff
-
 export default function HostDashboard() {
+  const { tenant } = useTenant();
+  const HOST_PIN = tenant?.pin || "1250";
   const [authed, setAuthed] = useState(false);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState(false);
@@ -200,11 +201,11 @@ export default function HostDashboard() {
           body: JSON.stringify({ to: phone, guestName: entry.guest_name, type: "ready", arrivalMinutes: 10 }) });
         const data = await res.json();
         if (!data.success) {
-          const msg = encodeURIComponent(`${entry.guest_name}, tu mesa en Chuí esta lista! Te la guardamos 10 min.\nLoyola 1250.`);
+          const msg = encodeURIComponent(`${entry.guest_name}, tu mesa esta lista! Te la guardamos 10 min.\n${tenant?.address || ""}`);
           window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
         }
       } catch {
-        const msg = encodeURIComponent(`${entry.guest_name}, tu mesa en Chuí esta lista! Te la guardamos 10 min.\nLoyola 1250.`);
+        const msg = encodeURIComponent(`${entry.guest_name}, tu mesa esta lista! Te la guardamos 10 min.\n${tenant?.address || ""}`);
         window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
       }
     }
@@ -325,7 +326,7 @@ export default function HostDashboard() {
   if (!authed) return (
     <div style={{ minHeight: "100dvh", background: T.bgPage, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: f.sans }}>
       <div style={{ textAlign: "center", width: "280px" }}>
-        <img src="/logo-dark.png" alt="Chui" style={{ height: "32px", objectFit: "contain", marginBottom: "20px" }} />
+        <img src={tenant?.logo_url || tenant?.logo || "/logo-dark.png"} alt={tenant?.name || "Meantime"} style={{ height: "32px", objectFit: "contain", marginBottom: "20px" }} />
         <div style={{ fontSize: "14px", color: T.textMed, marginBottom: "20px" }}>Ingresa el PIN del hostess</div>
         <input
           type="tel" inputMode="numeric" maxLength={4}
@@ -689,7 +690,7 @@ export default function HostDashboard() {
       <div style={{ position: "sticky", top: 0, zIndex: 100, padding: "16px 20px", background: T.card, borderBottom: `1px solid ${T.cardBorder}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: "1400px", margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <img src="/logo-dark.png" alt="Chui" style={{ height: "28px", objectFit: "contain" }} />
+            <img src={tenant?.logo_url || tenant?.logo || "/logo-dark.png"} alt={tenant?.name || "Meantime"} style={{ height: "28px", objectFit: "contain" }} />
             <span style={{ fontSize: "11px", color: T.textLight, letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: "600" }}>Hostess</span>
           </div>
           <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>

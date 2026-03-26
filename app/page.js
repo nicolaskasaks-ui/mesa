@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
-import { T, f, RESTAURANT, APP_NAME } from "../lib/tokens";
+import { T, f, APP_NAME } from "../lib/tokens";
+import { useTenant } from "../lib/use-tenant";
 import MenuOverlay from "../components/MenuOverlay";
 
 // ── UI ──
@@ -26,10 +27,10 @@ const Btn = ({ children, onClick, variant = "primary", disabled, style }) => {
   );
 };
 
-const Header = () => (
+const Header = ({ tenant }) => (
   <div style={{ textAlign: "center", marginBottom: "16px" }}>
-    <img src="/logo-dark.png" alt={RESTAURANT.name} style={{ height: "40px", objectFit: "contain", marginBottom: "6px" }} />
-    <div style={{ fontSize: "12px", color: T.textLight, fontFamily: f.sans, letterSpacing: "0.08em", textTransform: "uppercase" }}>{RESTAURANT.address}</div>
+    <img src={tenant?.logo_url || tenant?.logo || "/logo-dark.png"} alt={tenant?.name || "Meantime"} style={{ height: "40px", objectFit: "contain", marginBottom: "6px" }} />
+    <div style={{ fontSize: "12px", color: T.textLight, fontFamily: f.sans, letterSpacing: "0.08em", textTransform: "uppercase" }}>{tenant?.address || ""}</div>
   </div>
 );
 
@@ -44,8 +45,6 @@ const ALLERGY_OPTIONS = [
   { id: "nuts", label: "Frutos secos" }, { id: "gluten", label: "Gluten" },
   { id: "dairy", label: "Lacteos" }, { id: "egg", label: "Huevo" }, { id: "vegan", label: "Vegano" },
 ];
-const ARRIVAL_MINUTES = 10;
-
 function getDistance(lat1, lng1, lat2, lng2) {
   const R = 6371e3, toRad = d => d * Math.PI / 180;
   const dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
@@ -55,6 +54,18 @@ function getDistance(lat1, lng1, lat2, lng2) {
 
 // ── MAIN ──
 export default function MeantimeCustomer() {
+  const { tenant } = useTenant();
+  // Build RESTAURANT-compatible object from tenant for backward compat
+  const RESTAURANT = {
+    name: tenant?.name || "Meantime",
+    address: tenant?.address || "",
+    lat: tenant?.lat || 0,
+    lng: tenant?.lng || 0,
+    walkAroundRadius: tenant?.walk_around_radius_m || 300,
+    walkAroundMinutes: tenant?.walk_around_minutes || 15,
+    otLink: tenant?.opentable_url || "",
+  };
+  const ARRIVAL_MINUTES = tenant?.arrival_minutes || 10;
   const [view, setView] = useState("welcome");
   const [showMenu, setShowMenu] = useState(false);
   const [name, setName] = useState("");
@@ -288,7 +299,7 @@ export default function MeantimeCustomer() {
   // ── WELCOME ──
   if (view === "welcome") return (
     <div style={page}>
-      <Header />
+      <Header tenant={tenant} />
       <Card style={{ marginTop: "32px", textAlign: "center" }}>
         <div style={{ fontFamily: f.display, fontSize: "26px", fontWeight: "700", color: T.text, lineHeight: 1.25 }}>
           {returning ? `Hola de nuevo, ${name.split(" ")[0]}` : "Tu mesa se esta\npreparando"}
@@ -380,7 +391,7 @@ export default function MeantimeCustomer() {
     const isNear = distance !== null && distance <= RESTAURANT.walkAroundRadius;
     return (
       <div style={page}>
-        <Header />
+        <Header tenant={tenant} />
         <Card style={{ marginTop: "28px", textAlign: "center" }}>
           <div style={{ fontSize: "12px", fontWeight: "700", color: T.textLight, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "8px" }}>modo paseo</div>
           <div style={{ fontFamily: f.display, fontSize: "22px", fontWeight: "700", color: T.text }}>Camina por el barrio</div>
@@ -406,7 +417,7 @@ export default function MeantimeCustomer() {
   // ── SEATED ──
   if (entry?.status === "seated") return (
     <div style={{ ...page, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-      <Header />
+      <Header tenant={tenant} />
       <Card style={{ marginTop: "28px", textAlign: "center", maxWidth: "360px" }}>
         <div style={{ fontSize: "12px", fontWeight: "700", color: T.success, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "8px" }}>mesa lista</div>
         <div style={{ fontFamily: f.display, fontSize: "26px", fontWeight: "700", color: T.text }}>Tu mesa te espera</div>
@@ -424,7 +435,7 @@ export default function MeantimeCustomer() {
 
     return (
       <div style={page}>
-        <Header />
+        <Header tenant={tenant} />
         <Card style={{ marginTop: "28px", textAlign: "center" }}>
           <div style={{ fontSize: "12px", fontWeight: "700", color: T.success, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: "8px" }}>tu turno</div>
           <div style={{ fontFamily: f.display, fontSize: "26px", fontWeight: "700", color: T.text }}>{name}, tu mesa esta lista</div>
@@ -474,7 +485,7 @@ export default function MeantimeCustomer() {
   // ── WAITING ──
   return (
     <div style={page}>
-      <Header />
+      <Header tenant={tenant} />
 
       <Card className="card-enter-delay-1" style={{ marginTop: "28px", textAlign: "center" }}>
         {/* Position ring — Apple Watch style */}

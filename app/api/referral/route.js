@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer as supabase } from "../../../lib/supabase-server";
 import { sendWhatsApp } from "../../../lib/twilio";
+import { resolveTenantFromRequest } from "../../../lib/api-tenant";
 
 // GET /api/referral?customer_id=X — Get or generate referral code
 export async function GET(request) {
@@ -50,11 +51,13 @@ export async function POST(request) {
   if (!referrer) return NextResponse.json({ error: "Referrer not found" }, { status: 404 });
 
   // Notify referrer via WhatsApp
+  const { tenant } = await resolveTenantFromRequest(request);
+  const tName = tenant?.name || "el local";
   if (referrer.phone) {
     sendWhatsApp({
       to: referrer.phone.replace(/\D/g, ""),
       guestName: referrer.name,
-      message: `${referrer.name}, tu amigo/a vino a Chui gracias a tu recomendacion! La proxima vez que vengas, te invitamos un postre. Gracias por difundir!`,
+      message: `${referrer.name}, tu amigo/a vino a ${tName} gracias a tu recomendacion! La proxima vez que vengas, te invitamos un postre. Gracias por difundir!`,
     }).catch(() => {});
   }
 
