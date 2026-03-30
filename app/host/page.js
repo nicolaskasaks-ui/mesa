@@ -98,6 +98,9 @@ export default function HostDashboard() {
   const [profileEntry, setProfileEntry] = useState(null);
   const [waitEstimates, setWaitEstimates] = useState({});
   const [sourceModal, setSourceModal] = useState(null);
+  const [calendarEvents, setCalendarEvents] = useState([]);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarError, setCalendarError] = useState(null);
   const [seatSource, setSeatSource] = useState(null); // "walkin" | "opentable" — then ask name
   const [seatTable, setSeatTable] = useState(null);
   const [seatName, setSeatName] = useState("");
@@ -147,6 +150,31 @@ export default function HostDashboard() {
     // Tick every 5s to update times + countdowns
     const tick = setInterval(() => setNow(Date.now()), 5000);
     return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); clearInterval(tick); };
+  }, []);
+
+  // Fetch Google Calendar events
+  const fetchCalendar = async () => {
+    setCalendarLoading(true);
+    try {
+      const res = await fetch("/api/calendar/events?range=today");
+      const data = await res.json();
+      if (data.ok && data.events) {
+        setCalendarEvents(data.events);
+        setCalendarError(null);
+      } else if (data.error) {
+        setCalendarError(data.error);
+        setCalendarEvents([]);
+      }
+    } catch {
+      setCalendarError("No se pudo conectar");
+    }
+    setCalendarLoading(false);
+  };
+
+  useEffect(() => {
+    fetchCalendar();
+    const interval = setInterval(fetchCalendar, 60000); // refresh every 60s
+    return () => clearInterval(interval);
   }, []);
 
   const cycleTable = async (table) => {
@@ -717,9 +745,13 @@ export default function HostDashboard() {
         <style>{`
           .host-columns { display: flex; flex-direction: column; gap: 16px; }
           @media (min-width: 768px) {
-            .host-columns { flex-direction: row; align-items: flex-start; }
+            .host-columns { flex-direction: row; align-items: flex-start; flex-wrap: wrap; }
             .host-col-queue { width: 33%; flex-shrink: 0; }
-            .host-col-tables { width: 67%; flex-shrink: 0; }
+            .host-col-tables { width: 64%; flex-shrink: 0; }
+          }
+          @media (min-width: 1200px) {
+            .host-col-queue { width: 25%; }
+            .host-col-tables { width: 50%; }
           }
         `}</style>
         <div className="host-columns">
@@ -960,6 +992,80 @@ export default function HostDashboard() {
               )}
             </div>
           </div>
+
+          {/* ══════════ CALENDAR RESERVATIONS ══════════ */}
+          {!calendarError && (
+            <div className="host-col-queue">
+              <div style={{ background: T.card, borderRadius: T.radius, border: `1px solid ${T.cardBorder}`, boxShadow: T.shadow, overflow: "hidden" }}>
+                <div style={{ padding: "16px", borderBottom: `1px solid ${T.cardBorder}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontSize: "14px", fontWeight: "700", color: T.text, fontFamily: f.display }}>
+                    Reservas Calendar ({calendarEvents.length})
+                  </div>
+                  <button onClick={fetchCalendar} style={{
+                    padding: "4px 10px", borderRadius: "8px", fontSize: "11px", fontWeight: "600",
+                    background: T.bgPage, color: T.textLight, border: `1px solid ${T.border}`,
+                    cursor: "pointer", fontFamily: f.sans,
+                  }}>{calendarLoading ? "..." : "Actualizar"}</button>
+                </div>
+                {calendarEvents.length === 0 ? (
+                  <div style={{ padding: "30px 16px", textAlign: "center", color: T.textLight, fontSize: "13px" }}>
+                    {calendarLoading ? "Cargando calendario..." : "No hay reservas para hoy"}
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    {calendarEvents.map((event, i) => {
+                      const startTime = event.start ? new Date(event.start).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false }) : "--:--";
+                      const endTime = event.end ? new Date(event.end).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
+                      const isPast = event.start && new Date(event.start) < new Date();
+                      const isSoon = event.start && !isPast && (new Date(event.start) - new Date()) < 60 * 60 * 1000;
+                      return (
+                        <div key={event.id} style={{
+                          padding: "12px 16px",
+                          borderBottom: i < calendarEvents.length - 1 ? `1px solid ${T.cardBorder}` : "none",
+                          opacity: isPast ? 0.5 : 1,
+                          borderLeft: isSoon ? `3px solid ${S.libre.bg}` : `3px solid transparent`,
+                        }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <span style={{
+                                fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "13px", fontWeight: "700",
+                                color: isSoon ? S.libre.bg : isPast ? T.textLight : T.text,
+                              }}>{startTime}</span>
+                              <span style={{ fontFamily: f.display, fontSize: "15px", fontWeight: "700", color: T.text }}>{event.title}</span>
+                            </div>
+                            {endTime && (
+                              <span style={{ fontSize: "11px", color: T.textLight }}>{endTime}</span>
+                            )}
+                          </div>
+                          {event.location && (
+                            <div style={{ fontSize: "11px", color: T.textMed, marginTop: "4px" }}>{event.location}</div>
+                          )}
+                          {event.attendees && event.attendees.length > 0 && (
+                            <div style={{ display: "flex", gap: "4px", marginTop: "6px", flexWrap: "wrap" }}>
+                              {event.attendees.slice(0, 5).map((a, j) => (
+                                <span key={j} style={{
+                                  fontSize: "10px", fontWeight: "600", padding: "2px 6px", borderRadius: "4px",
+                                  background: a.status === "accepted" ? `${S.libre.bg}15` : a.status === "declined" ? `${S.pidio_cuenta.bg}15` : `${T.textLight}10`,
+                                  color: a.status === "accepted" ? S.libre.bg : a.status === "declined" ? S.pidio_cuenta.bg : T.textLight,
+                                }}>{a.name || a.email?.split("@")[0]}</span>
+                              ))}
+                            </div>
+                          )}
+                          {isSoon && (
+                            <span style={{
+                              display: "inline-block", marginTop: "6px",
+                              fontSize: "10px", fontWeight: "700", padding: "2px 8px", borderRadius: "4px",
+                              background: S.libre.bg, color: "#fff",
+                            }}>PRONTO</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* ══════════ RIGHT COLUMN: TABLES / MESAS ══════════ */}
           <div className="host-col-tables">

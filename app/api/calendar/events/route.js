@@ -1,50 +1,46 @@
 import { NextResponse } from "next/server";
-import { getCalendarEvents } from "../../../../lib/google-calendar";
+import { getCalendarEvents, getTodayEvents, isCalendarConfigured } from "../../../../lib/google-calendar";
 
 // GET /api/calendar/events
-// Returns upcoming Google Calendar events
-// Query params: ?days=7&max=20
+// Returns Google Calendar events
+// Query params: ?range=today|upcoming|week&days=7&max=50&hours=4
 export async function GET(request) {
-  const refreshToken = process.env.GOOGLE_CALENDAR_REFRESH_TOKEN;
-
-  if (!refreshToken) {
+  if (!isCalendarConfigured()) {
     return NextResponse.json(
       {
-        error: "Google Calendar not authorized yet",
-        action: "Visit /api/calendar/auth to authorize",
+        error: "Google Calendar not configured",
+        action: "Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_CALENDAR_REFRESH_TOKEN in .env.local, then visit /api/calendar/auth to authorize",
       },
       { status: 401 }
     );
   }
 
   const { searchParams } = new URL(request.url);
-  const days = parseInt(searchParams.get("days") || "30", 10);
-  const maxResults = parseInt(searchParams.get("max") || "20", 10);
-
-  const now = new Date();
-  const timeMax = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+  const range = searchParams.get("range") || "today";
+  const maxResults = parseInt(searchParams.get("max") || "50", 10);
 
   try {
-    const events = await getCalendarEvents(
-      { refresh_token: refreshToken },
-      { timeMin: now.toISOString(), timeMax: timeMax.toISOString(), maxResults }
-    );
+    let events;
+    const now = new Date();
+
+    if (range === "today") {
+      events = await getTodayEvents();
+    } else if (range === "upcoming") {
+      const hours = parseInt(searchParams.get("hours") || "4", 10);
+      const until = new Date(now.getTime() + hours * 60 * 60 * 1000);
+      events = await getCalendarEvents({ timeMin: now.toISOString(), timeMax: until.toISOString(), maxResults });
+    } else {
+      const days = parseInt(searchParams.get("days") || "7", 10);
+      const until = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+      events = await getCalendarEvents({ timeMin: now.toISOString(), timeMax: until.toISOString(), maxResults });
+    }
 
     return NextResponse.json({
       ok: true,
       account: "chuibandejas@gmail.com",
-      period: `Next ${days} days`,
+      range,
       count: events.length,
-      events: events.map((e) => ({
-        id: e.id,
-        title: e.summary,
-        description: e.description || null,
-        start: e.start?.dateTime || e.start?.date,
-        end: e.end?.dateTime || e.end?.date,
-        location: e.location || null,
-        status: e.status,
-        link: e.htmlLink,
-      })),
+      events,
     });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });

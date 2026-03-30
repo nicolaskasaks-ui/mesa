@@ -12,6 +12,7 @@ import {
   msgMenuLink,
   msgThanks,
 } from "../../../../lib/twilio";
+import { getTodayEvents, formatEventsForWhatsApp, isCalendarConfigured } from "../../../../lib/google-calendar";
 
 const XML_EMPTY = new NextResponse("<Response></Response>", {
   headers: { "Content-Type": "text/xml" },
@@ -233,6 +234,22 @@ export async function POST(request) {
       guestName: customer.name,
       message: msgMenuLink({ guestName: customer.name }),
     });
+    return XML_EMPTY;
+  }
+
+  // ── 4b. Calendar / Reservas (host-only: requires active customer with tenant) ──
+  if (reply === "reservas" || reply === "calendario" || reply === "calendar") {
+    if (isCalendarConfigured()) {
+      try {
+        const events = await getTodayEvents();
+        const msg = formatEventsForWhatsApp(events);
+        await sendWhatsApp({ to: cleanPhone, guestName: customer.name, message: msg });
+      } catch {
+        await sendWhatsApp({ to: cleanPhone, guestName: customer.name, message: "No pude consultar el calendario. Intenta mas tarde." });
+      }
+    } else {
+      await sendWhatsApp({ to: cleanPhone, guestName: customer.name, message: "El calendario no esta configurado todavia." });
+    }
     return XML_EMPTY;
   }
 
