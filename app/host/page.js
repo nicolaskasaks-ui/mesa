@@ -999,7 +999,7 @@ export default function HostDashboard() {
               <div style={{ background: T.card, borderRadius: T.radius, border: `1px solid ${T.cardBorder}`, boxShadow: T.shadow, overflow: "hidden" }}>
                 <div style={{ padding: "16px", borderBottom: `1px solid ${T.cardBorder}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ fontSize: "14px", fontWeight: "700", color: T.text, fontFamily: f.display }}>
-                    Reservas Calendar ({calendarEvents.length})
+                    DJs Hoy ({calendarEvents.length})
                   </div>
                   <button onClick={fetchCalendar} style={{
                     padding: "4px 10px", borderRadius: "8px", fontSize: "11px", fontWeight: "600",
@@ -1009,55 +1009,63 @@ export default function HostDashboard() {
                 </div>
                 {calendarEvents.length === 0 ? (
                   <div style={{ padding: "30px 16px", textAlign: "center", color: T.textLight, fontSize: "13px" }}>
-                    {calendarLoading ? "Cargando calendario..." : "No hay reservas para hoy"}
+                    {calendarLoading ? "Cargando agenda..." : "No hay DJs programados hoy"}
                   </div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column" }}>
                     {calendarEvents.map((event, i) => {
                       const startTime = event.start ? new Date(event.start).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false }) : "--:--";
                       const endTime = event.end ? new Date(event.end).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
-                      const isPast = event.start && new Date(event.start) < new Date();
-                      const isSoon = event.start && !isPast && (new Date(event.start) - new Date()) < 60 * 60 * 1000;
+                      const isPast = event.end && new Date(event.end) < new Date();
+                      const isLive = event.start && event.end && new Date(event.start) <= new Date() && new Date(event.end) > new Date();
+                      const isSoon = event.start && !isPast && !isLive && (new Date(event.start) - new Date()) < 60 * 60 * 1000;
                       return (
                         <div key={event.id} style={{
-                          padding: "12px 16px",
+                          padding: "14px 16px",
                           borderBottom: i < calendarEvents.length - 1 ? `1px solid ${T.cardBorder}` : "none",
-                          opacity: isPast ? 0.5 : 1,
-                          borderLeft: isSoon ? `3px solid ${S.libre.bg}` : `3px solid transparent`,
+                          opacity: isPast ? 0.45 : 1,
+                          borderLeft: isLive ? `3px solid ${T.gold}` : isSoon ? `3px solid ${S.libre.bg}` : `3px solid transparent`,
+                          background: isLive ? `${T.gold}08` : "transparent",
                         }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                               <span style={{
                                 fontFamily: "'Futura', 'Outfit', sans-serif", fontSize: "13px", fontWeight: "700",
-                                color: isSoon ? S.libre.bg : isPast ? T.textLight : T.text,
+                                color: isLive ? T.gold : isSoon ? S.libre.bg : isPast ? T.textLight : T.text,
                               }}>{startTime}</span>
-                              <span style={{ fontFamily: f.display, fontSize: "15px", fontWeight: "700", color: T.text }}>{event.title}</span>
+                              <span style={{ fontFamily: f.display, fontSize: "17px", fontWeight: "700", color: isLive ? T.gold : T.text }}>{event.title}</span>
                             </div>
                             {endTime && (
-                              <span style={{ fontSize: "11px", color: T.textLight }}>{endTime}</span>
+                              <span style={{ fontSize: "11px", color: T.textLight }}>hasta {endTime}</span>
                             )}
                           </div>
-                          {event.location && (
-                            <div style={{ fontSize: "11px", color: T.textMed, marginTop: "4px" }}>{event.location}</div>
+                          {event.description && (
+                            <div style={{ fontSize: "12px", color: T.textMed, marginTop: "4px" }}>{event.description}</div>
                           )}
-                          {event.attendees && event.attendees.length > 0 && (
-                            <div style={{ display: "flex", gap: "4px", marginTop: "6px", flexWrap: "wrap" }}>
-                              {event.attendees.slice(0, 5).map((a, j) => (
-                                <span key={j} style={{
-                                  fontSize: "10px", fontWeight: "600", padding: "2px 6px", borderRadius: "4px",
-                                  background: a.status === "accepted" ? `${S.libre.bg}15` : a.status === "declined" ? `${S.pidio_cuenta.bg}15` : `${T.textLight}10`,
-                                  color: a.status === "accepted" ? S.libre.bg : a.status === "declined" ? S.pidio_cuenta.bg : T.textLight,
-                                }}>{a.name || a.email?.split("@")[0]}</span>
-                              ))}
-                            </div>
-                          )}
-                          {isSoon && (
+                          <div style={{ display: "flex", gap: "6px", marginTop: "8px", flexWrap: "wrap" }}>
                             <span style={{
-                              display: "inline-block", marginTop: "6px",
-                              fontSize: "10px", fontWeight: "700", padding: "2px 8px", borderRadius: "4px",
-                              background: S.libre.bg, color: "#fff",
-                            }}>PRONTO</span>
-                          )}
+                              fontSize: "10px", fontWeight: "700", padding: "3px 8px", borderRadius: "4px",
+                              background: T.accent, color: "#fff", letterSpacing: "0.03em",
+                            }}>VINILOS</span>
+                            {isLive && (
+                              <span style={{
+                                fontSize: "10px", fontWeight: "700", padding: "3px 8px", borderRadius: "4px",
+                                background: T.gold, color: "#fff", letterSpacing: "0.03em",
+                              }}>EN VIVO</span>
+                            )}
+                            {isSoon && (
+                              <span style={{
+                                fontSize: "10px", fontWeight: "700", padding: "3px 8px", borderRadius: "4px",
+                                background: S.libre.bg, color: "#fff", letterSpacing: "0.03em",
+                              }}>PRONTO</span>
+                            )}
+                            {isPast && (
+                              <span style={{
+                                fontSize: "10px", fontWeight: "600", padding: "3px 8px", borderRadius: "4px",
+                                background: T.bgPage, color: T.textLight,
+                              }}>TERMINADO</span>
+                            )}
+                          </div>
                         </div>
                       );
                     })}

@@ -12,7 +12,7 @@ import {
   msgMenuLink,
   msgThanks,
 } from "../../../../lib/twilio";
-import { getTodayEvents, formatEventsForWhatsApp, isCalendarConfigured } from "../../../../lib/google-calendar";
+import { getTodayEvents, formatDJLineupForWhatsApp, isCalendarConfigured } from "../../../../lib/google-calendar";
 
 const XML_EMPTY = new NextResponse("<Response></Response>", {
   headers: { "Content-Type": "text/xml" },
@@ -191,6 +191,23 @@ export async function POST(request) {
     return XML_EMPTY;
   }
 
+  // ── 2b. "que hay hoy" / "musica" / "dj" / "quien toca" / "esta noche" / "que pasa" ──
+  const djKeywords = ["que hay hoy", "que hay", "que pasa", "que onda", "esta noche", "hoy", "musica", "música", "dj", "quien toca", "quién toca", "vinilos", "lineup", "agenda"];
+  if (djKeywords.some((kw) => reply.includes(kw) || reply === kw)) {
+    if (isCalendarConfigured()) {
+      try {
+        const events = await getTodayEvents();
+        const msg = formatDJLineupForWhatsApp(events, tName);
+        await sendWhatsApp({ to: cleanPhone, guestName: customer?.name || "!", message: msg });
+      } catch {
+        await sendWhatsApp({ to: cleanPhone, guestName: customer?.name || "!", message: `Hoy en ${tName} siempre hay buena onda. Seguinos en IG para la agenda de DJs!` });
+      }
+    } else {
+      await sendWhatsApp({ to: cleanPhone, guestName: customer?.name || "!", message: `Escribinos a nuestro IG @chui.ba para saber que hay esta noche!` });
+    }
+    return XML_EMPTY;
+  }
+
   // ── For all other commands, we need a customer + active entry ──
   if (!customer) return XML_EMPTY;
 
@@ -234,22 +251,6 @@ export async function POST(request) {
       guestName: customer.name,
       message: msgMenuLink({ guestName: customer.name }),
     });
-    return XML_EMPTY;
-  }
-
-  // ── 4b. Calendar / Reservas (host-only: requires active customer with tenant) ──
-  if (reply === "reservas" || reply === "calendario" || reply === "calendar") {
-    if (isCalendarConfigured()) {
-      try {
-        const events = await getTodayEvents();
-        const msg = formatEventsForWhatsApp(events);
-        await sendWhatsApp({ to: cleanPhone, guestName: customer.name, message: msg });
-      } catch {
-        await sendWhatsApp({ to: cleanPhone, guestName: customer.name, message: "No pude consultar el calendario. Intenta mas tarde." });
-      }
-    } else {
-      await sendWhatsApp({ to: cleanPhone, guestName: customer.name, message: "El calendario no esta configurado todavia." });
-    }
     return XML_EMPTY;
   }
 
@@ -342,7 +343,7 @@ export async function POST(request) {
   }
   // ── Unknown ──
   else {
-    responseMsg = `${entry.guest_name}, responde con:\n1 - Ya voy\n2 - Cancelar\n3 - Paso, dame la siguiente\n\nO envia "menu", "cuanto falta", o "gracias".`;
+    responseMsg = `${entry.guest_name}, responde con:\n1 - Ya voy\n2 - Cancelar\n3 - Paso, dame la siguiente\n\nO envia "menu", "cuanto falta", "que hay hoy" o "gracias".`;
   }
 
   if (responseMsg) {
